@@ -335,6 +335,101 @@ describe('Executor', () => {
       expect(result.steps[1].result).toBe(16);
       expect(result.finalResult).toBe(16);
     });
+
+    it('should timeout if step takes too long', async () => {
+      // 注册一个慢速函数
+      registry.register(
+        defineFunction({
+          name: 'slowFunction',
+          description: '慢速函数',
+          scenario: '测试超时',
+          parameters: [
+            { name: 'delay', type: 'number', description: '延迟时间' },
+          ],
+          returns: { type: 'number', description: '结果' },
+          implementation: async (delay: number) => {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return 42;
+          },
+        })
+      );
+
+      // 创建一个超时时间为 100ms 的 executor
+      const executorWithTimeout = new Executor(registry, { stepTimeout: 100 });
+
+      const plan: ExecutionPlan = {
+        id: 'plan-timeout',
+        userRequest: 'slow operation',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'slowFunction',
+            description: '慢操作',
+            parameters: {
+              delay: { type: 'literal', value: 200 }, // 延迟 200ms，超过 100ms 超时
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executorWithTimeout.execute(plan);
+
+      expect(result.success).toBe(false);
+      expect(result.steps[0].success).toBe(false);
+      expect(result.steps[0].error).toContain('timeout');
+    });
+
+    it('should not timeout with stepTimeout set to 0', async () => {
+      // 注册一个慢速函数
+      registry.register(
+        defineFunction({
+          name: 'slowFunction2',
+          description: '慢速函数2',
+          scenario: '测试无超时限制',
+          parameters: [
+            { name: 'delay', type: 'number', description: '延迟时间' },
+          ],
+          returns: { type: 'number', description: '结果' },
+          implementation: async (delay: number) => {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return 99;
+          },
+        })
+      );
+
+      // 创建一个不限制超时的 executor
+      const executorNoTimeout = new Executor(registry, { stepTimeout: 0 });
+
+      const plan: ExecutionPlan = {
+        id: 'plan-no-timeout',
+        userRequest: 'slow operation without timeout',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'slowFunction2',
+            description: '慢操作',
+            parameters: {
+              delay: { type: 'literal', value: 50 }, // 50ms 延迟
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executorNoTimeout.execute(plan);
+
+      expect(result.success).toBe(true);
+      expect(result.steps[0].result).toBe(99);
+    });
+
+    it('should use default timeout of 30 seconds', () => {
+      const defaultExecutor = new Executor(registry);
+      // 通过访问 private 属性来验证默认值（仅用于测试）
+      expect((defaultExecutor as any).config.stepTimeout).toBe(30000);
+    });
   });
 
   describe('formatResultForDisplay', () => {

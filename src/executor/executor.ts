@@ -4,13 +4,29 @@ import type { ExecutionResult, StepResult } from './types.js';
 import { ExecutionContext } from './context.js';
 
 /**
+ * Executor 配置选项
+ */
+export interface ExecutorConfig {
+  /**
+   * 单个步骤执行超时时间（毫秒）
+   * 默认: 30000 (30秒)
+   * 设置为 0 表示不限制超时
+   */
+  stepTimeout?: number;
+}
+
+/**
  * 执行引擎 - 按照计划顺序执行 functions
  */
 export class Executor {
   private registry: FunctionRegistry;
+  private config: Required<ExecutorConfig>;
 
-  constructor(registry: FunctionRegistry) {
+  constructor(registry: FunctionRegistry, config: ExecutorConfig = {}) {
     this.registry = registry;
+    this.config = {
+      stepTimeout: config.stepTimeout ?? 30000, // 默认 30 秒
+    };
   }
 
   /**
@@ -26,7 +42,7 @@ export class Executor {
     let overallError: string | undefined;
 
     for (const step of plan.steps) {
-      const stepResult = await this.executeStep(step, context);
+      const stepResult = await this.executeStepWithTimeout(step, context);
       stepResults.push(stepResult);
 
       if (!stepResult.success) {
@@ -49,6 +65,56 @@ export class Executor {
       startedAt,
       completedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * 带超时控制的步骤执行
+   */
+  private async executeStepWithTimeout(
+    step: ExecutionPlan['steps'][0],
+    context: ExecutionContext
+  ): Promise<StepResult> {
+    // 如果超时设置为 0，不限制超时
+    if (this.config.stepTimeout === 0) {
+      return this.executeStep(step, context);
+    }
+
+    try {
+      // 使用 Promise.race 实现超时
+      return await Promise.race([
+        this.executeStep(step, context),
+        this.createTimeoutPromise(step.stepId, this.config.stepTimeout),
+      ]);
+    } catch (error) {
+      // 捕获超时错误并转换为 StepResult 格式
+      return {
+        stepId: step.stepId,
+        functionName: step.functionName,
+        parameters: {},
+        result: undefined,
+        success: false,
+        error: error instanceof Error ? error.message : 'Execution timeout',
+        executedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * 创建超时 Promise
+   */
+  private createTimeoutPromise(
+    stepId: number,
+    timeout: number
+  ): Promise<StepResult> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            `Step ${stepId} execution timeout after ${timeout}ms`
+          )
+        );
+      }, timeout);
+    });
   }
 
   /**
