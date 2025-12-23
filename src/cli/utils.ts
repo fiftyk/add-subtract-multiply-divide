@@ -1,4 +1,6 @@
 import * as path from 'path';
+import { promises as fs } from 'fs';
+import { pathToFileURL } from 'url';
 import type { FunctionRegistry, FunctionDefinition } from '../registry/index.js';
 
 /**
@@ -53,4 +55,67 @@ function isFunctionDefinition(obj: unknown): obj is FunctionDefinition {
     typeof fn.returns === 'object' &&
     typeof fn.implementation === 'function'
   );
+}
+
+/**
+ * 加载目录下所有 .js 文件中的函数定义
+ */
+export async function loadFunctionsFromDirectory(
+  registry: FunctionRegistry,
+  dirPath: string
+): Promise<void> {
+  try {
+    // 转换为绝对路径
+    const absolutePath = path.isAbsolute(dirPath)
+      ? dirPath
+      : path.resolve(process.cwd(), dirPath);
+
+    // 检查目录是否存在
+    try {
+      await fs.access(absolutePath);
+    } catch {
+      // 目录不存在，静默返回
+      return;
+    }
+
+    // 读取目录内容
+    const files = await fs.readdir(absolutePath);
+
+    // 过滤出 .js 文件
+    const jsFiles = files.filter((file) => file.endsWith('.js'));
+
+    // 加载每个文件
+    for (const file of jsFiles) {
+      const filePath = path.join(absolutePath, file);
+      try {
+        // 使用 pathToFileURL 和 cache busting 进行动态导入
+        const fileUrl = pathToFileURL(filePath).href;
+        const moduleUrl = `${fileUrl}?t=${Date.now()}`;
+        const module = await import(moduleUrl);
+
+        // 注册所有导出的函数
+        for (const key of Object.keys(module)) {
+          const fn = module[key];
+          if (isFunctionDefinition(fn)) {
+            // 检查是否已存在，避免重复注册错误
+            if (!registry.has(fn.name)) {
+              registry.register(fn);
+            }
+          }
+        }
+      } catch (error) {
+        // 单个文件加载失败时继续处理其他文件
+        console.warn(`Warning: Failed to load ${file}:`, error);
+      }
+    }
+  } catch (error) {
+    // 目录读取失败，静默处理
+    if (
+      error instanceof Error &&
+      error.message.includes('ENOENT')
+    ) {
+      return;
+    }
+    throw error;
+  }
 }

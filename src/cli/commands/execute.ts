@@ -1,10 +1,11 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
+import path from 'path';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { loadFunctions } from '../utils.js';
+import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 
 interface ExecuteOptions {
   functions: string;
@@ -41,6 +42,12 @@ export async function executeCommand(
     // 加载函数
     const registry = new FunctionRegistry();
     await loadFunctions(registry, options.functions);
+
+    // 同时加载 generated 目录下的 mock 函数
+    await loadFunctionsFromDirectory(
+      registry,
+      path.join(process.cwd(), 'functions/generated')
+    );
 
     // 创建临时 Planner 用于显示计划
     const planner = new Planner(registry, 'dummy-key');

@@ -44,6 +44,10 @@ export interface ExecutionPlan {
   missingFunctions?: MissingFunction[];
   createdAt: string;
   status: 'pending' | 'executable' | 'incomplete';
+  metadata?: {
+    usesMocks?: boolean;
+    mockFunctions?: string[];
+  };
 }
 
 /**

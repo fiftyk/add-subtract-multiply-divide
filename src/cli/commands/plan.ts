@@ -1,8 +1,13 @@
 import chalk from 'chalk';
+import path from 'path';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { loadFunctions } from '../utils.js';
+import {
+  PlannerWithMockSupport,
+  MockServiceFactory,
+} from '../../mock/index.js';
 
 interface PlanOptions {
   functions: string;
@@ -43,8 +48,24 @@ export async function planCommand(
       process.exit(1);
     }
 
-    // 创建规划器
-    const planner = new Planner(registry, apiKey);
+    // 创建基础规划器
+    const basePlanner = new Planner(registry, apiKey);
+
+    // 创建 mock 服务编排器
+    const mockOrchestrator = MockServiceFactory.create({
+      apiKey,
+      baseURL: process.env.ANTHROPIC_BASE_URL,
+      outputDir: path.join(process.cwd(), 'functions/generated'),
+      registry,
+    });
+
+    // 使用装饰器包装规划器，添加 mock 支持（OCP - 不修改原有 Planner）
+    const planner = new PlannerWithMockSupport(
+      basePlanner,
+      mockOrchestrator,
+      registry
+    );
+
     const result = await planner.plan(request);
 
     if (!result.success || !result.plan) {
@@ -59,8 +80,24 @@ export async function planCommand(
     // 显示计划
     console.log(chalk.green('✅ 计划生成成功！'));
     console.log();
-    console.log(planner.formatPlanForDisplay(result.plan));
+    console.log(basePlanner.formatPlanForDisplay(result.plan));
     console.log();
+
+    // 显示 mock 警告
+    if (result.plan.metadata?.usesMocks) {
+      console.log(chalk.yellow('⚠️  此计划使用了 MOCK 数据，结果仅供测试'));
+      console.log(
+        chalk.gray(
+          `📁 Mock functions: ${result.plan.metadata.mockFunctions?.join(', ')}`
+        )
+      );
+      console.log(
+        chalk.cyan(
+          '💡 提示: 编辑 functions/generated/ 中的文件来实现真实逻辑'
+        )
+      );
+      console.log();
+    }
 
     if (result.plan.status === 'executable') {
       console.log(

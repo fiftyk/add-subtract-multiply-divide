@@ -5,3 +5,7 @@ dist/
 *.log
 .env
 .DS_Store
+
+# Auto-generated mock functions
+functions/generated/*.js
+!functions/generated/.gitkeep

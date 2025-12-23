@@ -6,10 +6,12 @@
 
 - 🤖 **智能规划**: 使用 Claude API 将自然语言需求转换为可执行的函数调用链
 - 🔗 **链式执行**: 支持多步骤顺序执行，步骤间数据自动传递
-- 🔍 **缺口识别**: 自��识别缺失的函数并生成建议的函数定义
-- ✅ **TDD 开发**: 42 个单元测试确保代码质量
+- 🔍 **缺口识别**: 自动识别缺失的函数并生成建议的函数定义
+- ⚡ **自动 Mock 生成**: 当缺少函数时，自动生成可执行的 mock 实现，让流程立即跑通
+- ✅ **TDD 开发**: 59 个单元测试确保代码质量
 - 📦 **持久化存储**: 计划和执行记录本地保存
 - 🎯 **类型安全**: TypeScript 编写，完整的类型支持
+- 🏗️ **SOLID 设计**: 遵循 SOLID 原则，易扩展易维护
 
 ## 安装
 
@@ -169,7 +171,10 @@ npm test
 - ✅ 6 个 Planner 测试
 - ✅ 10 个 Executor 测试
 - ✅ 8 个 Storage 测试
+- ✅ 17 个 Mock 生成测试 (新增)
 - ✅ 8 个端到端测试
+
+**总计: 59 个测试，100% 通过率**
 
 ### 端到端测试用例
 
@@ -189,7 +194,7 @@ npm test
 当尝试使用不存在的函数时：
 
 ```bash
-node dist/src/cli/index.js plan "计算 9 的平方根" -f ./dist/functions/index.js
+npx fn-orchestrator plan "计算 9 的平方根"
 ```
 
 系统会提示：
@@ -202,6 +207,137 @@ node dist/src/cli/index.js plan "计算 9 的平方根" -f ./dist/functions/inde
    - 返回: number
 ```
 
+## 🆕 自动 Mock 生成功能
+
+### 什么是自动 Mock 生成？
+
+当系统识别到缺失函数时，会自动使用 LLM 生成可执行的 mock 实现，让你的流程立即跑通，无需等待真实实现。生成的代码保存为文件，可供后续完善（"悬赏模式"）。
+
+### 使用示例
+
+#### 1. 请求需要未实现函数的任务
+
+```bash
+npx fn-orchestrator plan "计算 16 的平方根"
+```
+
+#### 2. 系统自动生成 Mock 函数
+
+输出：
+```
+📝 正在分析需求...
+用户需求: 计算 16 的平方根
+
+已加载 4 个函数: add, subtract, multiply, divide
+
+🔧 Generating mock implementations...
+✅ Generated 1 mock function(s)
+
+✅ 计划生成成功！
+
+📋 执行计划 #plan-abc123:
+用户需求: 计算 16 的平方根
+状态: ✅ 可执行
+
+步骤:
+  Step 1: sqrt(number=16)
+    → 计算 16 的平方根
+
+⚠️  此计划使用了 MOCK 数据，结果仅供测试
+📁 Mock functions: sqrt
+💡 提示: 编辑 functions/generated/ 中的文件来实现真实逻辑
+
+执行命令: npx fn-orchestrator execute plan-abc123
+```
+
+#### 3. 生成的 Mock 函数文件
+
+系统在 `functions/generated/` 目录下生成了 `sqrt-{timestamp}.js` 文件：
+
+```javascript
+// 🤖 AUTO-GENERATED MOCK FUNCTION
+// Function: sqrt
+// Description: 计算一个数字的平方根
+// TODO: Replace with real implementation
+// Generated at: 2025-12-23T06:11:37.769Z
+
+import { defineFunction } from '../../dist/src/registry/index.js';
+
+export const sqrt = defineFunction({
+  name: 'sqrt',
+  description: '计算一个数字的平方根',
+  scenario: '数学计算和数值处理',
+  parameters: [
+    { name: 'number', type: 'number', description: '需要计算平方根的非负数' }
+  ],
+  returns: { type: 'number', description: '输入数字的平方根' },
+  implementation: (number) => {
+    // ⚠️ MOCK IMPLEMENTATION - 返回模拟数据
+    return 3.162;  // 实际应该是 Math.sqrt(number)
+  }
+});
+```
+
+#### 4. 立即执行使用 Mock 数据
+
+```bash
+npx fn-orchestrator execute plan-abc123 -y
+```
+
+输出：
+```
+🚀 开始执行...
+
+执行结果 - 计划 #plan-abc123
+
+✅ Step 1: sqrt(number=16)
+   → 结果: 3.162
+
+📦 最终结果: 3.162
+✅ 执行成功!
+```
+
+#### 5. 完善 Mock 实现
+
+编辑 `functions/generated/sqrt-{timestamp}.js`，替换为真实实现：
+
+```javascript
+  implementation: (number) => {
+    return Math.sqrt(number);  // 真实实现
+  }
+```
+
+重新执行计划即可得到正确结果。
+
+### Mock 生成的优势
+
+1. **快速验证流程**: 不用等待所有函数实现完成，就能测试整个调用链路
+2. **团队协作**: 生成的 mock 文件可以作为"悬赏任务"分配给团队成员完善
+3. **TDD 友好**: 先跑通流程，再逐步完善实现
+4. **清晰标记**: 自动添加 `🤖 AUTO-GENERATED` 注释和 `TODO` 提示
+5. **真实可执行**: 生成的不是空实现，而是返回合理模拟数据的代码
+
+### 技术实现
+
+Mock 生成功能基于 SOLID 原则设计：
+
+- **SRP (单一职责)**: 5个独立类各司其职
+  - `IMockCodeGenerator` - 仅生成代码
+  - `IMockFileWriter` - 仅写入文件
+  - `IMockFunctionLoader` - 仅加载函数
+  - `IMockMetadataProvider` - 仅管理元数据
+  - `MockOrchestrator` - 协调工作流
+
+- **OCP (开闭原则)**: 使用装饰器模式扩展 Planner，零修改原有代码
+
+- **LSP (里氏替换)**: Mock 函数与真实函数完全兼容，使用相同类型定义
+
+- **ISP (接口隔离)**: 6个小接口，每个只包含1-3个方法
+
+- **DIP (依赖倒置)**: 所有类依赖抽象接口，通过构造函数注入
+
+详见: [设计文档](docs/mock-generation-design.md)
+
 ## 项目结构
 
 ```
@@ -211,9 +347,16 @@ add-subtract-multiply-divide/
 │   ├── planner/           # LLM 规划器
 │   ├── executor/          # 执行引擎
 │   ├── storage/           # 持久化存储
+│   ├── mock/              # Mock 生成模块 (新增)
+│   │   ├── interfaces/    # 接口定义
+│   │   ├── implementations/ # 具体实现
+│   │   ├── adapters/      # LLM 适配器
+│   │   ├── decorators/    # Planner 装饰器
+│   │   └── factory/       # 服务工厂
 │   └── cli/               # CLI 命令
 ├── functions/             # 函数定义
-│   └── math.ts            # 数学函数（加减乘除）
+│   ├── math.ts            # 数学函数（加减乘除）
+│   └── generated/         # 自动生成的 Mock 函数
 ├── __tests__/             # 端到端测试
 ├── .data/                 # 本地数据存储
 │   ├── plans/             # 执行计划
@@ -245,7 +388,8 @@ Executor
 2. **Planner**: 调用 Claude API，将自然语言转为结构化计划
 3. **Executor**: 按计划顺序执行，处理步骤间数据传递
 4. **Storage**: 持久化计划和执行记录到本地文件
-5. **CLI**: 命令行交互界面
+5. **Mock Generator** (新增): 自动生成缺失函数的 mock 实现
+6. **CLI**: 命令行交互界面
 
 ## 开发
 
