@@ -3,6 +3,7 @@ import type { IMockCodeGenerator } from '../interfaces/IMockCodeGenerator.js';
 import type { IMockFileWriter } from '../interfaces/IMockFileWriter.js';
 import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
 import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
+import type { IMockCodeValidator } from '../interfaces/IMockCodeValidator.js';
 import type { MissingFunction } from '../../planner/types.js';
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { MockGenerationResult, MockMetadata } from '../types.js';
@@ -18,7 +19,8 @@ export class MockOrchestrator implements IMockOrchestrator {
     private fileWriter: IMockFileWriter,
     private functionLoader: IMockFunctionLoader,
     private metadataProvider: IMockMetadataProvider,
-    private registry: FunctionRegistry
+    private registry: FunctionRegistry,
+    private validator?: IMockCodeValidator
   ) {}
 
   /**
@@ -45,13 +47,35 @@ export class MockOrchestrator implements IMockOrchestrator {
         const fileName = `${missing.name}-${Date.now()}.js`;
         const filePath = await this.fileWriter.write(code, fileName);
 
-        // 3. Load function definitions from file
+        // 3. Validate code (optional, if validator is provided)
+        if (this.validator) {
+          const validationResult = await this.validator.validateCode(filePath);
+          if (!validationResult.success) {
+            throw new Error(
+              `Code validation failed: ${validationResult.error}\n${validationResult.details || ''}`
+            );
+          }
+        }
+
+        // 4. Load function definitions from file
         const functions = await this.functionLoader.load(filePath);
 
-        // 4. Register functions to registry
+        // 5. Test each function (optional, if validator is provided)
+        if (this.validator) {
+          for (const fn of functions) {
+            const testResult = await this.validator.testFunction(fn);
+            if (!testResult.success) {
+              throw new Error(
+                `Function test failed for "${fn.name}": ${testResult.error}`
+              );
+            }
+          }
+        }
+
+        // 6. Register functions to registry
         this.functionLoader.register(this.registry, functions);
 
-        // 5. Mark as mock and store metadata
+        // 7. Mark as mock and store metadata
         const metadata: MockMetadata = {
           functionName: missing.name,
           filePath,

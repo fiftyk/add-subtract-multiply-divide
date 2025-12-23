@@ -19,6 +19,11 @@ export type { IMockFunctionLoader } from './interfaces/IMockFunctionLoader.js';
 export type { IMockMetadataProvider } from './interfaces/IMockMetadataProvider.js';
 export type { IMockOrchestrator } from './interfaces/IMockOrchestrator.js';
 export type { ILLMClient } from './interfaces/ILLMClient.js';
+export type {
+  IMockCodeValidator,
+  ValidationResult,
+  TestResult,
+} from './interfaces/IMockCodeValidator.js';
 
 // Types
 export type {
@@ -33,6 +38,7 @@ export { LLMMockCodeGenerator } from './implementations/LLMMockCodeGenerator.js'
 export { FileSystemMockFileWriter } from './implementations/FileSystemMockFileWriter.js';
 export { DynamicMockFunctionLoader } from './implementations/DynamicMockFunctionLoader.js';
 export { InMemoryMockMetadataProvider } from './implementations/InMemoryMockMetadataProvider.js';
+export { DynamicMockCodeValidator } from './implementations/DynamicMockCodeValidator.js';
 export { MockOrchestrator } from './implementations/MockOrchestrator.js';
 
 // Adapters

@@ -5,6 +5,7 @@ import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js
 import { FileSystemMockFileWriter } from '../implementations/FileSystemMockFileWriter.js';
 import { DynamicMockFunctionLoader } from '../implementations/DynamicMockFunctionLoader.js';
 import { InMemoryMockMetadataProvider } from '../implementations/InMemoryMockMetadataProvider.js';
+import { DynamicMockCodeValidator } from '../implementations/DynamicMockCodeValidator.js';
 import { MockOrchestrator } from '../implementations/MockOrchestrator.js';
 import { AnthropicLLMClient } from '../adapters/AnthropicLLMClient.js';
 
@@ -17,6 +18,7 @@ export interface MockServiceFactoryConfig {
   outputDir: string;
   registry: FunctionRegistry;
   llmClient?: ILLMClient; // Optional: allow custom LLM client
+  enableValidation?: boolean; // Optional: enable code validation (default: true)
 }
 
 /**
@@ -48,13 +50,19 @@ export class MockServiceFactory {
     const functionLoader = new DynamicMockFunctionLoader();
     const metadataProvider = new InMemoryMockMetadataProvider();
 
-    // 3. Wire everything together in the orchestrator
+    // 3. Create validator if validation is enabled (default: true)
+    const validator = config.enableValidation !== false
+      ? new DynamicMockCodeValidator()
+      : undefined;
+
+    // 4. Wire everything together in the orchestrator
     return new MockOrchestrator(
       codeGenerator,
       fileWriter,
       functionLoader,
       metadataProvider,
-      config.registry
+      config.registry,
+      validator
     );
   }
 }
