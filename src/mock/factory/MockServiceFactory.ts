@@ -43,7 +43,7 @@ export class MockServiceFactory {
           'Either apiKey or llmClient must be provided to MockServiceFactory'
         );
       }
-      llmClient = new AnthropicLLMClient(config.apiKey, config.baseURL);
+      llmClient = new AnthropicLLMClient(config.apiKey, config.baseURL, config.logger);
     }
 
     // 2. Create all service implementations

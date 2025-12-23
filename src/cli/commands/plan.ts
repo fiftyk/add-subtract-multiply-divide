@@ -68,19 +68,20 @@ export async function planCommand(
     }
     console.log();
 
+    // 创建 logger (支持 LOG_LEVEL 环境变量)
+    const logger = LoggerFactory.createFromEnv();
+
     // 创建 LLM 客户端
     const llmClient = new AnthropicPlannerLLMClient({
       apiKey: config.api.apiKey,
       baseURL: config.api.baseURL,
       model: config.llm.model,
       maxTokens: config.llm.maxTokens,
+      logger,
     });
 
     // 创建基础规划器
     const basePlanner = new Planner(registry, llmClient);
-
-    // 创建 logger
-    const logger = LoggerFactory.create();
 
     // 创建 mock 服务编排器
     const mockOrchestrator = MockServiceFactory.create({
