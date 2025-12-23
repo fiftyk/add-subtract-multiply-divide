@@ -11,6 +11,7 @@ export class Storage {
   private dataDir: string;
   private plansDir: string;
   private executionsDir: string;
+  private initialized: Promise<void> | null = null;
 
   constructor(dataDir: string = '.data') {
     this.dataDir = dataDir;
@@ -19,11 +20,38 @@ export class Storage {
   }
 
   /**
-   * 确保目录存在
+   * 确保目录存在（仅初始化一次，避免竞态条件）
    */
   private async ensureDirectories(): Promise<void> {
-    await fs.mkdir(this.plansDir, { recursive: true });
-    await fs.mkdir(this.executionsDir, { recursive: true });
+    if (this.initialized === null) {
+      this.initialized = (async () => {
+        await fs.mkdir(this.plansDir, { recursive: true });
+        await fs.mkdir(this.executionsDir, { recursive: true });
+      })();
+    }
+    return this.initialized;
+  }
+
+  /**
+   * 原子写入文件（使用临时文件 + rename）
+   */
+  private async atomicWrite(
+    filePath: string,
+    content: string
+  ): Promise<void> {
+    const tmpPath = `${filePath}.tmp.${Date.now()}`;
+    try {
+      await fs.writeFile(tmpPath, content, 'utf-8');
+      await fs.rename(tmpPath, filePath);
+    } catch (error) {
+      // 清理临时文件
+      try {
+        await fs.unlink(tmpPath);
+      } catch {
+        // 忽略清理错误
+      }
+      throw error;
+    }
   }
 
   /**
@@ -32,7 +60,7 @@ export class Storage {
   async savePlan(plan: ExecutionPlan): Promise<void> {
     await this.ensureDirectories();
     const filePath = path.join(this.plansDir, `${plan.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(plan, null, 2), 'utf-8');
+    await this.atomicWrite(filePath, JSON.stringify(plan, null, 2));
   }
 
   /**
@@ -93,7 +121,7 @@ export class Storage {
     const id = `exec-${uuidv4().slice(0, 8)}`;
     const filePath = path.join(this.executionsDir, `${id}.json`);
     const data = { id, ...result };
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    await this.atomicWrite(filePath, JSON.stringify(data, null, 2));
     return id;
   }
 
