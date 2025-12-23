@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import path from 'path';
 import { FunctionRegistry } from '../../registry/index.js';
-import { Planner } from '../../planner/index.js';
+import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { loadFunctions } from '../utils.js';
 import {
@@ -48,8 +48,14 @@ export async function planCommand(
       process.exit(1);
     }
 
+    // 创建 LLM 客户端
+    const llmClient = new AnthropicPlannerLLMClient({
+      apiKey,
+      baseURL: process.env.ANTHROPIC_BASE_URL,
+    });
+
     // 创建基础规划器
-    const basePlanner = new Planner(registry, apiKey);
+    const basePlanner = new Planner(registry, llmClient);
 
     // 创建 mock 服务编排器
     const mockOrchestrator = MockServiceFactory.create({

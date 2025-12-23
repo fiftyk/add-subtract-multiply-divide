@@ -1,26 +1,20 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
 import type { FunctionRegistry } from '../registry/index.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
+import type { IPlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
 
 /**
  * 函数编排规划器
+ * Follows DIP: Depends on IPlannerLLMClient abstraction, not concrete implementation
  */
 export class Planner {
   private registry: FunctionRegistry;
-  private client: Anthropic;
+  private llmClient: IPlannerLLMClient;
 
-  constructor(registry: FunctionRegistry, apiKey: string, baseURL?: string) {
+  constructor(registry: FunctionRegistry, llmClient: IPlannerLLMClient) {
     this.registry = registry;
-
-    // 支持自定义 base URL，优先使用传入参数，其次使用环境变量
-    const finalBaseURL = baseURL || process.env.ANTHROPIC_BASE_URL;
-
-    this.client = new Anthropic({
-      apiKey,
-      ...(finalBaseURL && { baseURL: finalBaseURL }),
-    });
+    this.llmClient = llmClient;
   }
 
   /**
@@ -59,20 +53,8 @@ export class Planner {
     functionsDescription: string
   ): Promise<ExecutionPlan> {
     const prompt = buildPlannerPrompt(userRequest, functionsDescription);
-
-    const message = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    // 提取文本内容
-    const textContent = message.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('LLM 返回了非文本内容');
-    }
-
-    const parsed = parseLLMResponse(textContent.text);
+    const responseText = await this.llmClient.generatePlan(prompt);
+    const parsed = parseLLMResponse(responseText);
 
     return {
       id: `plan-${uuidv4().slice(0, 8)}`,

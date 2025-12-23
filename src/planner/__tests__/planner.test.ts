@@ -2,24 +2,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Planner } from '../planner.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
 import type { ExecutionPlan } from '../types.js';
+import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
 
-// Mock Anthropic SDK
-vi.mock('@anthropic-ai/sdk', () => {
-  return {
-    default: vi.fn().mockImplementation(() => ({
-      messages: {
-        create: vi.fn(),
-      },
-    })),
-  };
-});
+// Mock LLM Client for testing
+class MockLLMClient implements IPlannerLLMClient {
+  async generatePlan(prompt: string): Promise<string> {
+    // This will be mocked in tests
+    return '';
+  }
+}
 
 describe('Planner', () => {
   let planner: Planner;
   let registry: FunctionRegistry;
+  let mockLLMClient: MockLLMClient;
 
   beforeEach(() => {
     registry = new FunctionRegistry();
+    mockLLMClient = new MockLLMClient();
 
     // 注册测试用的数学函数
     registry.register(
@@ -50,7 +50,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new Planner(registry, 'test-api-key');
+    planner = new Planner(registry, mockLLMClient);
   });
 
   describe('plan', () => {

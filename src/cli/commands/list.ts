@@ -79,7 +79,11 @@ export const listCommand = {
 
       // 创建临时 Planner 用于格式化显示
       const registry = new FunctionRegistry();
-      const planner = new Planner(registry, 'dummy-key');
+      // 创建一个 dummy LLM client（不会被调用，仅用于格式化）
+      const dummyLLMClient = {
+        async generatePlan() { return ''; }
+      };
+      const planner = new Planner(registry, dummyLLMClient);
 
       console.log(planner.formatPlanForDisplay(plan));
     } catch (error) {

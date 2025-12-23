@@ -50,7 +50,11 @@ export async function executeCommand(
     );
 
     // 创建临时 Planner 用于显示计划
-    const planner = new Planner(registry, 'dummy-key');
+    // 创建一个 dummy LLM client（不会被调用，仅用于格式化）
+    const dummyLLMClient = {
+      async generatePlan() { return ''; }
+    };
+    const planner = new Planner(registry, dummyLLMClient);
 
     // 显示计划
     console.log(chalk.blue('📋 执行计划:'));
