@@ -31,6 +31,43 @@ export async function executeCommand(
       return;
     }
 
+    // 加载函数（先加载，以便显示已加载的函数列表）
+    const registry = new FunctionRegistry();
+    await loadFunctions(registry, options.functions);
+
+    // 同时加载 generated 目录下的 mock 函数
+    await loadFunctionsFromDirectory(
+      registry,
+      config.mock.outputDir
+    );
+
+    // 打印所有加载的函数
+    const allFunctions = registry.getAll();
+    console.log(chalk.blue('📦 已加载的函数:'));
+    console.log(chalk.gray(`总共 ${allFunctions.length} 个函数`));
+    console.log();
+
+    // 区分 mock 函数和普通函数
+    const mockFunctions = plan.metadata?.mockFunctions || [];
+    const normalFunctions = allFunctions.filter(f => !mockFunctions.includes(f.name));
+    const loadedMocks = allFunctions.filter(f => mockFunctions.includes(f.name));
+
+    if (normalFunctions.length > 0) {
+      console.log(chalk.cyan('普通函数:'));
+      normalFunctions.forEach(f => {
+        console.log(chalk.gray(`  • ${f.name}`));
+      });
+      console.log();
+    }
+
+    if (loadedMocks.length > 0) {
+      console.log(chalk.yellow('Mock 函数:'));
+      loadedMocks.forEach(f => {
+        console.log(chalk.gray(`  • ${f.name} (mock)`));
+      });
+      console.log();
+    }
+
     // 检查计划状态
     if (plan.status !== 'executable') {
       console.log(chalk.yellow('⚠️ 该计划不可执行'));
@@ -40,18 +77,25 @@ export async function executeCommand(
           console.log(chalk.gray(`  - ${fn.name}: ${fn.description}`));
         }
       }
+
+      // 检查计划需要的 mock 函数是否都已加载
+      if (mockFunctions.length > 0) {
+        const missingMocks = mockFunctions.filter(
+          name => !allFunctions.some(f => f.name === name)
+        );
+
+        if (missingMocks.length > 0) {
+          console.log();
+          console.log(chalk.red('⚠️ 计划需要但未加载的 mock 函数:'));
+          missingMocks.forEach(name => {
+            console.log(chalk.gray(`  • ${name}`));
+          });
+          console.log();
+          console.log(chalk.yellow('提示: 请重新运行 plan 命令生成这些 mock 函数'));
+        }
+      }
       return;
     }
-
-    // 加载函数
-    const registry = new FunctionRegistry();
-    await loadFunctions(registry, options.functions);
-
-    // 同时加载 generated 目录下的 mock 函数
-    await loadFunctionsFromDirectory(
-      registry,
-      config.mock.outputDir
-    );
 
     // 创建临时 Planner 用于显示计划
     // 创建一个 dummy LLM client（不会被调用，仅用于格式化）

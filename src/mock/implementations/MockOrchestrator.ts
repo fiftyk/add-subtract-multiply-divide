@@ -7,6 +7,8 @@ import type { IMockCodeValidator } from '../interfaces/IMockCodeValidator.js';
 import type { MissingFunction } from '../../planner/types.js';
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { MockGenerationResult, MockMetadata } from '../types.js';
+import type { ILogger } from '../../logger/index.js';
+import { LoggerFactory } from '../../logger/index.js';
 
 /**
  * Orchestrates the mock function generation workflow
@@ -14,14 +16,19 @@ import type { MockGenerationResult, MockMetadata } from '../types.js';
  * Follows SRP: Only responsible for workflow coordination
  */
 export class MockOrchestrator implements IMockOrchestrator {
+  private logger: ILogger;
+
   constructor(
     private codeGenerator: IMockCodeGenerator,
     private fileWriter: IMockFileWriter,
     private functionLoader: IMockFunctionLoader,
     private metadataProvider: IMockMetadataProvider,
     private registry: FunctionRegistry,
-    private validator?: IMockCodeValidator
-  ) {}
+    private validator?: IMockCodeValidator,
+    logger?: ILogger
+  ) {
+    this.logger = logger ?? LoggerFactory.create();
+  }
 
   /**
    * Generate and register mock functions for missing functions
@@ -34,6 +41,8 @@ export class MockOrchestrator implements IMockOrchestrator {
 
     for (const missing of missingFunctions) {
       try {
+        this.logger.info(`  生成 ${missing.name}...`);
+
         // 1. Generate code
         const code = await this.codeGenerator.generate({
           name: missing.name,
@@ -46,6 +55,7 @@ export class MockOrchestrator implements IMockOrchestrator {
         // Generate .js file directly so it can be dynamically imported
         const fileName = `${missing.name}-${Date.now()}.js`;
         const filePath = await this.fileWriter.write(code, fileName);
+        this.logger.info(`    ✓ 文件已保存: ${filePath}`);
 
         // 3. Validate code (optional, if validator is provided)
         if (this.validator) {
@@ -59,6 +69,7 @@ export class MockOrchestrator implements IMockOrchestrator {
 
         // 4. Load function definitions from file
         const functions = await this.functionLoader.load(filePath);
+        this.logger.info(`    ✓ 加载了 ${functions.length} 个函数定义`);
 
         // 5. Test each function (optional, if validator is provided)
         if (this.validator) {
@@ -74,6 +85,7 @@ export class MockOrchestrator implements IMockOrchestrator {
 
         // 6. Register functions to registry
         this.functionLoader.register(this.registry, functions);
+        this.logger.info(`    ✓ 已注册到 registry: ${functions.map(f => f.name).join(', ')}`);
 
         // 7. Mark as mock and store metadata
         const metadata: MockMetadata = {
@@ -86,15 +98,35 @@ export class MockOrchestrator implements IMockOrchestrator {
 
         results.push(metadata);
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(`    ✗ 生成失败: ${missing.name}`);
+        this.logger.warn(`       错误: ${errorMsg}`);
         errors.push({
           functionName: missing.name,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMsg,
+        });
+      }
+    }
+
+    // 汇总统计
+    const total = missingFunctions.length;
+    const succeeded = results.length;
+    const failed = errors.length;
+
+    if (succeeded > 0 && failed > 0) {
+      this.logger.info(
+        `\n📊 生成结果: 成功 ${succeeded}/${total} 个，失败 ${failed} 个`
+      );
+      if (failed > 0) {
+        this.logger.warn(`\n❌ 失败的函数:`);
+        errors.forEach((err) => {
+          this.logger.warn(`   • ${err.functionName}: ${err.error}`);
         });
       }
     }
 
     return {
-      success: true,
+      success: results.length > 0, // 只要有一个成功就算成功
       generatedFunctions: results,
       ...(errors.length > 0 && { errors }),
     };

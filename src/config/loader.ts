@@ -9,9 +9,11 @@ function loadFromEnv(): PartialAppConfig {
   const config: PartialAppConfig = {};
 
   // API Configuration
-  if (process.env.ANTHROPIC_API_KEY) {
+  // Priority: ANTHROPIC_API_KEY > ANTHROPIC_AUTH_TOKEN (Claude Code compatibility)
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+  if (apiKey) {
     config.api = {
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey,
     };
   }
   if (process.env.ANTHROPIC_BASE_URL) {

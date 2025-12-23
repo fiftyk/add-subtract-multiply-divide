@@ -2,12 +2,13 @@ import chalk from 'chalk';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
-import { loadFunctions } from '../utils.js';
+import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 import {
   PlannerWithMockSupport,
   MockServiceFactory,
 } from '../../mock/index.js';
 import { loadConfig } from '../../config/index.js';
+import { LoggerFactory } from '../../logger/index.js';
 
 interface PlanOptions {
   functions: string;
@@ -32,9 +33,15 @@ export async function planCommand(
       process.exit(1);
     }
 
-    // 加载函数
+    // 加载内置函数
     const registry = new FunctionRegistry();
     await loadFunctions(registry, options.functions);
+
+    // 加载已生成的 mock 函数
+    await loadFunctionsFromDirectory(
+      registry,
+      config.mock.outputDir
+    );
 
     // 检查是否有可用函数
     const allFunctions = registry.getAll();
@@ -46,9 +53,19 @@ export async function planCommand(
       return;
     }
 
+    // 统计内置函数和 mock 函数
+    const builtinFunctionNames = ['add', 'subtract', 'multiply', 'divide'];
+    const builtinFunctions = allFunctions.filter(f => builtinFunctionNames.includes(f.name));
+    const mockFunctions = allFunctions.filter(f => !builtinFunctionNames.includes(f.name));
+
     console.log(
-      chalk.gray(`已加载 ${allFunctions.length} 个函数: ${allFunctions.map((f) => f.name).join(', ')}`)
+      chalk.gray(`已加载 ${allFunctions.length} 个函数: ${builtinFunctions.map((f) => f.name).join(', ')}`)
     );
+    if (mockFunctions.length > 0) {
+      console.log(
+        chalk.yellow(`  + ${mockFunctions.length} 个 mock 函数: ${mockFunctions.map((f) => f.name).join(', ')}`)
+      );
+    }
     console.log();
 
     // 创建 LLM 客户端
@@ -62,19 +79,24 @@ export async function planCommand(
     // 创建基础规划器
     const basePlanner = new Planner(registry, llmClient);
 
+    // 创建 logger
+    const logger = LoggerFactory.create();
+
     // 创建 mock 服务编排器
     const mockOrchestrator = MockServiceFactory.create({
       apiKey: config.api.apiKey,
       baseURL: config.api.baseURL,
       outputDir: config.mock.outputDir,
       registry,
+      logger,
     });
 
     // 使用装饰器包装规划器，添加 mock 支持（OCP - 不修改原有 Planner）
     const planner = new PlannerWithMockSupport(
       basePlanner,
       mockOrchestrator,
-      registry
+      registry,
+      logger
     );
 
     const result = await planner.plan(request);

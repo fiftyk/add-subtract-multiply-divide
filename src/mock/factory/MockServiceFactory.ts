@@ -1,6 +1,7 @@
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { ILLMClient } from '../interfaces/ILLMClient.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
+import type { ILogger } from '../../logger/types.js';
 import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js';
 import { FileSystemMockFileWriter } from '../implementations/FileSystemMockFileWriter.js';
 import { DynamicMockFunctionLoader } from '../implementations/DynamicMockFunctionLoader.js';
@@ -17,6 +18,7 @@ export interface MockServiceFactoryConfig {
   baseURL?: string;
   outputDir: string;
   registry: FunctionRegistry;
+  logger: ILogger; // Required: logger for logging mock generation process
   llmClient?: ILLMClient; // Optional: allow custom LLM client
   enableValidation?: boolean; // Optional: enable code validation (default: true)
 }
@@ -62,7 +64,8 @@ export class MockServiceFactory {
       functionLoader,
       metadataProvider,
       config.registry,
-      validator
+      validator,
+      config.logger
     );
   }
 }
