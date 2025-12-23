@@ -9,6 +9,7 @@ import type { FunctionRegistry } from '../../registry/index.js';
 import type { MockGenerationResult, MockMetadata } from '../types.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
+import * as fs from 'fs/promises';
 
 /**
  * Orchestrates the mock function generation workflow
@@ -40,6 +41,8 @@ export class MockOrchestrator implements IMockOrchestrator {
     const errors: Array<{ functionName: string; error: string }> = [];
 
     for (const missing of missingFunctions) {
+      let filePath: string | null = null;
+
       try {
         this.logger.info(`  生成 ${missing.name}...`);
 
@@ -54,7 +57,7 @@ export class MockOrchestrator implements IMockOrchestrator {
         // 2. Write to file (with timestamp to avoid conflicts)
         // Generate .js file directly so it can be dynamically imported
         const fileName = `${missing.name}-${Date.now()}.js`;
-        const filePath = await this.fileWriter.write(code, fileName);
+        filePath = await this.fileWriter.write(code, fileName);
         this.logger.info(`    ✓ 文件已保存: ${filePath}`);
 
         // 3. Validate code (optional, if validator is provided)
@@ -101,6 +104,18 @@ export class MockOrchestrator implements IMockOrchestrator {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(`    ✗ 生成失败: ${missing.name}`);
         this.logger.warn(`       错误: ${errorMsg}`);
+
+        // Clean up: Delete the invalid file if it was created
+        if (filePath) {
+          try {
+            await fs.unlink(filePath);
+            this.logger.info(`    🗑️  已删除无效文件: ${filePath}`);
+          } catch (deleteError) {
+            // Ignore deletion errors (file might not exist)
+            this.logger.warn(`    ⚠️  无法删除文件: ${filePath}`);
+          }
+        }
+
         errors.push({
           functionName: missing.name,
           error: errorMsg,

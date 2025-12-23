@@ -18,7 +18,7 @@ export function buildMockCodeGenerationPrompt(spec: MockFunctionSpec): string {
     )
     .join(',\n');
 
-  return `你是一个 TypeScript 代码生成专家。请根据以下函数规格生成一个完整的函数实现。
+  return `你是一个 JavaScript 代码生成专家。请根据以下函数规格生成一个完整的函数实现。
 
 函数名称: ${spec.name}
 描述: ${spec.description}
@@ -49,10 +49,9 @@ ${paramsDoc}
 2. 从 '../../dist/src/registry/index.js' 导入 defineFunction
 3. 使用 export const 导出函数
 4. 添加适当的 scenario 字段，描述使用场景（中文，20字以内）
-5. 代码必须符合 TypeScript 语法，可以直接编译通过
-6. 不要包含任何注释或说明，只输出可执行的代码
-7. **关键**: parameters 必须是数组格式，每个参数是对象: { name, type, description }
-8. **关键**: 必须使用 returns 字段(对象)，不是 returnType
+5. 代码必须是纯 JavaScript，可以直接执行
+6. **关键**: parameters 必须是数组格式，每个参数是对象: { name, type, description }
+7. **关键**: 必须使用 returns 字段(对象)，不是 returnType
 
 实现要求：
 - **如果是纯函数**：编写完整的、真实的算法实现
@@ -70,7 +69,6 @@ ${paramsDoc}
 代码格式示例：
 
 【纯函数示例 - 平方根】
-\`\`\`typescript
 import { defineFunction } from '../../dist/src/registry/index.js';
 
 export const sqrt = defineFunction({
@@ -82,17 +80,14 @@ export const sqrt = defineFunction({
   ],
   returns: { type: 'number', description: '输入数字的平方根' },
   implementation: (number) => {
-    // 真实的算法实现
     if (number < 0) {
       throw new Error('Cannot calculate square root of negative number');
     }
     return Math.sqrt(number);
   }
 });
-\`\`\`
 
 【外部依赖示例 - API查询】
-\`\`\`typescript
 import { defineFunction } from '../../dist/src/registry/index.js';
 
 export const queryPatent = defineFunction({
@@ -104,7 +99,6 @@ export const queryPatent = defineFunction({
   ],
   returns: { type: 'object', description: '专利详细信息' },
   implementation: (patentNumber) => {
-    // 返回模拟数据（真实需要调用外部API）
     return {
       patentNumber,
       title: '一种基于人工智能的数据处理方法',
@@ -114,23 +108,55 @@ export const queryPatent = defineFunction({
     };
   }
 });
-\`\`\`
 
-请根据 "${spec.name}" 函数的特征判断类型并生成相应的代码。严格按照上述格式输出代码，不要使用 markdown 代码块标记：`;
+请根据 "${spec.name}" 函数的特征判断类型并生成相应的代码。
+
+**极其重要 - 输出格式要求**：
+1. ❌ 禁止：不要输出任何解释、说明、思考过程或注释
+2. ❌ 禁止：不要使用 Markdown 代码块标记（\`\`\`typescript、\`\`\`javascript、\`\`\`）
+3. ❌ 禁止：不要在代码前后添加任何文字
+4. ✅ 必须：只输出纯 JavaScript 代码
+5. ✅ 必须：从 import 语句开始，���最后的 }); 结束
+6. ✅ 必须：代码必须能够直接保存为 .js 文件并在 Node.js 中执行
+
+立即输出 JavaScript 代码（不要添加任何其他内容）：`;
+
+
 }
 
 /**
  * Extract code from LLM response
- * Removes markdown code blocks if present
+ * Removes markdown code blocks and explanatory text if present
  */
 export function extractCodeFromLLMResponse(response: string): string {
   let code = response.trim();
 
-  // Remove markdown code blocks if present
-  if (code.startsWith('```typescript') || code.startsWith('```ts')) {
-    code = code.replace(/^```(?:typescript|ts)\n/, '').replace(/\n```$/, '');
-  } else if (code.startsWith('```')) {
-    code = code.replace(/^```\n/, '').replace(/\n```$/, '');
+  // Strategy 1: Find code block with markers (```typescript or ```)
+  const codeBlockRegex = /```(?:typescript|ts|javascript|js)?\s*\n([\s\S]*?)\n```/;
+  const match = code.match(codeBlockRegex);
+
+  if (match && match[1]) {
+    // Found code block, extract the code inside
+    code = match[1].trim();
+  } else {
+    // Strategy 2: No explicit code block markers, try to find import statement
+    // Remove everything before the first import or export statement
+    const importIndex = code.indexOf('import ');
+    const exportIndex = code.indexOf('export ');
+
+    if (importIndex !== -1 && (exportIndex === -1 || importIndex < exportIndex)) {
+      code = code.substring(importIndex);
+    } else if (exportIndex !== -1) {
+      code = code.substring(exportIndex);
+    }
+
+    // Remove markdown code blocks if present at start/end
+    if (code.startsWith('```')) {
+      code = code.replace(/^```(?:typescript|ts|javascript|js)?\n?/, '');
+    }
+    if (code.endsWith('```')) {
+      code = code.replace(/\n?```$/, '');
+    }
   }
 
   return code.trim();
