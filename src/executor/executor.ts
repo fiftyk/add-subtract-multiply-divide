@@ -9,6 +9,7 @@ import {
 } from '../errors/index.js';
 import type { ILogger } from '../logger/index.js';
 import { LoggerFactory } from '../logger/index.js';
+import { PlanValidator } from '../validation/index.js';
 
 /**
  * Executor 配置选项
@@ -48,6 +49,9 @@ export class Executor {
    * 执行计划
    */
   async execute(plan: ExecutionPlan): Promise<ExecutionResult> {
+    // Validate plan before execution
+    PlanValidator.validatePlan(plan);
+
     this.logger.info('Starting plan execution', { planId: plan.id, stepsCount: plan.steps.length });
 
     const context = new ExecutionContext();

@@ -3,6 +3,7 @@ import {
   FunctionNotFoundError,
   FunctionAlreadyRegisteredError,
 } from '../errors/index.js';
+import { TypeValidator } from '../validation/index.js';
 
 /**
  * 创建函数定义
@@ -101,6 +102,9 @@ ${params || '    (无参数)'}
       const availableFunctions = Array.from(this.functions.keys());
       throw new FunctionNotFoundError(name, availableFunctions);
     }
+
+    // Validate parameters before execution
+    TypeValidator.validateFunctionParameters(fn, params);
 
     // 按参数定义顺序提取参数值
     const args = fn.parameters.map((p) => params[p.name]);
