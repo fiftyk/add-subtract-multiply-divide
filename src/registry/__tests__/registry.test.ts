@@ -119,6 +119,81 @@ describe('FunctionRegistry', () => {
       expect(descriptions).toContain('当需要计算商时使用');
       expect(descriptions).toContain('被除数');
     });
+
+    it('should cache descriptions for performance', () => {
+      registry.register(
+        defineFunction({
+          name: 'fn1',
+          description: 'Test',
+          scenario: 'Test',
+          parameters: [],
+          returns: { type: 'void', description: '' },
+          implementation: () => {},
+        })
+      );
+
+      // First call - generates and caches
+      const desc1 = registry.getAllDescriptions();
+      // Second call - should return cached result (same reference)
+      const desc2 = registry.getAllDescriptions();
+
+      expect(desc1 === desc2).toBe(true); // Same string reference = cached
+    });
+
+    it('should invalidate cache when new function is registered', () => {
+      registry.register(
+        defineFunction({
+          name: 'fn1',
+          description: 'First',
+          scenario: 'Test',
+          parameters: [],
+          returns: { type: 'void', description: '' },
+          implementation: () => {},
+        })
+      );
+
+      const desc1 = registry.getAllDescriptions();
+      expect(desc1).toContain('fn1');
+
+      // Register second function - should invalidate cache
+      registry.register(
+        defineFunction({
+          name: 'fn2',
+          description: 'Second',
+          scenario: 'Test',
+          parameters: [],
+          returns: { type: 'void', description: '' },
+          implementation: () => {},
+        })
+      );
+
+      const desc2 = registry.getAllDescriptions();
+      expect(desc2).toContain('fn2');
+      expect(desc1 !== desc2).toBe(true); // Different result after cache invalidation
+    });
+
+    it('should invalidate cache when registry is cleared', () => {
+      registry.register(
+        defineFunction({
+          name: 'fn1',
+          description: 'Test',
+          scenario: 'Test',
+          parameters: [],
+          returns: { type: 'void', description: '' },
+          implementation: () => {},
+        })
+      );
+
+      const desc1 = registry.getAllDescriptions();
+      expect(desc1).toContain('fn1');
+
+      // Clear registry - should invalidate cache
+      registry.clear();
+
+      const desc2 = registry.getAllDescriptions();
+      expect(desc2).toBe('当前没有可用的函数。');
+      expect(desc1 !== desc2).toBe(true);
+    });
   });
 
   describe('execute', () => {

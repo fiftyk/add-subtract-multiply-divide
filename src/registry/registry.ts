@@ -23,6 +23,7 @@ export function defineFunction(input: FunctionDefinitionInput): FunctionDefiniti
  */
 export class FunctionRegistry {
   private functions: Map<string, FunctionDefinition> = new Map();
+  private descriptionsCache: string | null = null;
 
   /**
    * 注册一个函数
@@ -32,6 +33,8 @@ export class FunctionRegistry {
       throw new FunctionAlreadyRegisteredError(fn.name);
     }
     this.functions.set(fn.name, fn);
+    // 使缓存失效
+    this.descriptionsCache = null;
   }
 
   /**
@@ -57,14 +60,22 @@ export class FunctionRegistry {
 
   /**
    * 获取所有函数的描述信息（用于 LLM prompt）
+   * 结果会被缓存以提高性能
    */
   getAllDescriptions(): string {
-    const functions = this.getAll();
-    if (functions.length === 0) {
-      return '当前没有可用的函数。';
+    // 返回缓存结果（如果存在）
+    if (this.descriptionsCache !== null) {
+      return this.descriptionsCache;
     }
 
-    return functions
+    // 生成并缓存结果
+    const functions = this.getAll();
+    if (functions.length === 0) {
+      this.descriptionsCache = '当前没有可用的函数。';
+      return this.descriptionsCache;
+    }
+
+    this.descriptionsCache = functions
       .map((fn) => {
         const params = fn.parameters
           .map((p) => `    - ${p.name} (${p.type}): ${p.description}`)
@@ -77,6 +88,8 @@ ${params || '    (无参数)'}
   返回值: ${fn.returns.type} - ${fn.returns.description}`;
       })
       .join('\n\n');
+
+    return this.descriptionsCache;
   }
 
   /**
@@ -106,5 +119,7 @@ ${params || '    (无参数)'}
    */
   clear(): void {
     this.functions.clear();
+    // 使缓存失效
+    this.descriptionsCache = null;
   }
 }
