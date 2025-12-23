@@ -6,6 +6,7 @@ import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
+import { loadConfig } from '../../config/index.js';
 
 interface ExecuteOptions {
   functions: string;
@@ -17,8 +18,11 @@ export async function executeCommand(
   options: ExecuteOptions
 ): Promise<void> {
   try {
+    // Load configuration
+    const config = loadConfig();
+
     // 加载计划
-    const storage = new Storage();
+    const storage = new Storage(config.storage.dataDir);
     const plan = await storage.loadPlan(planId);
 
     if (!plan) {
@@ -46,7 +50,7 @@ export async function executeCommand(
     // 同时加载 generated 目录下的 mock 函数
     await loadFunctionsFromDirectory(
       registry,
-      path.join(process.cwd(), 'functions/generated')
+      config.mock.outputDir
     );
 
     // 创建临时 Planner 用于显示计划
@@ -84,7 +88,7 @@ export async function executeCommand(
     console.log();
 
     // 执行计划
-    const executor = new Executor(registry);
+    const executor = new Executor(registry, { stepTimeout: config.executor.stepTimeout });
     const result = await executor.execute(plan);
 
     // 保存执行结果

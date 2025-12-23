@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import path from 'path';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
@@ -8,6 +7,7 @@ import {
   PlannerWithMockSupport,
   MockServiceFactory,
 } from '../../mock/index.js';
+import { loadConfig } from '../../config/index.js';
 
 interface PlanOptions {
   functions: string;
@@ -21,6 +21,16 @@ export async function planCommand(
     console.log(chalk.blue('📝 正在分析需求...'));
     console.log(chalk.gray(`用户需求: ${request}`));
     console.log();
+
+    // Load configuration from environment
+    let config;
+    try {
+      config = loadConfig();
+    } catch (error) {
+      console.log(chalk.red(`❌ ${error instanceof Error ? error.message : '配置错误'}`));
+      console.log(chalk.gray('提示: 设置 ANTHROPIC_API_KEY 环境变量'));
+      process.exit(1);
+    }
 
     // 加载函数
     const registry = new FunctionRegistry();
@@ -41,17 +51,12 @@ export async function planCommand(
     );
     console.log();
 
-    // 获取 API Key - 支持 ANTHROPIC_API_KEY 和 ANTHROPIC_AUTH_TOKEN
-    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
-    if (!apiKey) {
-      console.log(chalk.red('❌ 请设置 ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN 环境变量'));
-      process.exit(1);
-    }
-
     // 创建 LLM 客户端
     const llmClient = new AnthropicPlannerLLMClient({
-      apiKey,
-      baseURL: process.env.ANTHROPIC_BASE_URL,
+      apiKey: config.api.apiKey,
+      baseURL: config.api.baseURL,
+      model: config.llm.model,
+      maxTokens: config.llm.maxTokens,
     });
 
     // 创建基础规划器
@@ -59,9 +64,9 @@ export async function planCommand(
 
     // 创建 mock 服务编排器
     const mockOrchestrator = MockServiceFactory.create({
-      apiKey,
-      baseURL: process.env.ANTHROPIC_BASE_URL,
-      outputDir: path.join(process.cwd(), 'functions/generated'),
+      apiKey: config.api.apiKey,
+      baseURL: config.api.baseURL,
+      outputDir: config.mock.outputDir,
       registry,
     });
 
@@ -80,7 +85,7 @@ export async function planCommand(
     }
 
     // 保存计划
-    const storage = new Storage();
+    const storage = new Storage(config.storage.dataDir);
     await storage.savePlan(result.plan);
 
     // 显示计划

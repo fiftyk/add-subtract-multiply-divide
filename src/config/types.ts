@@ -1,0 +1,65 @@
+/**
+ * API Configuration
+ */
+export interface APIConfig {
+  /** Anthropic API key */
+  apiKey: string;
+  /** API base URL (optional, for custom endpoints) */
+  baseURL?: string;
+}
+
+/**
+ * LLM Configuration
+ */
+export interface LLMConfig {
+  /** Model name to use */
+  model: string;
+  /** Maximum tokens for completion */
+  maxTokens: number;
+}
+
+/**
+ * Executor Configuration
+ */
+export interface ExecutorConfig {
+  /** Step execution timeout in milliseconds (0 = no limit) */
+  stepTimeout: number;
+}
+
+/**
+ * Storage Configuration
+ */
+export interface StorageConfig {
+  /** Data directory path */
+  dataDir: string;
+}
+
+/**
+ * Mock Configuration
+ */
+export interface MockConfig {
+  /** Output directory for generated mock functions */
+  outputDir: string;
+}
+
+/**
+ * Complete Application Configuration
+ */
+export interface AppConfig {
+  api: APIConfig;
+  llm: LLMConfig;
+  executor: ExecutorConfig;
+  storage: StorageConfig;
+  mock: MockConfig;
+}
+
+/**
+ * Partial configuration for overrides
+ */
+export type PartialAppConfig = {
+  api?: Partial<APIConfig>;
+  llm?: Partial<LLMConfig>;
+  executor?: Partial<ExecutorConfig>;
+  storage?: Partial<StorageConfig>;
+  mock?: Partial<MockConfig>;
+};
