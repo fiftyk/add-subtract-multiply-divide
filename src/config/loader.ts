@@ -1,11 +1,16 @@
 import type { AppConfig, PartialAppConfig } from './types.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 import * as path from 'path';
+import { config as dotenvConfig } from 'dotenv';
 
 /**
  * Load configuration from environment variables
+ * Automatically loads .env file from project root
  */
 function loadFromEnv(): PartialAppConfig {
+  // Load .env file if it exists
+  dotenvConfig();
+
   const config: PartialAppConfig = {};
 
   // API Configuration
@@ -49,10 +54,37 @@ function loadFromEnv(): PartialAppConfig {
   }
 
   // Mock Configuration
-  if (process.env.MOCK_OUTPUT_DIR) {
-    config.mock = {
-      outputDir: path.resolve(process.env.MOCK_OUTPUT_DIR),
-    };
+  if (
+    process.env.MOCK_OUTPUT_DIR ||
+    process.env.AUTO_GENERATE_MOCK !== undefined ||
+    process.env.MOCK_MAX_ITERATIONS !== undefined
+  ) {
+    config.mock = {};
+
+    if (process.env.MOCK_OUTPUT_DIR) {
+      config.mock.outputDir = path.resolve(process.env.MOCK_OUTPUT_DIR);
+    }
+
+    // AUTO_GENERATE_MOCK: 支持多种布尔格式
+    // Accepts: "true", "1", "yes", "on" (case-insensitive) → true
+    //          "false", "0", "no", "off" (case-insensitive) → false
+    if (process.env.AUTO_GENERATE_MOCK !== undefined) {
+      const value = process.env.AUTO_GENERATE_MOCK.toLowerCase();
+      config.mock.autoGenerate = ['true', '1', 'yes', 'on'].includes(value);
+    }
+
+    if (process.env.MOCK_MAX_ITERATIONS !== undefined) {
+      const parsed = parseInt(process.env.MOCK_MAX_ITERATIONS, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        config.mock.maxIterations = parsed;
+      } else {
+        // Log warning but don't throw - graceful degradation
+        console.warn(
+          `Warning: Invalid MOCK_MAX_ITERATIONS value "${process.env.MOCK_MAX_ITERATIONS}". ` +
+          `Using default value.`
+        );
+      }
+    }
   }
 
   return config;

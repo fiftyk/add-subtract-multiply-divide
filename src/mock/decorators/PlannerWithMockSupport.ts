@@ -3,6 +3,7 @@ import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { PlanResult } from '../../planner/types.js';
 import type { ILogger } from '../../logger/index.js';
+import type { MockGenerationConfig } from '../types.js';
 import { LoggerFactory } from '../../logger/index.js';
 
 /**
@@ -12,14 +13,17 @@ import { LoggerFactory } from '../../logger/index.js';
  */
 export class PlannerWithMockSupport {
   private logger: ILogger;
+  private config: MockGenerationConfig;
 
   constructor(
     private basePlanner: Planner,
     private mockOrchestrator: IMockOrchestrator,
     private registry: FunctionRegistry,
+    config: MockGenerationConfig,
     logger?: ILogger
   ) {
     this.logger = logger ?? LoggerFactory.create();
+    this.config = config;
   }
 
   /**
@@ -27,11 +31,10 @@ export class PlannerWithMockSupport {
    * Supports iterative mock generation until plan is complete or max iterations reached
    */
   async plan(userRequest: string): Promise<PlanResult> {
-    const MAX_ITERATIONS = 3; // Maximum number of iterations to prevent infinite loops
     let iteration = 0;
     const allGeneratedMocks: string[] = []; // Track all generated mock functions
 
-    while (iteration < MAX_ITERATIONS) {
+    while (iteration < this.config.maxIterations) {
       iteration++;
 
       // Only show iteration message after the first iteration
@@ -128,7 +131,7 @@ export class PlannerWithMockSupport {
 
     // Max iterations reached, do a final plan
     this.logger.warn(`\n${'='.repeat(60)}`);
-    this.logger.warn(`⚠️  已达到最大迭代次数 (${MAX_ITERATIONS})，生成最终计划...`);
+    this.logger.warn(`⚠️  已达到最大迭代次数 (${this.config.maxIterations})，生成最终计划...`);
     this.logger.warn(`${'='.repeat(60)}\n`);
 
     const finalResult = await this.basePlanner.plan(userRequest);

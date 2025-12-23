@@ -40,6 +40,19 @@ export interface StorageConfig {
 export interface MockConfig {
   /** Output directory for generated mock functions */
   outputDir: string;
+
+  /**
+   * Enable/disable automatic mock generation
+   * @default false - Breaking change from previous implicit "always on" behavior
+   */
+  autoGenerate: boolean;
+
+  /**
+   * Maximum iterations for mock generation cycle
+   * Prevents infinite loops when LLM keeps generating incomplete plans
+   * @default 3
+   */
+  maxIterations: number;
 }
 
 /**

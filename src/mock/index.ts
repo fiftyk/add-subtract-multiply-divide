@@ -31,6 +31,7 @@ export type {
   MockMetadata,
   MockGenerationResult,
   PlanMetadata,
+  MockGenerationConfig,
 } from './types.js';
 
 // Implementations (for advanced usage)

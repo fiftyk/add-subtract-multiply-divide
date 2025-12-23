@@ -17,5 +17,7 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
   },
   mock: {
     outputDir: path.join(process.cwd(), 'functions/generated'),
+    autoGenerate: false, // Breaking change: 默认禁用
+    maxIterations: 3,    // 显式默认值，之前硬编码
   },
 };

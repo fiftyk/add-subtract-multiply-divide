@@ -44,3 +44,12 @@ export interface PlanMetadata {
   usesMocks?: boolean;
   mockFunctions?: string[];
 }
+
+/**
+ * Configuration for mock generation behavior
+ * Separates configuration from orchestration logic (SRP)
+ */
+export interface MockGenerationConfig {
+  /** Maximum iterations for regenerating plan with new mocks */
+  maxIterations: number;
+}

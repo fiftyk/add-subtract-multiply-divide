@@ -12,6 +12,36 @@ import { LoggerFactory } from '../../logger/index.js';
 
 interface PlanOptions {
   functions: string;
+
+  /** Enable automatic mock generation (overrides config and env) */
+  autoMock?: boolean;
+
+  /** Maximum iterations for mock generation (requires autoMock enabled) */
+  mockMaxIterations?: number;
+}
+
+/**
+ * Resolve final mock configuration with proper priority
+ * Priority: CLI args > Environment variables > Config file > Defaults
+ */
+function resolveMockConfig(
+  baseConfig: ReturnType<typeof loadConfig>,
+  options: PlanOptions
+): { autoGenerate: boolean; maxIterations: number; outputDir: string } {
+  let autoGenerate = baseConfig.mock.autoGenerate;
+  let maxIterations = baseConfig.mock.maxIterations;
+  const outputDir = baseConfig.mock.outputDir;
+
+  // Apply CLI overrides (highest priority)
+  if (options.autoMock !== undefined) {
+    autoGenerate = options.autoMock;
+  }
+
+  if (options.mockMaxIterations !== undefined) {
+    maxIterations = options.mockMaxIterations;
+  }
+
+  return { autoGenerate, maxIterations, outputDir };
 }
 
 export async function planCommand(
@@ -71,6 +101,9 @@ export async function planCommand(
     // 创建 logger (支持 LOG_LEVEL 环境变量)
     const logger = LoggerFactory.createFromEnv();
 
+    // 解析最终的 mock 配置（应用 CLI 参数优先级）
+    const mockConfig = resolveMockConfig(config, options);
+
     // 创建 LLM 客户端
     const llmClient = new AnthropicPlannerLLMClient({
       apiKey: config.api.apiKey,
@@ -83,22 +116,38 @@ export async function planCommand(
     // 创建基础规划器
     const basePlanner = new Planner(registry, llmClient);
 
-    // 创建 mock 服务编排器
-    const mockOrchestrator = MockServiceFactory.create({
-      apiKey: config.api.apiKey,
-      baseURL: config.api.baseURL,
-      outputDir: config.mock.outputDir,
-      registry,
-      logger,
-    });
+    // 根据配置决定是否启用 mock 支持
+    let planner: Planner | PlannerWithMockSupport;
 
-    // 使用装饰器包装规划器，添加 mock 支持（OCP - 不修改原有 Planner）
-    const planner = new PlannerWithMockSupport(
-      basePlanner,
-      mockOrchestrator,
-      registry,
-      logger
-    );
+    if (mockConfig.autoGenerate) {
+      // 启用 mock 自动生成
+      logger.debug('Mock 自动生成已启用', {
+        maxIterations: mockConfig.maxIterations,
+        outputDir: mockConfig.outputDir,
+      });
+
+      // 创建 mock 服务编排器
+      const mockOrchestrator = MockServiceFactory.create({
+        apiKey: config.api.apiKey,
+        baseURL: config.api.baseURL,
+        outputDir: mockConfig.outputDir,
+        registry,
+        logger,
+      });
+
+      // 使用装饰器包装规划器，添加 mock 支持（OCP - 不修改原有 Planner）
+      planner = new PlannerWithMockSupport(
+        basePlanner,
+        mockOrchestrator,
+        registry,
+        { maxIterations: mockConfig.maxIterations },
+        logger
+      );
+    } else {
+      // 直接使用基础规划器，不启用 mock 生成
+      logger.debug('Mock 自动生成已禁用');
+      planner = basePlanner;
+    }
 
     const result = await planner.plan(request);
 
@@ -145,6 +194,21 @@ export async function planCommand(
           '⚠️ 计划不完整，请先实现缺失的函数'
         )
       );
+
+      // 如果 mock 生成被禁用，提供友好提示
+      if (!mockConfig.autoGenerate && result.plan?.missingFunctions?.length) {
+        console.log();
+        console.log(
+          chalk.cyan(`💡 提示: 缺少 ${result.plan.missingFunctions.length} 个函数`)
+        );
+        console.log(
+          chalk.gray('   使用 --auto-mock 标志可以自动生成缺失函数的 mock 实现')
+        );
+        console.log(
+          chalk.gray('   或在环境变量中设置 AUTO_GENERATE_MOCK=true')
+        );
+        console.log();
+      }
     }
   } catch (error) {
     console.error(

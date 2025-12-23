@@ -44,6 +44,68 @@ export ANTHROPIC_BASE_URL="https://your-custom-endpoint.com"
 
 如果你使用代理或自定义的 Claude API 端点，可以通过 `ANTHROPIC_BASE_URL` 环境变量指定。如果不设置，将使用 Anthropic 官方端点。
 
+### Mock 自动生成配置
+
+Mock 自动生成允许系统在检测到缺失函数时，自动生成可执行的 mock 实现。
+
+**默认行为**: 禁用（需要明确启用） - Breaking Change from v1.x
+
+#### 启用方式
+
+1. **命令行参数**（最高优先级）:
+```bash
+# 启用 mock 生成
+npx fn-orchestrator plan "你的需求" --auto-mock
+
+# 禁用 mock 生成（覆盖配置文件）
+npx fn-orchestrator plan "你的需求" --no-auto-mock
+
+# 自定义最大迭代次数
+npx fn-orchestrator plan "你的需求" --auto-mock --mock-max-iterations 5
+```
+
+2. **环境变量**:
+```bash
+# 启用 mock 生成
+export AUTO_GENERATE_MOCK=true
+
+# 设置最大迭代次数
+export MOCK_MAX_ITERATIONS=5
+```
+
+3. **.env 文件**（推荐）:
+```bash
+# 在项目根目录创建 .env 文件
+AUTO_GENERATE_MOCK=true
+MOCK_MAX_ITERATIONS=3
+MOCK_OUTPUT_DIR=./functions/generated
+```
+
+#### 配置优先级
+
+命令行参数 > 环境变量 > .env 文件 > 默认值
+
+#### 最佳实践
+
+- **开发阶段**: 启用 `--auto-mock` 快速验证流程
+- **生产环境**: 禁用自动生成，使用真实函数实现
+- **CI/CD**: 通过环境变量统一控制
+
+#### 从 v1.x 迁移
+
+v2.0 将 mock 自动生成改为默认禁用。如需保持原有行为：
+
+```bash
+# 方式 1: 每次命令添加 --auto-mock
+npx fn-orchestrator plan "需求" --auto-mock
+
+# 方式 2: 设置环境变量（推荐）
+export AUTO_GENERATE_MOCK=true
+
+# 方式 3: 创建 .env 文件
+echo "AUTO_GENERATE_MOCK=true" > .env
+```
+
 ## 使用
 
 > 💡 **提示**: 所有命令默认使用 `./dist/functions/index.js` 作为函数文件。如果你的函数在其他位置，使用 `-f` 参数指定路径。
