@@ -7,6 +7,8 @@ import {
   ExecutionTimeoutError,
   getUserFriendlyMessage,
 } from '../errors/index.js';
+import type { ILogger } from '../logger/index.js';
+import { LoggerFactory } from '../logger/index.js';
 
 /**
  * Executor 配置选项
@@ -18,6 +20,11 @@ export interface ExecutorConfig {
    * 设置为 0 表示不限制超时
    */
   stepTimeout?: number;
+
+  /**
+   * Logger instance (optional)
+   */
+  logger?: ILogger;
 }
 
 /**
@@ -26,18 +33,23 @@ export interface ExecutorConfig {
 export class Executor {
   private registry: FunctionRegistry;
   private config: Required<ExecutorConfig>;
+  private logger: ILogger;
 
   constructor(registry: FunctionRegistry, config: ExecutorConfig = {}) {
     this.registry = registry;
     this.config = {
       stepTimeout: config.stepTimeout ?? 30000, // 默认 30 秒
+      logger: config.logger ?? LoggerFactory.create(),
     };
+    this.logger = this.config.logger;
   }
 
   /**
    * 执行计划
    */
   async execute(plan: ExecutionPlan): Promise<ExecutionResult> {
+    this.logger.info('Starting plan execution', { planId: plan.id, stepsCount: plan.steps.length });
+
     const context = new ExecutionContext();
     const stepResults: StepResult[] = [];
     const startedAt = new Date().toISOString();
@@ -47,21 +59,33 @@ export class Executor {
     let overallError: string | undefined;
 
     for (const step of plan.steps) {
+      this.logger.debug('Executing step', { stepId: step.stepId, functionName: step.functionName });
+
       const stepResult = await this.executeStepWithTimeout(step, context);
       stepResults.push(stepResult);
 
       if (!stepResult.success) {
         overallSuccess = false;
         overallError = `步骤 ${step.stepId} 执行失败: ${stepResult.error}`;
+        this.logger.error('Step execution failed', undefined, {
+          stepId: step.stepId,
+          functionName: step.functionName,
+          error: stepResult.error,
+        });
         break;
       }
 
       // 存储结果供后续步骤引用
       context.setStepResult(step.stepId, stepResult.result);
       finalResult = stepResult.result;
+
+      this.logger.debug('Step completed successfully', {
+        stepId: step.stepId,
+        result: stepResult.result
+      });
     }
 
-    return {
+    const result: ExecutionResult = {
       planId: plan.id,
       steps: stepResults,
       finalResult,
@@ -70,6 +94,14 @@ export class Executor {
       startedAt,
       completedAt: new Date().toISOString(),
     };
+
+    this.logger.info('Plan execution completed', {
+      planId: plan.id,
+      success: overallSuccess,
+      stepsCompleted: stepResults.length,
+    });
+
+    return result;
   }
 
   /**
