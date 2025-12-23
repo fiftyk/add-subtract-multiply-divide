@@ -1,4 +1,8 @@
 import type { ParameterValue } from '../planner/types.js';
+import {
+  ParameterResolutionError,
+  StepResultNotFoundError,
+} from '../errors/index.js';
 
 /**
  * 执行上下文 - 存储步骤间的中间结果
@@ -33,14 +37,15 @@ export class ExecutionContext {
     const match = refStr.match(/^step\.(\d+)\.result$/);
 
     if (!match) {
-      throw new Error(`无效的引用格式: ${refStr}`);
+      throw new ParameterResolutionError(refStr, 'step.{stepId}.result');
     }
 
     const stepId = parseInt(match[1], 10);
     const result = this.results.get(stepId);
 
     if (result === undefined) {
-      throw new Error(`步骤 ${stepId} 的结果不存在`);
+      const availableSteps = Array.from(this.results.keys());
+      throw new StepResultNotFoundError(stepId, availableSteps);
     }
 
     return result;

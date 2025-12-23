@@ -43,7 +43,7 @@ describe('ExecutionContext', () => {
         type: 'reference',
         value: 'step.999.result',
       })
-    ).toThrow('步骤 999 的结果不存在');
+    ).toThrow('Result for step 999 does not exist');
   });
 });
 
@@ -378,7 +378,7 @@ describe('Executor', () => {
 
       expect(result.success).toBe(false);
       expect(result.steps[0].success).toBe(false);
-      expect(result.steps[0].error).toContain('timeout');
+      expect(result.steps[0].error).toContain('timed out');
     });
 
     it('should not timeout with stepTimeout set to 0', async () => {

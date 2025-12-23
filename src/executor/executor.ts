@@ -2,6 +2,11 @@ import type { FunctionRegistry } from '../registry/index.js';
 import type { ExecutionPlan } from '../planner/types.js';
 import type { ExecutionResult, StepResult } from './types.js';
 import { ExecutionContext } from './context.js';
+import {
+  FunctionExecutionError,
+  ExecutionTimeoutError,
+  getUserFriendlyMessage,
+} from '../errors/index.js';
 
 /**
  * Executor 配置选项
@@ -83,19 +88,24 @@ export class Executor {
       // 使用 Promise.race 实现超时
       return await Promise.race([
         this.executeStep(step, context),
-        this.createTimeoutPromise(step.stepId, this.config.stepTimeout),
+        this.createTimeoutPromise(step.stepId, step.functionName, this.config.stepTimeout),
       ]);
     } catch (error) {
       // 捕获超时错误并转换为 StepResult 格式
-      return {
-        stepId: step.stepId,
-        functionName: step.functionName,
-        parameters: {},
-        result: undefined,
-        success: false,
-        error: error instanceof Error ? error.message : 'Execution timeout',
-        executedAt: new Date().toISOString(),
-      };
+      if (error instanceof ExecutionTimeoutError) {
+        // 解析参数以包含在错误结果中
+        const resolvedParams = context.resolveParameters(step.parameters);
+        return {
+          stepId: step.stepId,
+          functionName: step.functionName,
+          parameters: resolvedParams,
+          result: undefined,
+          success: false,
+          error: error.message,
+          executedAt: new Date().toISOString(),
+        };
+      }
+      throw error; // 重新抛出非超时错误
     }
   }
 
@@ -104,15 +114,12 @@ export class Executor {
    */
   private createTimeoutPromise(
     stepId: number,
+    functionName: string,
     timeout: number
   ): Promise<StepResult> {
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(
-          new Error(
-            `Step ${stepId} execution timeout after ${timeout}ms`
-          )
-        );
+        reject(new ExecutionTimeoutError(stepId, functionName, timeout));
       }, timeout);
     });
   }
@@ -125,10 +132,11 @@ export class Executor {
     context: ExecutionContext
   ): Promise<StepResult> {
     const executedAt = new Date().toISOString();
+    let resolvedParams: Record<string, unknown> = {};
 
     try {
       // 解析参数
-      const resolvedParams = context.resolveParameters(step.parameters);
+      resolvedParams = context.resolveParameters(step.parameters);
 
       // 执行函数（支持异步）
       const result = await this.registry.execute(step.functionName, resolvedParams);
@@ -142,13 +150,20 @@ export class Executor {
         executedAt,
       };
     } catch (error) {
+      // 包装为 FunctionExecutionError 以保留上下文
+      const executionError = new FunctionExecutionError(
+        step.functionName,
+        resolvedParams,
+        error
+      );
+
       return {
         stepId: step.stepId,
         functionName: step.functionName,
-        parameters: {},
+        parameters: resolvedParams,
         result: undefined,
         success: false,
-        error: error instanceof Error ? error.message : '未知错误',
+        error: getUserFriendlyMessage(executionError),
         executedAt,
       };
     }

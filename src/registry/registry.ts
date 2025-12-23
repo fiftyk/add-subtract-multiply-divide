@@ -1,4 +1,8 @@
 import type { FunctionDefinition, FunctionDefinitionInput } from './types.js';
+import {
+  FunctionNotFoundError,
+  FunctionAlreadyRegisteredError,
+} from '../errors/index.js';
 
 /**
  * 创建函数定义
@@ -25,7 +29,7 @@ export class FunctionRegistry {
    */
   register(fn: FunctionDefinition): void {
     if (this.functions.has(fn.name)) {
-      throw new Error(`Function "${fn.name}" already registered`);
+      throw new FunctionAlreadyRegisteredError(fn.name);
     }
     this.functions.set(fn.name, fn);
   }
@@ -81,7 +85,8 @@ ${params || '    (无参数)'}
   async execute(name: string, params: Record<string, unknown>): Promise<unknown> {
     const fn = this.functions.get(name);
     if (!fn) {
-      throw new Error(`Function "${name}" not found`);
+      const availableFunctions = Array.from(this.functions.keys());
+      throw new FunctionNotFoundError(name, availableFunctions);
     }
 
     // 按参数定义顺序提取参数值

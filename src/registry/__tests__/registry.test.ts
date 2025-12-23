@@ -38,7 +38,7 @@ describe('FunctionRegistry', () => {
       });
 
       registry.register(fn);
-      expect(() => registry.register(fn)).toThrow('Function "add" already registered');
+      expect(() => registry.register(fn)).toThrow('Function "add" is already registered');
     });
   });
 
