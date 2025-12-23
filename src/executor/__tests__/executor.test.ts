@@ -1,0 +1,285 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { Executor } from '../executor.js';
+import { ExecutionContext } from '../context.js';
+import { FunctionRegistry, defineFunction } from '../../registry/index.js';
+import type { ExecutionPlan } from '../../planner/types.js';
+
+describe('ExecutionContext', () => {
+  let context: ExecutionContext;
+
+  beforeEach(() => {
+    context = new ExecutionContext();
+  });
+
+  it('should store and retrieve step results', () => {
+    context.setStepResult(1, 10);
+    expect(context.getStepResult(1)).toBe(10);
+  });
+
+  it('should return undefined for non-existent step', () => {
+    expect(context.getStepResult(999)).toBeUndefined();
+  });
+
+  it('should resolve literal parameter values', () => {
+    const value = context.resolveParameterValue({
+      type: 'literal',
+      value: 42,
+    });
+    expect(value).toBe(42);
+  });
+
+  it('should resolve reference parameter values', () => {
+    context.setStepResult(1, 100);
+    const value = context.resolveParameterValue({
+      type: 'reference',
+      value: 'step.1.result',
+    });
+    expect(value).toBe(100);
+  });
+
+  it('should throw for invalid reference', () => {
+    expect(() =>
+      context.resolveParameterValue({
+        type: 'reference',
+        value: 'step.999.result',
+      })
+    ).toThrow('步骤 999 的结果不存在');
+  });
+});
+
+describe('Executor', () => {
+  let executor: Executor;
+  let registry: FunctionRegistry;
+
+  beforeEach(() => {
+    registry = new FunctionRegistry();
+
+    registry.register(
+      defineFunction({
+        name: 'add',
+        description: '加法',
+        scenario: '加',
+        parameters: [
+          { name: 'a', type: 'number', description: '' },
+          { name: 'b', type: 'number', description: '' },
+        ],
+        returns: { type: 'number', description: '' },
+        implementation: (a: number, b: number) => a + b,
+      })
+    );
+
+    registry.register(
+      defineFunction({
+        name: 'subtract',
+        description: '减法',
+        scenario: '减',
+        parameters: [
+          { name: 'a', type: 'number', description: '' },
+          { name: 'b', type: 'number', description: '' },
+        ],
+        returns: { type: 'number', description: '' },
+        implementation: (a: number, b: number) => a - b,
+      })
+    );
+
+    registry.register(
+      defineFunction({
+        name: 'multiply',
+        description: '乘法',
+        scenario: '乘',
+        parameters: [
+          { name: 'a', type: 'number', description: '' },
+          { name: 'b', type: 'number', description: '' },
+        ],
+        returns: { type: 'number', description: '' },
+        implementation: (a: number, b: number) => a * b,
+      })
+    );
+
+    registry.register(
+      defineFunction({
+        name: 'divide',
+        description: '除法',
+        scenario: '除',
+        parameters: [
+          { name: 'a', type: 'number', description: '' },
+          { name: 'b', type: 'number', description: '' },
+        ],
+        returns: { type: 'number', description: '' },
+        implementation: (a: number, b: number) => {
+          if (b === 0) throw new Error('除数不能为0');
+          return a / b;
+        },
+      })
+    );
+
+    executor = new Executor(registry);
+  });
+
+  describe('execute', () => {
+    it('should execute a single-step plan', async () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-001',
+        userRequest: '3 + 5',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'add',
+            description: '加法',
+            parameters: {
+              a: { type: 'literal', value: 3 },
+              b: { type: 'literal', value: 5 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+
+      expect(result.success).toBe(true);
+      expect(result.finalResult).toBe(8);
+      expect(result.steps).toHaveLength(1);
+      expect(result.steps[0].result).toBe(8);
+    });
+
+    it('should execute a multi-step plan with references', async () => {
+      // (3 + 5) * 2 = 16
+      const plan: ExecutionPlan = {
+        id: 'plan-002',
+        userRequest: '(3 + 5) * 2',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'add',
+            description: '3 + 5',
+            parameters: {
+              a: { type: 'literal', value: 3 },
+              b: { type: 'literal', value: 5 },
+            },
+          },
+          {
+            stepId: 2,
+            functionName: 'multiply',
+            description: '* 2',
+            parameters: {
+              a: { type: 'reference', value: 'step.1.result' },
+              b: { type: 'literal', value: 2 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+
+      expect(result.success).toBe(true);
+      expect(result.finalResult).toBe(16);
+      expect(result.steps[0].result).toBe(8);
+      expect(result.steps[1].result).toBe(16);
+    });
+
+    it('should handle execution errors', async () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-003',
+        userRequest: '10 / 0',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'divide',
+            description: '除法',
+            parameters: {
+              a: { type: 'literal', value: 10 },
+              b: { type: 'literal', value: 0 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+
+      expect(result.success).toBe(false);
+      expect(result.steps[0].success).toBe(false);
+      expect(result.steps[0].error).toContain('除数不能为0');
+    });
+
+    it('should execute complex chained operations', async () => {
+      // ((10 - 3) * 4) / 2 = 14
+      const plan: ExecutionPlan = {
+        id: 'plan-004',
+        userRequest: '((10 - 3) * 4) / 2',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'subtract',
+            description: '10 - 3',
+            parameters: {
+              a: { type: 'literal', value: 10 },
+              b: { type: 'literal', value: 3 },
+            },
+          },
+          {
+            stepId: 2,
+            functionName: 'multiply',
+            description: '* 4',
+            parameters: {
+              a: { type: 'reference', value: 'step.1.result' },
+              b: { type: 'literal', value: 4 },
+            },
+          },
+          {
+            stepId: 3,
+            functionName: 'divide',
+            description: '/ 2',
+            parameters: {
+              a: { type: 'reference', value: 'step.2.result' },
+              b: { type: 'literal', value: 2 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+
+      expect(result.success).toBe(true);
+      expect(result.steps[0].result).toBe(7); // 10 - 3
+      expect(result.steps[1].result).toBe(28); // 7 * 4
+      expect(result.steps[2].result).toBe(14); // 28 / 2
+      expect(result.finalResult).toBe(14);
+    });
+  });
+
+  describe('formatResultForDisplay', () => {
+    it('should format successful result', async () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-001',
+        userRequest: '3 + 5',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'add',
+            description: '加法',
+            parameters: {
+              a: { type: 'literal', value: 3 },
+              b: { type: 'literal', value: 5 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+      const display = executor.formatResultForDisplay(result);
+
+      expect(display).toContain('✅');
+      expect(display).toContain('8');
+    });
+  });
+});
