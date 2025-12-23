@@ -64,8 +64,8 @@ export class Executor {
       // 解析参数
       const resolvedParams = context.resolveParameters(step.parameters);
 
-      // 执行函数
-      const result = this.registry.execute(step.functionName, resolvedParams);
+      // 执行函数（支持异步）
+      const result = await this.registry.execute(step.functionName, resolvedParams);
 
       return {
         stepId: step.stepId,

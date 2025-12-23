@@ -122,7 +122,7 @@ describe('FunctionRegistry', () => {
   });
 
   describe('execute', () => {
-    it('should execute a registered function', () => {
+    it('should execute a registered function', async () => {
       const fn = defineFunction({
         name: 'add',
         description: '加法',
@@ -136,15 +136,15 @@ describe('FunctionRegistry', () => {
       });
 
       registry.register(fn);
-      const result = registry.execute('add', { a: 3, b: 5 });
+      const result = await registry.execute('add', { a: 3, b: 5 });
       expect(result).toBe(8);
     });
 
-    it('should throw for non-existent function', () => {
-      expect(() => registry.execute('nonexistent', {})).toThrow('Function "nonexistent" not found');
+    it('should throw for non-existent function', async () => {
+      await expect(registry.execute('nonexistent', {})).rejects.toThrow('Function "nonexistent" not found');
     });
 
-    it('should pass parameters in correct order', () => {
+    it('should pass parameters in correct order', async () => {
       const fn = defineFunction({
         name: 'subtract',
         description: '减法',
@@ -158,7 +158,7 @@ describe('FunctionRegistry', () => {
       });
 
       registry.register(fn);
-      const result = registry.execute('subtract', { a: 10, b: 3 });
+      const result = await registry.execute('subtract', { a: 10, b: 3 });
       expect(result).toBe(7);
     });
   });

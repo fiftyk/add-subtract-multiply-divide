@@ -76,9 +76,9 @@ ${params || '    (无参数)'}
   }
 
   /**
-   * 执行函数
+   * 执行函数（支持同步和异步函数）
    */
-  execute(name: string, params: Record<string, unknown>): unknown {
+  async execute(name: string, params: Record<string, unknown>): Promise<unknown> {
     const fn = this.functions.get(name);
     if (!fn) {
       throw new Error(`Function "${name}" not found`);
@@ -86,7 +86,14 @@ ${params || '    (无参数)'}
 
     // 按参数定义顺序提取参数值
     const args = fn.parameters.map((p) => params[p.name]);
-    return fn.implementation(...args);
+    const result = fn.implementation(...args);
+
+    // 如果返回 Promise，等待其完成
+    if (result instanceof Promise) {
+      return await result;
+    }
+
+    return result;
   }
 
   /**

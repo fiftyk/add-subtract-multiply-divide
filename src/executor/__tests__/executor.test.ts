@@ -113,6 +113,25 @@ describe('Executor', () => {
       })
     );
 
+    // 添加异步函数用于测试
+    registry.register(
+      defineFunction({
+        name: 'asyncAdd',
+        description: '异步加法',
+        scenario: '异步计算',
+        parameters: [
+          { name: 'a', type: 'number', description: '' },
+          { name: 'b', type: 'number', description: '' },
+        ],
+        returns: { type: 'number', description: '' },
+        implementation: async (a: number, b: number) => {
+          // 模拟异步操作
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return a + b;
+        },
+      })
+    );
+
     executor = new Executor(registry);
   });
 
@@ -252,6 +271,69 @@ describe('Executor', () => {
       expect(result.steps[1].result).toBe(28); // 7 * 4
       expect(result.steps[2].result).toBe(14); // 28 / 2
       expect(result.finalResult).toBe(14);
+    });
+
+    it('should execute async functions', async () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-005',
+        userRequest: 'async 3 + 5',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'asyncAdd',
+            description: '异步加法',
+            parameters: {
+              a: { type: 'literal', value: 3 },
+              b: { type: 'literal', value: 5 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+
+      expect(result.success).toBe(true);
+      expect(result.finalResult).toBe(8);
+      expect(result.steps[0].result).toBe(8);
+    });
+
+    it('should execute mixed sync and async functions in chain', async () => {
+      // (async 3 + 5) * 2 = 16
+      const plan: ExecutionPlan = {
+        id: 'plan-006',
+        userRequest: '(async 3 + 5) * 2',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'asyncAdd',
+            description: 'async add',
+            parameters: {
+              a: { type: 'literal', value: 3 },
+              b: { type: 'literal', value: 5 },
+            },
+          },
+          {
+            stepId: 2,
+            functionName: 'multiply',
+            description: '* 2',
+            parameters: {
+              a: { type: 'reference', value: 'step.1.result' },
+              b: { type: 'literal', value: 2 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const result = await executor.execute(plan);
+
+      expect(result.success).toBe(true);
+      expect(result.steps[0].result).toBe(8);
+      expect(result.steps[1].result).toBe(16);
+      expect(result.finalResult).toBe(16);
     });
   });
 
