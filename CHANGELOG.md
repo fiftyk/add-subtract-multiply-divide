@@ -22,12 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 友好提示：告知用户可以编辑 Mock 文件
 
 ### Changed
-- 📝 更新 README 文档，添加交互模式和 refine 命令的详细说明
-- 📝 新增 CHANGELOG.md，记录版本历史和变更
-- 📊 更新测试统计，当前总计 149 个测试用例
-- 💬 改进交互提示：更清晰的命令说明（execute(e) / show(s) / quit(q)）
+- 🗂️ **Mock 函数存储架构重构**: Mock 函数现在跟随 Plan 存储（而非全局存储）
+  - 新存储路径：`.data/plans/{planId}/mocks/{name}-v{n}.js`
+  - 支持版本迭代：自动检测现有版本并升级（v1 → v2 → v3...）
+  - 新增 `MockFunctionReference` 类型记录版本和路径信息
+  - 生命周期管理：删除 Plan 时自动清理其 Mock 函数
+  - 新增 Storage 方法：`getPlanMocksDir`, `savePlanMock`, `loadPlanMocks`, `deletePlanWithMocks`
+- 🔧 **CLI 参数优先级修复**: `--no-auto-mock` 现在可以正确覆盖 `.env` 中的 `AUTO_GENERATE_MOCK=true`
+  - 修复 `preAction` hook 正确获取子命令选项
+  - CLI 参数现在具有最高优先级
 
 ### Fixed
+- 🐛 修复 `--no-auto-mock` CLI 参数被 `.env` 覆盖的问题
+- 🐛 修复 `preAction` hook 无法获取子命令选项的问题
 - 🐛 修复交互模式中的字符编码问题（乱码字符）
 - 🧹 代码清理：移除 `interactivePlanFlow` 中未使用的 `basePlanner` 参数
 - 🚪 改进退出逻辑：`quit` 命令不再调用 `process.exit(0)`，使用 `break` 优雅退出循环

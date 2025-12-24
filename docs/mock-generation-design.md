@@ -7,10 +7,12 @@
 ## 核心需求
 
 1. **自动生成 mock 代码** - LLM 生成能跑通的 TypeScript 实现
-2. **保存真实文件** - 生成到 `functions/generated/` 目录
-3. **自动注册** - 动态加载并注册到 FunctionRegistry
-4. **标记 MOCK 状态** - 执行时清楚显示这是模拟数据
-5. **供开发者完善** - 生成的代码可编辑和改进（"悬赏模式"）
+2. **Plan 跟随存储** - Mock 存储在 `.data/plans/{planId}/mocks/` 目录
+3. **版本管理** - 支持版本迭代（v1, v2, v3...）
+4. **自动注册** - 动态加载并注册到 FunctionRegistry
+5. **标记 MOCK 状态** - 执行时清楚显示这是模拟数据
+6. **生命周期管理** - 删除 plan 时自动清理其 mock 函数
+7. **供开发者完善** - 生成的代码可编辑和改进（"悬赏模式"）
 
 ## SOLID 设计原则
 
@@ -81,8 +83,18 @@ src/
     └── registry.ts          # 不修改
 
 functions/
-└── generated/               # 新增：自动生成的 mock 函数
+└── generated/               # 遗留：兼容旧版本
     └── .gitkeep
+
+.data/
+└── plans/
+    └── {planId}/            # Plan 专属目录
+        ├── v1.json          # Plan 版本 1
+        ├── v2.json          # Plan 版本 2
+        └── mocks/           # Plan 专属 mock 目录
+            ├── power-v1.js  # 第 1 轮生成
+            ├── power-v2.js  # 第 2 轮升级
+            └── sqrt-v1.js   # 其他 mock
 ```
 
 ### 类关系图
@@ -213,12 +225,20 @@ interface MockGenerationResult {
   errors?: Array<{functionName: string; error: string}>;
 }
 
+// Mock 函数引用 - 记录 Plan 使用的 mock 函数详细信息（新架构）
+interface MockFunctionReference {
+  name: string;              // 函数名
+  version: number;           // 版本号 (1, 2, 3...)
+  filePath: string;          // 相对路径，如 "mocks/power-v1.js"
+  generatedAt: string;       // 生成时间
+}
+
 // 扩展现有类型
 interface ExecutionPlan {
   // ... 现有字段
   metadata?: {
     usesMocks?: boolean;
-    mockFunctions?: string[];
+    mockFunctions?: MockFunctionReference[];  // 改为对象数组（新架构）
   };
 }
 ```
@@ -250,16 +270,30 @@ ${code}
 }
 ```
 
-### 2. MockOrchestrator - 协调器
+### 2. MockOrchestrator - 协调器（新架构）
 
 ```typescript
 export class MockOrchestrator implements IMockOrchestrator {
   constructor(
+    private planId: string,              // 新增：Plan ID
+    private storage: Storage,            // 新增：Storage 实例
     private codeGenerator: IMockCodeGenerator,
     private fileWriter: IMockFileWriter,
     private functionLoader: IMockFunctionLoader,
     private metadataProvider: IMockMetadataProvider
   ) {}
+
+  // 获取下一个版本号
+  private async getNextVersion(functionName: string): Promise<number> {
+    const mocksDir = this.storage.getPlanMocksDir(this.planId);
+    const files = await fs.readdir(mocksDir);
+    const pattern = new RegExp(`^${functionName}-v(\\d+)\\.js$`);
+    const versions = files
+      .map(f => pattern.exec(f)?.[1])
+      .filter(Boolean)
+      .map(v => parseInt(v!, 10));
+    return versions.length > 0 ? Math.max(...versions) + 1 : 1;
+  }
 
   async generateAndRegisterMocks(
     missingFunctions: MissingFunction[]
@@ -267,19 +301,24 @@ export class MockOrchestrator implements IMockOrchestrator {
     const results: MockMetadata[] = [];
 
     for (const missing of missingFunctions) {
-      // 1. 生成代码
+      // 1. 确定版本号
+      const version = await this.getNextVersion(missing.name);
+
+      // 2. 生成代码
       const code = await this.codeGenerator.generate({...missing});
 
-      // 2. 写入文件
-      const filePath = await this.fileWriter.write(
-        code,
-        `${missing.name}-${Date.now()}.ts`
+      // 3. 保存到 Plan 专属目录（使用版本号）
+      const relativePath = await this.storage.savePlanMock(
+        this.planId,
+        missing.name,
+        version,
+        code
       );
 
-      // 3. 动态加载
+      // 4. 动态加载
       const functions = await this.functionLoader.load(filePath);
 
-      // 4. 注册并标记
+      // 5. 注册并标记
       this.functionLoader.register(registry, functions);
       const metadata = {...};
       this.metadataProvider.markAsMock(missing.name, metadata);
