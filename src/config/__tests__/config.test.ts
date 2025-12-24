@@ -16,6 +16,7 @@ describe('Configuration System', () => {
   describe('loadConfig', () => {
     it('should throw error if no API key is provided', () => {
       delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.ANTHROPIC_AUTH_TOKEN;
       expect(() => loadConfig()).toThrow('API key is required');
     });
 
@@ -66,6 +67,71 @@ describe('Configuration System', () => {
       const config = loadConfig();
 
       expect(config.mock.outputDir).toContain('custom-mocks');
+    });
+
+    it('should load mock autoGenerate from environment variables', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-api-key';
+      process.env.AUTO_GENERATE_MOCK = 'true';
+      const config = loadConfig();
+
+      expect(config.mock.autoGenerate).toBe(true);
+    });
+
+    it('should parse AUTO_GENERATE_MOCK flexibly', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-api-key';
+
+      const testCases = [
+        { value: 'true', expected: true },
+        { value: 'TRUE', expected: true },
+        { value: '1', expected: true },
+        { value: 'yes', expected: true },
+        { value: 'on', expected: true },
+        { value: 'false', expected: false },
+        { value: 'FALSE', expected: false },
+        { value: '0', expected: false },
+        { value: 'no', expected: false },
+        { value: 'invalid', expected: false },
+      ];
+
+      testCases.forEach(({ value, expected }) => {
+        process.env.AUTO_GENERATE_MOCK = value;
+        const config = loadConfig();
+        expect(config.mock.autoGenerate).toBe(expected);
+      });
+    });
+
+    it('should load mock maxIterations from environment variables', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-api-key';
+      process.env.MOCK_MAX_ITERATIONS = '5';
+      const config = loadConfig();
+
+      expect(config.mock.maxIterations).toBe(5);
+    });
+
+    it('should handle invalid MOCK_MAX_ITERATIONS gracefully', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-api-key';
+      process.env.MOCK_MAX_ITERATIONS = 'invalid';
+      const config = loadConfig();
+
+      // Should use default value (3) when invalid
+      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+    });
+
+    it('should handle negative MOCK_MAX_ITERATIONS gracefully', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-api-key';
+      process.env.MOCK_MAX_ITERATIONS = '-1';
+      const config = loadConfig();
+
+      // Should use default value when negative
+      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+    });
+
+    it('should use default mock config when env vars are not set', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-api-key';
+      const config = loadConfig();
+
+      expect(config.mock.autoGenerate).toBe(DEFAULT_CONFIG.mock.autoGenerate);
+      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
     });
 
     it('should use default values when env vars are not set', () => {

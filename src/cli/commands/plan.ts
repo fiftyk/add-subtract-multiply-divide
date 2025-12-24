@@ -7,41 +7,11 @@ import {
   PlannerWithMockSupport,
   MockServiceFactory,
 } from '../../mock/index.js';
-import { loadConfig } from '../../config/index.js';
+import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 
 interface PlanOptions {
   functions: string;
-
-  /** Enable automatic mock generation (overrides config and env) */
-  autoMock?: boolean;
-
-  /** Maximum iterations for mock generation (requires autoMock enabled) */
-  mockMaxIterations?: number;
-}
-
-/**
- * Resolve final mock configuration with proper priority
- * Priority: CLI args > Environment variables > Config file > Defaults
- */
-function resolveMockConfig(
-  baseConfig: ReturnType<typeof loadConfig>,
-  options: PlanOptions
-): { autoGenerate: boolean; maxIterations: number; outputDir: string } {
-  let autoGenerate = baseConfig.mock.autoGenerate;
-  let maxIterations = baseConfig.mock.maxIterations;
-  const outputDir = baseConfig.mock.outputDir;
-
-  // Apply CLI overrides (highest priority)
-  if (options.autoMock !== undefined) {
-    autoGenerate = options.autoMock;
-  }
-
-  if (options.mockMaxIterations !== undefined) {
-    maxIterations = options.mockMaxIterations;
-  }
-
-  return { autoGenerate, maxIterations, outputDir };
 }
 
 export async function planCommand(
@@ -53,15 +23,8 @@ export async function planCommand(
     console.log(chalk.gray(`用户需求: ${request}`));
     console.log();
 
-    // Load configuration from environment
-    let config;
-    try {
-      config = loadConfig();
-    } catch (error) {
-      console.log(chalk.red(`❌ ${error instanceof Error ? error.message : '配置错误'}`));
-      console.log(chalk.gray('提示: 设置 ANTHROPIC_API_KEY 环境变量'));
-      process.exit(1);
-    }
+    // Get centralized configuration (initialized by CLI hook)
+    const config = ConfigManager.get();
 
     // 加载内置函数
     const registry = new FunctionRegistry();
@@ -101,9 +64,6 @@ export async function planCommand(
     // 创建 logger (支持 LOG_LEVEL 环境变量)
     const logger = LoggerFactory.createFromEnv();
 
-    // 解析最终的 mock 配置（应用 CLI 参数优先级）
-    const mockConfig = resolveMockConfig(config, options);
-
     // 创建 LLM 客户端
     const llmClient = new AnthropicPlannerLLMClient({
       apiKey: config.api.apiKey,
@@ -119,18 +79,18 @@ export async function planCommand(
     // 根据配置决定是否启用 mock 支持
     let planner: Planner | PlannerWithMockSupport;
 
-    if (mockConfig.autoGenerate) {
+    if (config.mock.autoGenerate) {
       // 启用 mock 自动生成
       logger.debug('Mock 自动生成已启用', {
-        maxIterations: mockConfig.maxIterations,
-        outputDir: mockConfig.outputDir,
+        maxIterations: config.mock.maxIterations,
+        outputDir: config.mock.outputDir,
       });
 
       // 创建 mock 服务编排器
       const mockOrchestrator = MockServiceFactory.create({
         apiKey: config.api.apiKey,
         baseURL: config.api.baseURL,
-        outputDir: mockConfig.outputDir,
+        outputDir: config.mock.outputDir,
         registry,
         logger,
       });
@@ -140,7 +100,7 @@ export async function planCommand(
         basePlanner,
         mockOrchestrator,
         registry,
-        { maxIterations: mockConfig.maxIterations },
+        { maxIterations: config.mock.maxIterations },
         logger
       );
     } else {
@@ -196,7 +156,7 @@ export async function planCommand(
       );
 
       // 如果 mock 生成被禁用，提供友好提示
-      if (!mockConfig.autoGenerate && result.plan?.missingFunctions?.length) {
+      if (!config.mock.autoGenerate && result.plan?.missingFunctions?.length) {
         console.log();
         console.log(
           chalk.cyan(`💡 提示: 缺少 ${result.plan.missingFunctions.length} 个函数`)

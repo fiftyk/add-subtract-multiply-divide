@@ -3,13 +3,31 @@ import { Command } from 'commander';
 import { planCommand } from './commands/plan.js';
 import { executeCommand } from './commands/execute.js';
 import { listCommand } from './commands/list.js';
+import { ConfigManager } from '../config/index.js';
 
 const program = new Command();
 
 program
   .name('fn-orchestrator')
   .description('基于 LLM 的函数编排系统')
-  .version('1.0.0');
+  .version('2.0.0');
+
+// Global hook: Initialize ConfigManager before any command runs
+// This centralizes configuration from CLI args, env vars, and config files
+program.hook('preAction', (thisCommand) => {
+  // Avoid double initialization (though shouldn't happen in practice)
+  if (!ConfigManager.isInitialized()) {
+    const opts = thisCommand.opts();
+
+    // Initialize with CLI options (if present)
+    // Commands without these options will have undefined values,
+    // causing ConfigManager to fall back to env vars or defaults
+    ConfigManager.initialize({
+      autoMock: opts.autoMock,
+      mockMaxIterations: opts.mockMaxIterations,
+    });
+  }
+});
 
 // plan 命令
 program

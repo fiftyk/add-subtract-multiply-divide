@@ -20,12 +20,15 @@ describe('PlannerWithMockSupport', () => {
       generateAndRegisterMocks: vi.fn(),
     };
 
-    registry = {} as FunctionRegistry;
+    registry = {
+      getAll: vi.fn().mockReturnValue([]),
+    } as unknown as FunctionRegistry;
 
     plannerWithMockSupport = new PlannerWithMockSupport(
       basePlanner,
       mockOrchestrator,
-      registry
+      registry,
+      { maxIterations: 3 } // Add required config parameter
     );
   });
 
