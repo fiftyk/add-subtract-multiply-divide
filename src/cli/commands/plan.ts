@@ -1,7 +1,9 @@
 import chalk from 'chalk';
+import inquirer from 'inquirer';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
+import { Executor } from '../../executor/executor.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 import {
   PlannerWithMockSupport,
@@ -9,9 +11,17 @@ import {
 } from '../../mock/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
+import {
+  InteractivePlanService,
+  SessionStorage,
+  AnthropicPlanRefinementLLMClient,
+} from '../../services/index.js';
+import type { ExecutionPlan } from '../../planner/types.js';
+import type { AppConfig } from '../../config/types.js';
 
 interface PlanOptions {
   functions: string;
+  interactive?: boolean;
 }
 
 export async function planCommand(
@@ -143,12 +153,17 @@ export async function planCommand(
     }
 
     if (result.plan.status === 'executable') {
-      console.log(
-        chalk.cyan(
-          `执行命令: npx fn-orchestrator execute ${result.plan.id}`
-        )
-      );
-      process.exit(0);
+      // 检查是否为交互模式
+      if (options.interactive) {
+        await interactivePlanFlow(result.plan, config, registry, storage);
+      } else {
+        console.log(
+          chalk.cyan(
+            `执行命令: npx fn-orchestrator execute ${result.plan.id}`
+          )
+        );
+        process.exit(0);
+      }
     } else {
       console.log(
         chalk.yellow(
@@ -178,4 +193,203 @@ export async function planCommand(
     );
     process.exit(1);
   }
+}
+
+/**
+ * 交互式 Plan 流程（简化版）
+ *
+ * @param plan - 刚创建的计划
+ * @param config - 配置对象
+ * @param registry - 函数注册表
+ * @param storage - 存储实例
+ */
+async function interactivePlanFlow(
+  plan: ExecutionPlan,
+  config: AppConfig,
+  registry: FunctionRegistry,
+  storage: Storage
+): Promise<void> {
+  let currentPlan = plan;
+  let currentPlanId = plan.id;
+
+  // 处理用户中断（Ctrl+C）
+  const handleInterrupt = () => {
+    console.log();
+    console.log(chalk.yellow('👋 用户中断，已退出'));
+    process.exit(0);
+  };
+  process.on('SIGINT', handleInterrupt);
+
+  // 初始化 Service（用于改进）
+  const sessionStorage = new SessionStorage(config.storage.dataDir);
+  const llmClient = new AnthropicPlannerLLMClient({
+    apiKey: config.api.apiKey,
+    model: config.llm.model,
+    maxTokens: config.llm.maxTokens,
+    baseURL: config.api.baseURL,
+  });
+  const planner = new Planner(registry, llmClient);
+  const refinementLLMClient = new AnthropicPlanRefinementLLMClient({
+    apiKey: config.api.apiKey,
+    model: config.llm.model,
+    maxTokens: config.llm.maxTokens,
+    baseURL: config.api.baseURL,
+  });
+  const service = new InteractivePlanService(
+    planner,
+    storage,
+    sessionStorage,
+    refinementLLMClient,
+    registry
+  );
+
+  let sessionId: string | undefined;
+
+  try {
+    while (true) {
+      console.log();
+      console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+      console.log();
+
+      // 直接输入操作
+      const { input } = await inquirer.prompt([{
+        type: 'input',
+        name: 'input',
+        message: '请输入操作（改进指令 / "execute"(e) 执行 / "show"(s) 查看 / "quit"(q) 退出）：',
+      }]);
+
+      const command = input.trim().toLowerCase();
+
+      // 执行命令
+      if (command === 'execute' || command === 'e') {
+        await executePlanInline(currentPlan, registry, config);
+        break;  // 执行完成后退出
+      }
+      // 退出命令
+      else if (command === 'quit' || command === 'q') {
+        console.log(chalk.gray('已退出'));
+        break;
+      }
+      // 显示当前计划
+      else if (command === 'show' || command === 's') {
+        console.log();
+        console.log(chalk.cyan('📋 当前计划：'));
+        console.log();
+        console.log(formatPlanForDisplay(currentPlan));
+        continue;
+      }
+      // 空输入
+      else if (!input.trim()) {
+        console.log(chalk.yellow('⚠️  请输入有效的操作'));
+        continue;
+      }
+      // 其他输入视为改进指令
+      else {
+        console.log();
+        console.log(chalk.gray('🤖 正在处理修改...'));
+
+        try {
+          // 确保是版本化 ID
+          const { basePlanId, version } = storage.parsePlanId(currentPlanId);
+          if (!version) {
+            // 迁移旧格式到 v1
+            await storage.savePlanVersion(currentPlan, basePlanId, 1);
+            currentPlanId = `${basePlanId}-v1`;
+          }
+
+          // 调用改进服务
+          const result = await service.refinePlan(currentPlanId, input, sessionId);
+
+          currentPlanId = result.newPlan.fullId;
+          currentPlan = result.newPlan.plan;
+          sessionId = result.session.sessionId;
+
+          console.log();
+          console.log(chalk.green(`✅ Plan 已更新：${result.newPlan.fullId}`));
+          console.log();
+          console.log(chalk.cyan('📋 改动说明：'));
+          for (const change of result.changes) {
+            console.log(chalk.gray(`  • ${change.description}`));
+          }
+          console.log();
+
+          // 显示更新后的计划
+          console.log(chalk.cyan(`📋 更新后的计划：`));
+          console.log();
+          console.log(formatPlanForDisplay(currentPlan));
+        } catch (error) {
+          console.log();
+          console.log(chalk.red(`❌ 改进失败: ${error instanceof Error ? error.message : '未知错误'}`));
+          console.log();
+          console.log(chalk.yellow('💡 提示：请尝试更具体的描述，或输入 "execute" 执行，"quit" 退出'));
+          console.log();
+        }
+      }
+    }
+  } finally {
+    // 清理 SIGINT 监听器
+    process.off('SIGINT', handleInterrupt);
+  }
+}
+
+/**
+ * 内联执行计划
+ */
+async function executePlanInline(
+  plan: ExecutionPlan,
+  registry: FunctionRegistry,
+  config: AppConfig
+): Promise<void> {
+  console.log();
+  console.log(chalk.blue('🚀 开始执行计划...'));
+  console.log();
+
+  const executor = new Executor(registry, {
+    stepTimeout: config.executor.stepTimeout,
+  });
+
+  const result = await executor.execute(plan);
+
+  console.log(executor.formatResultForDisplay(result));
+
+  if (result.success) {
+    console.log();
+    console.log(chalk.green(`✅ 执行成功！最终结果: ${JSON.stringify(result.finalResult)}`));
+  } else {
+    console.log();
+    console.log(chalk.red('❌ 执行失败'));
+    if (result.error) {
+      console.log(chalk.red(`错误: ${result.error}`));
+    }
+  }
+}
+
+/**
+ * 格式化 plan 用于显示
+ */
+function formatPlanForDisplay(plan: ExecutionPlan): string {
+  const lines: string[] = [];
+
+  lines.push(chalk.gray(`用户需求: ${plan.userRequest}`));
+  lines.push(chalk.gray(`状态: ${plan.status === 'executable' ? '✅ 可执行' : '⚠️  不完整'}`));
+  lines.push('');
+  lines.push(chalk.white('步骤:'));
+
+  for (const step of plan.steps) {
+    const params = Object.entries(step.parameters)
+      .map(([k, v]: [string, any]) => {
+        if (v.type === 'reference') {
+          return `${k}=\${${v.value}}`;
+        }
+        return `${k}=${JSON.stringify(v.value)}`;
+      })
+      .join(', ');
+
+    lines.push(chalk.white(`  Step ${step.stepId}: ${step.functionName}(${params})`));
+    if (step.description) {
+      lines.push(chalk.gray(`    → ${step.description}`));
+    }
+  }
+
+  return lines.join('\n');
 }

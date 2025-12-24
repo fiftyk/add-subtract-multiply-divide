@@ -162,4 +162,131 @@ export class Storage {
       return [];
     }
   }
+
+  // ============================================================================
+  // 版本化 Plan 支持（用于交互式改进功能）
+  // ============================================================================
+
+  /**
+   * 保存版本化的 plan
+   * 文件名格式：plan-{basePlanId}-v{version}.json
+   *
+   * @param plan - 执行计划
+   * @param basePlanId - 基础 plan ID（不含版本号）
+   * @param version - 版本号
+   */
+  async savePlanVersion(
+    plan: ExecutionPlan,
+    basePlanId: string,
+    version: number
+  ): Promise<void> {
+    await this.ensureDirectories();
+    const versionedId = `${basePlanId}-v${version}`;
+    const filePath = path.join(this.plansDir, `${versionedId}.json`);
+    await this.atomicWrite(filePath, JSON.stringify(plan, null, 2));
+  }
+
+  /**
+   * 加载特定版本的 plan
+   *
+   * @param basePlanId - 基础 plan ID
+   * @param version - 版本号
+   * @returns 指定版本的 plan，如果不存在返回 undefined
+   */
+  async loadPlanVersion(
+    basePlanId: string,
+    version: number
+  ): Promise<ExecutionPlan | undefined> {
+    const versionedId = `${basePlanId}-v${version}`;
+    return this.loadPlan(versionedId);
+  }
+
+  /**
+   * 加载最新版本的 plan
+   *
+   * @param basePlanId - 基础 plan ID
+   * @returns 最新版本的 plan，如果不存在返回 undefined
+   */
+  async loadLatestPlanVersion(
+    basePlanId: string
+  ): Promise<{ plan: ExecutionPlan; version: number } | undefined> {
+    const versions = await this.listPlanVersions(basePlanId);
+    if (versions.length === 0) {
+      return undefined;
+    }
+
+    // 版本号最大的就是最新版本
+    const latestVersion = Math.max(...versions);
+    const plan = await this.loadPlanVersion(basePlanId, latestVersion);
+
+    if (!plan) {
+      return undefined;
+    }
+
+    return { plan, version: latestVersion };
+  }
+
+  /**
+   * 列出某个 plan 的所有版本号
+   *
+   * @param basePlanId - 基础 plan ID
+   * @returns 版本号数组，按升序排列
+   */
+  async listPlanVersions(basePlanId: string): Promise<number[]> {
+    await this.ensureDirectories();
+    try {
+      const files = await fs.readdir(this.plansDir);
+      const versions: number[] = [];
+
+      // 匹配格式：plan-{basePlanId}-v{version}.json
+      const prefix = `${basePlanId}-v`;
+      for (const file of files) {
+        if (file.startsWith(prefix) && file.endsWith('.json')) {
+          const versionPart = file.slice(prefix.length, -5); // 移除 '.json'
+          const version = parseInt(versionPart, 10);
+          if (!isNaN(version)) {
+            versions.push(version);
+          }
+        }
+      }
+
+      // 升序排列
+      return versions.sort((a, b) => a - b);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 解析 plan ID，提取基础 ID 和版本号
+   * 支持格式：
+   * - plan-abc123 -> { basePlanId: 'plan-abc123', version: undefined }
+   * - plan-abc123-v2 -> { basePlanId: 'plan-abc123', version: 2 }
+   *
+   * @param planId - Plan ID（可能包含或不包含版本号）
+   * @returns 基础 ID 和版本号
+   */
+  parsePlanId(planId: string): { basePlanId: string; version?: number } {
+    const match = planId.match(/^(.+)-v(\d+)$/);
+    if (match) {
+      return {
+        basePlanId: match[1],
+        version: parseInt(match[2], 10),
+      };
+    }
+    return { basePlanId: planId };
+  }
+
+  /**
+   * 删除某个 plan 的所有版本
+   *
+   * @param basePlanId - 基础 plan ID
+   */
+  async deletePlanAllVersions(basePlanId: string): Promise<void> {
+    const versions = await this.listPlanVersions(basePlanId);
+    for (const version of versions) {
+      const versionedId = `${basePlanId}-v${version}`;
+      await this.deletePlan(versionedId);
+    }
+  }
 }

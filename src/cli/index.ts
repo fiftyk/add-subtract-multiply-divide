@@ -3,14 +3,25 @@ import { Command } from 'commander';
 import { planCommand } from './commands/plan.js';
 import { executeCommand } from './commands/execute.js';
 import { listCommand } from './commands/list.js';
+import { refineCommand } from './commands/refine.js';
 import { ConfigManager } from '../config/index.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// 读取 package.json 获取版本号
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../../../package.json'), 'utf-8')
+);
 
 const program = new Command();
 
 program
   .name('fn-orchestrator')
   .description('基于 LLM 的函数编排系统')
-  .version('2.0.0');
+  .version(packageJson.version, '-v, --version', '显示版本号');
 
 // Global hook: Initialize ConfigManager before any command runs
 // This centralizes configuration from CLI args, env vars, and config files
@@ -43,6 +54,7 @@ program
     }
     return parsed;
   })
+  .option('-i, --interactive', '交互模式：创建后提供执行/改进选项')
   .action(planCommand);
 
 // execute 命令
@@ -72,5 +84,13 @@ program
   .command('show-plan <planId>')
   .description('显示计划详情')
   .action(listCommand.showPlan);
+
+// refine 命令
+program
+  .command('refine <planId>')
+  .description('交互式改进执行计划')
+  .option('-p, --prompt <text>', '单次改进指令')
+  .option('-s, --session <sessionId>', '继续现有会话')
+  .action(refineCommand);
 
 program.parse();

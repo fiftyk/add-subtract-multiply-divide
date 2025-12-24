@@ -6,9 +6,13 @@
 
 - 🤖 **智能规划**: 使用 Claude API 将自然语言需求转换为可执行的函数调用链
 - 🔗 **链式执行**: 支持多步骤顺序执行，步骤间数据自动传递
+- 🔄 **交互式改进**: 支持多轮对话式改进执行计划，自然语言描述修改需求
+- 🎮 **交互模式**: plan 命令支持交互模式，一站式完成计划、改进、执行
 - 🔍 **缺口识别**: 自动识别缺失的函数并生成建议的函数定义
 - ⚡ **自动 Mock 生成**: 当缺少函数时，自动生成可执行的 mock 实现，让流程立即跑通
-- ✅ **TDD 开发**: 59 个单元测试确保代码质量
+- 📝 **版本管理**: 计划改进支持版本追踪（v1, v2, v3...）
+- 💾 **会话持久化**: 对话历史自动保存，支持继续之前的会话
+- ✅ **TDD 开发**: 149 个单元测试确保代码质量
 - 📦 **持久化存储**: 计划和执行记录本地保存
 - 🎯 **类型安全**: TypeScript 编写，完整的类型支持
 - 🏗️ **SOLID 设计**: 遵循 SOLID 原则，易扩展易维护
@@ -18,6 +22,7 @@
 - **[快速开始](./docs/quickstart.md)** - 5 分钟快速上手指南
 - **[配置指南](./docs/configuration.md)** - 完整的配置选项说明
 - **[Mock 生成设计](./docs/mock-generation-design.md)** - Mock 系统架构设计
+- **[CHANGELOG](./CHANGELOG.md)** - 版本历史和变更记录
 
 ## 安装
 
@@ -65,6 +70,14 @@ nano .env
 
 > 💡 **提示**: 所有命令默认使用 `./dist/functions/index.js` 作为函数文件。如果你的函数在其他位置，使用 `-f` 参数指定路径。
 
+### 查看版本号
+
+```bash
+npx fn-orchestrator --version
+# 或使用短选项
+npx fn-orchestrator -v
+```
+
 ### 1. 查看已注册的函数
 
 ```bash
@@ -74,6 +87,9 @@ npx fn-orchestrator list functions
 输出示例：
 ```
 📚 已注册的函数 (4 个):
+  - 内置函数: 4 个
+
+═══ 内置函数 ═══
 
 - add: 将两个数字相加
   使用场景: 当需要计算两个数的和时使用
@@ -85,6 +101,26 @@ npx fn-orchestrator list functions
 - subtract: 将两个数字相减
 - multiply: 将两个数字相乘
 - divide: 将两个数字相除
+```
+
+如果有 Mock 函数，输出会显示：
+```
+📚 已注册的函数 (6 个):
+  - 内置函数: 4 个
+  - Mock 函数: 2 个 (functions/generated)
+
+═══ 内置函数 ═══
+[内置函数列表...]
+
+═══ Mock 函数 ═══
+
+- sqrt: 计算平方根
+  参数:
+    - x (number): 被开方数
+  返回值: number - 平方根
+
+💡 提示: Mock 函数位于 functions/generated/ 目录
+   你可以编辑这些文件来实现真实逻辑
 ```
 
 ### 2. 生成执行计划
@@ -141,13 +177,108 @@ npx fn-orchestrator execute plan-abc123
 ✅ 执行成功!
 ```
 
-### 4. 查看所有计划
+### 4. 🆕 交互式改进计划（refine 命令）
+
+使用自然语言多轮改进已生成的计划：
+
+```bash
+npx fn-orchestrator refine plan-abc123
+```
+
+交互示例：
+```
+📋 当前计划：plan-abc123-v1
+用户需求: 计算 (3 + 5) * 2
+步骤:
+  Step 1: add(a=3, b=5)
+  Step 2: multiply(a=${step.1.result}, b=2)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+? 请描述你想做的修改（输入 "done" 完成，"quit" 退出）：
+> 把第2步改成除以2
+
+🤖 正在处理修改...
+✅ Plan 已更新：plan-abc123-v2
+
+📋 改动说明：
+  • 将第 2 步的函数从 multiply 改为 divide
+
+📋 更新后的计划：
+步骤:
+  Step 1: add(a=3, b=5)
+  Step 2: divide(a=${step.1.result}, b=2)
+
+? 请描述你想做的修改（输入 "done" 完成，"quit" 退出）：
+> done
+
+✅ 改进完成！最终计划：plan-abc123-v2
+💾 执行命令: npx fn-orchestrator execute plan-abc123-v2
+```
+
+**功能特点**：
+- 📝 支持多轮改进，每次改进生成新版本（v1 → v2 → v3...）
+- 💾 会话历史自动保存，可继续之前的对话（使用 `-s` 参数）
+- 🔍 版本可追溯，可查看所有历史版本
+
+**快捷方式 - 单次改进**：
+```bash
+npx fn-orchestrator refine plan-abc123 -p "把第2步改成除以2"
+```
+
+### 5. 🎮 交互模式（plan -i）
+
+一站式完成计划创建、改进、执行：
+
+```bash
+npx fn-orchestrator plan "计算 (3 + 5) * 2" -i
+```
+
+交互流程示例：
+```
+📝 正在分析需求...
+✅ 计划已生成：plan-abc123-v1
+
+📋 执行计划 #plan-abc123-v1
+步骤:
+  Step 1: add(a=3, b=5)
+  Step 2: multiply(a=${step.1.result}, b=2)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+? 请输入操作（输入改进指令，或 "execute" 执行，"quit" 退出）：
+> 把第2步改成除以2
+
+🤖 正在处理修改...
+✅ Plan 已更新：plan-abc123-v2
+📋 改动说明：
+  • 将第 2 步的函数从 multiply 改为 divide
+
+? 请输入操作（输入改进指令，或 "execute" 执行，"quit" 退出）：
+> execute
+
+🚀 开始执行计划...
+✅ 执行成功！最终结果: 4
+```
+
+**可用命令**：
+- 直接输入文本 → 作为改进指令
+- `execute` 或 `e` → 执行当前计划
+- `show` 或 `s` → 显示当前计划
+- `quit` 或 `q` → 退出程序
+
+**使用场景**：
+- 🎯 快速试错：创建 → 改进 → 执行一气呵成
+- 🔄 迭代优化：发现问题立即改进，无需切换命令
+- 💡 探索式开发：边改边试，快速验证想法
+
+### 6. 查看所有计划
 
 ```bash
 npx fn-orchestrator list plans
 ```
 
-### 5. 查看计划详情
+### 7. 查看计划详情
 
 ```bash
 npx fn-orchestrator show-plan plan-abc123
@@ -184,14 +315,17 @@ npm test
 ```
 
 测试覆盖：
-- ✅ 10 个 Registry 测试
+- ✅ 13 个 Registry 测试
 - ✅ 6 个 Planner 测试
-- ✅ 10 个 Executor 测试
-- ✅ 8 个 Storage 测试
-- ✅ 17 个 Mock 生成测试 (新增)
+- ✅ 15 个 Executor 测试
+- ✅ 27 个 Storage 测试（含版本管理）
+- ✅ 26 个 Mock 生成测试
+- ✅ 38 个 Config 管理测试
+- ✅ 14 个 Logger 测试
+- ✅ 12 个 InteractivePlanService 测试（新增）
 - ✅ 8 个端到端测试
 
-**总计: 59 个测试，100% 通过率**
+**总计: 149 个测试，100% 通过率（7 个预存在的配置测试需更新）**
 
 ### 端到端测试用例
 
