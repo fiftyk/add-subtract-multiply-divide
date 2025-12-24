@@ -3,6 +3,7 @@ import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
+import { LocalFunctionToolProvider } from '../../remote/index.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/executor.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
@@ -84,8 +85,11 @@ export async function planCommand(
       logger,
     });
 
+    // 创建工具提供者
+    const toolProvider = new LocalFunctionToolProvider(registry);
+
     // 创建基础规划器
-    const basePlanner = new Planner(registry, llmClient);
+    const basePlanner = new Planner(toolProvider, registry, llmClient);
 
     // 根据配置决定是否启用 mock 支持
     let planner: Planner | PlannerWithMockSupport;
@@ -239,7 +243,8 @@ async function interactivePlanFlow(
     maxTokens: config.llm.maxTokens,
     baseURL: config.api.baseURL,
   });
-  const planner = new Planner(registry, llmClient);
+  const toolProvider = new LocalFunctionToolProvider(registry);
+  const planner = new Planner(toolProvider, registry, llmClient);
   const refinementLLMClient = new AnthropicPlanRefinementLLMClient({
     apiKey: config.api.apiKey,
     model: config.llm.model,

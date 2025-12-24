@@ -5,6 +5,7 @@ import { FunctionRegistry } from '../../registry/index.js';
 import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
+import { LocalFunctionToolProvider } from '../../remote/index.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 import { ConfigManager } from '../../config/index.js';
 
@@ -124,7 +125,8 @@ export async function executeCommand(
     const dummyLLMClient = {
       async generatePlan() { return ''; }
     };
-    const planner = new Planner(registry, dummyLLMClient);
+    const toolProvider = new LocalFunctionToolProvider(registry);
+    const planner = new Planner(toolProvider, registry, dummyLLMClient);
 
     // 显示计划
     console.log(chalk.blue('📋 执行计划:'));

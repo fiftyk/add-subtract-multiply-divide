@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Planner } from '../planner.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
+import { LocalFunctionToolProvider } from '../../remote/index.js';
 import type { ExecutionPlan } from '../types.js';
 import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
 
@@ -16,10 +17,12 @@ describe('Planner', () => {
   let planner: Planner;
   let registry: FunctionRegistry;
   let mockLLMClient: MockLLMClient;
+  let toolProvider: LocalFunctionToolProvider;
 
   beforeEach(() => {
     registry = new FunctionRegistry();
     mockLLMClient = new MockLLMClient();
+    toolProvider = new LocalFunctionToolProvider(registry);
 
     // 注册测试用的数学函数
     registry.register(
@@ -50,7 +53,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new Planner(registry, mockLLMClient);
+    planner = new Planner(toolProvider, registry, mockLLMClient);
   });
 
   describe('plan', () => {

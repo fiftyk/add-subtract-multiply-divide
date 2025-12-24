@@ -1,18 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { FunctionRegistry } from '../registry/index.js';
+import type { ToolProvider } from '../remote/index.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
 import type { IPlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
 
 /**
  * 函数编排规划器
- * Follows DIP: Depends on IPlannerLLMClient abstraction, not concrete implementation
+ * Follows DIP: Depends on ToolProvider and IPlannerLLMClient abstractions
  */
 export class Planner {
-  private registry: FunctionRegistry;
+  private toolProvider: ToolProvider;
+  private registry: FunctionRegistry; // 仅用于验证函数存在性
   private llmClient: IPlannerLLMClient;
 
-  constructor(registry: FunctionRegistry, llmClient: IPlannerLLMClient) {
+  constructor(toolProvider: ToolProvider, registry: FunctionRegistry, llmClient: IPlannerLLMClient) {
+    this.toolProvider = toolProvider;
     this.registry = registry;
     this.llmClient = llmClient;
   }
@@ -22,7 +25,7 @@ export class Planner {
    */
   async plan(userRequest: string): Promise<PlanResult> {
     try {
-      const functionsDescription = this.registry.getAllDescriptions();
+      const functionsDescription = this.buildFunctionsDescription();
       const plan = await this.callLLM(userRequest, functionsDescription);
 
       // 验证计划中的函数是否都存在
@@ -43,6 +46,30 @@ export class Planner {
         error: error instanceof Error ? error.message : '规划失败',
       };
     }
+  }
+
+  /**
+   * 构建函数的描述信息（用于 LLM prompt）
+   */
+  private buildFunctionsDescription(): string {
+    const tools = this.toolProvider.searchTools();
+    if (tools.length === 0) {
+      return '当前没有可用的函数。';
+    }
+
+    return tools
+      .map((fn) => {
+        const params = fn.parameters
+          .map((p) => `    - ${p.name} (${p.type}): ${p.description}`)
+          .join('\n');
+
+        return `- ${fn.name}: ${fn.description}
+  使用场景: ${fn.scenario}
+  参数:
+${params || '    (无参数)'}
+  返回值: ${fn.returns.type} - ${fn.returns.description}`;
+      })
+      .join('\n\n');
   }
 
   /**

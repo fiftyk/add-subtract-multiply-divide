@@ -9,6 +9,7 @@ import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/planner.js';
 import { AnthropicPlannerLLMClient } from '../../planner/adapters/AnthropicPlannerLLMClient.js';
 import { FunctionRegistry } from '../../registry/index.js';
+import { LocalFunctionToolProvider } from '../../remote/index.js';
 import { ConfigManager } from '../../config/index.js';
 
 interface RefineOptions {
@@ -43,7 +44,8 @@ export async function refineCommand(
       baseURL: config.api.baseURL,
     });
 
-    const planner = new Planner(registry, llmClient);
+    const toolProvider = new LocalFunctionToolProvider(registry);
+    const planner = new Planner(toolProvider, registry, llmClient);
 
     const refinementLLMClient = new AnthropicPlanRefinementLLMClient({
       apiKey: config.api.apiKey,
