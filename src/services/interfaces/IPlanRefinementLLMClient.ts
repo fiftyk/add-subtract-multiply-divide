@@ -3,6 +3,8 @@ import type {
   PlanRefinementResponse,
 } from '../types.js';
 
+export const PlanRefinementLLMClient = Symbol('PlanRefinementLLMClient');
+
 /**
  * Plan 改进的 LLM 客户端接口
  *
@@ -15,7 +17,7 @@ import type {
  * - AnthropicPlanRefinementLLMClient: 使用 Claude API
  * - 可扩展支持其他 LLM 提供商
  */
-export interface IPlanRefinementLLMClient {
+export interface PlanRefinementLLMClient {
   /**
    * 根据用户指令改进 plan
    *

@@ -3,6 +3,8 @@
  * Follows DIP: High-level Planner depends on this abstraction
  * Follows ISP: Small, focused interface for planning use case
  */
+export const PlannerLLMClient = Symbol('PlannerLLMClient');
+
 export interface IPlannerLLMClient {
   /**
    * Generate a plan from user request and available functions

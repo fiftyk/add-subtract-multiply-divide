@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Planner } from '../planner/planner.js';
+import type { Planner } from '../planner/interfaces/IPlanner.js';
 import type { Storage } from '../storage/storage.js';
 import type { FunctionRegistry } from '../registry/index.js';
 import { SessionStorage } from './storage/SessionStorage.js';
-import type { IPlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';
+import type { PlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';
 import type {
   InteractionSession,
   VersionedPlan,
@@ -31,7 +31,7 @@ export class InteractivePlanService {
     private planner: Planner,
     private storage: Storage,
     private sessionStorage: SessionStorage,
-    private refinementLLMClient: IPlanRefinementLLMClient,
+    private refinementLLMClient: PlanRefinementLLMClient,
     private registry: FunctionRegistry
   ) {}
 

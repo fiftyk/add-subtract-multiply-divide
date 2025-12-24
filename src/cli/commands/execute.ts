@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import path from 'path';
+import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { LocalFunctionToolProvider } from '../../remote/index.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 import { ConfigManager } from '../../config/index.js';
 
@@ -33,7 +33,7 @@ export async function executeCommand(
     }
 
     // 加载函数（先加载，以便显示已加载的函数列表）
-    const registry = new FunctionRegistry();
+    const registry = container.get(FunctionRegistry);
     await loadFunctions(registry, options.functions);
 
     // 加载 Plan 的 mock 函数（新架构：从 plan-specific 目录加载）
@@ -120,13 +120,8 @@ export async function executeCommand(
       return;
     }
 
-    // 创建临时 Planner 用于显示计划
-    // 创建一个 dummy LLM client（不会被调用，仅用于格式化）
-    const dummyLLMClient = {
-      async generatePlan() { return ''; }
-    };
-    const toolProvider = new LocalFunctionToolProvider(registry);
-    const planner = new Planner(toolProvider, registry, dummyLLMClient);
+    // 从容器获取 Planner 用于显示计划
+    const planner = container.get<Planner>(Planner);
 
     // 显示计划
     console.log(chalk.blue('📋 执行计划:'));

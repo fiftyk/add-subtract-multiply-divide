@@ -1,5 +1,6 @@
+import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Planner } from '../planner.js';
+import { PlannerImpl } from '../planner.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
 import { LocalFunctionToolProvider } from '../../remote/index.js';
 import type { ExecutionPlan } from '../types.js';
@@ -53,7 +54,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new Planner(toolProvider, registry, mockLLMClient);
+    planner = new PlannerImpl(toolProvider, registry, mockLLMClient);
   });
 
   describe('plan', () => {

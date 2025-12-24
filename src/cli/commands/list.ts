@@ -1,8 +1,8 @@
 import chalk from 'chalk';
+import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { LocalFunctionToolProvider } from '../../remote/index.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 import { ConfigManager } from '../../config/index.js';
 
@@ -16,7 +16,7 @@ export const listCommand = {
       // Get centralized configuration
       const config = ConfigManager.get();
 
-      const registry = new FunctionRegistry();
+      const registry = container.get(FunctionRegistry);
 
       // 加载内置函数
       await loadFunctions(registry, options.functions);
@@ -145,14 +145,8 @@ export const listCommand = {
         process.exit(1);
       }
 
-      // 创建临时 Planner 用于格式化显示
-      const registry = new FunctionRegistry();
-      // 创建一个 dummy LLM client（不会被调用，仅用于格式化）
-      const dummyLLMClient = {
-        async generatePlan() { return ''; }
-      };
-      const toolProvider = new LocalFunctionToolProvider(registry);
-      const planner = new Planner(toolProvider, registry, dummyLLMClient);
+      // 从容器获取 Planner 用于格式化显示
+      const planner = container.get<Planner>(Planner);
 
       console.log(planner.formatPlanForDisplay(plan));
       process.exit(0);

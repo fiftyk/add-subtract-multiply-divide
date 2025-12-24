@@ -8,7 +8,7 @@ export { InteractivePlanService } from './InteractivePlanService.js';
 export { SessionStorage } from './storage/SessionStorage.js';
 
 // 接口
-export type { IPlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';
+export { PlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';
 
 // 适配器
 export { AnthropicPlanRefinementLLMClient } from './adapters/AnthropicPlanRefinementLLMClient.js';

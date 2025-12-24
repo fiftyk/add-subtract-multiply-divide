@@ -1,4 +1,4 @@
-export { Planner } from './planner.js';
+export { PlannerImpl } from './planner.js';
 export { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
 export type {
   ExecutionPlan,
@@ -8,4 +8,5 @@ export type {
   MissingFunction,
 } from './types.js';
 export type { IPlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
+export { Planner } from './interfaces/IPlanner.js';
 export { AnthropicPlannerLLMClient } from './adapters/AnthropicPlannerLLMClient.js';

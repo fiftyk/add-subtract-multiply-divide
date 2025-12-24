@@ -1,12 +1,16 @@
-import type { FunctionRegistry } from '../../registry/index.js';
-import type { ToolProvider, ToolDefinition } from '../index.js';
+import 'reflect-metadata';
+import { injectable, inject } from 'inversify';
+import { FunctionRegistry } from '../../registry/index.js';
+import { ToolProvider } from '../interfaces/tool-provider.js';
+import type { ToolDefinition } from '../types.js';
 
 /**
  * 本地函数工具提供者
  * 将 FunctionRegistry 中的本地函数转换为 ToolDefinition 格式
  */
+@injectable()
 export class LocalFunctionToolProvider implements ToolProvider {
-  constructor(private registry: FunctionRegistry) {}
+  constructor(@inject(FunctionRegistry) private registry: FunctionRegistry) {}
 
   /**
    * 查询所有可用工具（本地函数）

@@ -1,16 +1,15 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
+import container from '../../container.js';
 import {
   InteractivePlanService,
   SessionStorage,
-  AnthropicPlanRefinementLLMClient,
 } from '../../services/index.js';
 import { Storage } from '../../storage/index.js';
-import { Planner } from '../../planner/planner.js';
-import { AnthropicPlannerLLMClient } from '../../planner/adapters/AnthropicPlannerLLMClient.js';
+import { Planner } from '../../planner/index.js';
 import { FunctionRegistry } from '../../registry/index.js';
-import { LocalFunctionToolProvider } from '../../remote/index.js';
 import { ConfigManager } from '../../config/index.js';
+import { PlanRefinementLLMClient } from '../../services/interfaces/IPlanRefinementLLMClient.js';
 
 interface RefineOptions {
   prompt?: string;  // 单次改进指令
@@ -33,26 +32,12 @@ export async function refineCommand(
     const config = ConfigManager.get();
 
     // 创建 service
-    const registry = new FunctionRegistry();
+    const registry = container.get(FunctionRegistry);
     const storage = new Storage(config.storage.dataDir);
     const sessionStorage = new SessionStorage(config.storage.dataDir);
 
-    const llmClient = new AnthropicPlannerLLMClient({
-      apiKey: config.api.apiKey,
-      model: config.llm.model,
-      maxTokens: config.llm.maxTokens,
-      baseURL: config.api.baseURL,
-    });
-
-    const toolProvider = new LocalFunctionToolProvider(registry);
-    const planner = new Planner(toolProvider, registry, llmClient);
-
-    const refinementLLMClient = new AnthropicPlanRefinementLLMClient({
-      apiKey: config.api.apiKey,
-      model: config.llm.model,
-      maxTokens: config.llm.maxTokens,
-      baseURL: config.api.baseURL,
-    });
+    const planner = container.get<Planner>(Planner);
+    const refinementLLMClient = container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient);
 
     const service = new InteractivePlanService(
       planner,

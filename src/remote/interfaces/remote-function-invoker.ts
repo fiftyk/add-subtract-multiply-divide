@@ -1,5 +1,7 @@
 import type { FunctionInvoker } from '../types.js';
 
+export const RemoteFunctionInvoker = Symbol('RemoteFunctionInvoker');
+
 /**
  * 远程函数调用器接口
  * 提供远程函数的调用能力

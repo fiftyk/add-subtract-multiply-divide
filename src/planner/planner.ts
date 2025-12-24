@@ -1,24 +1,25 @@
+import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
-import type { FunctionRegistry } from '../registry/index.js';
-import type { ToolProvider } from '../remote/index.js';
+import { injectable, inject } from 'inversify';
+import { FunctionRegistry } from '../registry/index.js';
+import { ToolProvider } from '../remote/interfaces/tool-provider.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
-import type { IPlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
+import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
+import type { Planner } from './interfaces/IPlanner.js';
 import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
 
 /**
  * 函数编排规划器
  * Follows DIP: Depends on ToolProvider and IPlannerLLMClient abstractions
+ * Follows LSP: Implements Planner interface for substitutability
  */
-export class Planner {
-  private toolProvider: ToolProvider;
-  private registry: FunctionRegistry; // 仅用于验证函数存在性
-  private llmClient: IPlannerLLMClient;
-
-  constructor(toolProvider: ToolProvider, registry: FunctionRegistry, llmClient: IPlannerLLMClient) {
-    this.toolProvider = toolProvider;
-    this.registry = registry;
-    this.llmClient = llmClient;
-  }
+@injectable()
+export class PlannerImpl implements Planner {
+  constructor(
+    @inject(ToolProvider) private toolProvider: ToolProvider,
+    @inject(FunctionRegistry) private registry: FunctionRegistry,
+    @inject(PlannerLLMClient) private llmClient: IPlannerLLMClient
+  ) {}
 
   /**
    * 根据用户需求生成执行计划

@@ -1,9 +1,11 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
+import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
-import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
-import { LocalFunctionToolProvider } from '../../remote/index.js';
+import { ToolProvider } from '../../remote/interfaces/tool-provider.js';
+import { Planner } from '../../planner/index.js';
+import { PlannerLLMClient, type IPlannerLLMClient } from '../../planner/interfaces/IPlannerLLMClient.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/executor.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
@@ -16,7 +18,7 @@ import { LoggerFactory } from '../../logger/index.js';
 import {
   InteractivePlanService,
   SessionStorage,
-  AnthropicPlanRefinementLLMClient,
+  PlanRefinementLLMClient,
 } from '../../services/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import type { AppConfig } from '../../config/types.js';
@@ -38,8 +40,8 @@ export async function planCommand(
     // Get centralized configuration (initialized by CLI hook)
     const config = ConfigManager.get();
 
-    // 加载内置函数
-    const registry = new FunctionRegistry();
+    // 从容器获取注册表
+    const registry = container.get(FunctionRegistry);
     await loadFunctions(registry, options.functions);
 
     // 加载已生成的 mock 函数
@@ -76,20 +78,14 @@ export async function planCommand(
     // 创建 logger (支持 LOG_LEVEL 环境变量)
     const logger = LoggerFactory.createFromEnv();
 
-    // 创建 LLM 客户端
-    const llmClient = new AnthropicPlannerLLMClient({
-      apiKey: config.api.apiKey,
-      baseURL: config.api.baseURL,
-      model: config.llm.model,
-      maxTokens: config.llm.maxTokens,
-      logger,
-    });
+    // 从容器获取 LLM 客户端
+    const llmClient = container.get<IPlannerLLMClient>(PlannerLLMClient);
 
-    // 创建工具提供者
-    const toolProvider = new LocalFunctionToolProvider(registry);
+    // 从容器获取工具提供者
+    const toolProvider = container.get<ToolProvider>(ToolProvider);
 
     // 创建基础规划器
-    const basePlanner = new Planner(toolProvider, registry, llmClient);
+    const basePlanner = container.get<Planner>(Planner);
 
     // 根据配置决定是否启用 mock 支持
     let planner: Planner | PlannerWithMockSupport;
@@ -237,20 +233,8 @@ async function interactivePlanFlow(
 
   // 初始化 Service（用于改进）
   const sessionStorage = new SessionStorage(config.storage.dataDir);
-  const llmClient = new AnthropicPlannerLLMClient({
-    apiKey: config.api.apiKey,
-    model: config.llm.model,
-    maxTokens: config.llm.maxTokens,
-    baseURL: config.api.baseURL,
-  });
-  const toolProvider = new LocalFunctionToolProvider(registry);
-  const planner = new Planner(toolProvider, registry, llmClient);
-  const refinementLLMClient = new AnthropicPlanRefinementLLMClient({
-    apiKey: config.api.apiKey,
-    model: config.llm.model,
-    maxTokens: config.llm.maxTokens,
-    baseURL: config.api.baseURL,
-  });
+  const planner = container.get<Planner>(Planner);
+  const refinementLLMClient = container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient);
   const service = new InteractivePlanService(
     planner,
     storage,

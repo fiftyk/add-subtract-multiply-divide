@@ -3,14 +3,14 @@ import type {
   PlanRefinementRequest,
   PlanRefinementResponse,
 } from '../types.js';
-import type { IPlanRefinementLLMClient } from '../interfaces/IPlanRefinementLLMClient.js';
+import type { PlanRefinementLLMClient } from '../interfaces/IPlanRefinementLLMClient.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import type { FunctionDefinition } from '../../registry/types.js';
 
 /**
  * 使用 Claude API 实现 Plan 改进
  */
-export class AnthropicPlanRefinementLLMClient implements IPlanRefinementLLMClient {
+export class AnthropicPlanRefinementLLMClient implements PlanRefinementLLMClient {
   private client: Anthropic;
   private model: string;
   private maxTokens: number;
