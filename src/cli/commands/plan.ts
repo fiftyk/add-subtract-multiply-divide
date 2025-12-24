@@ -7,7 +7,7 @@ import { ToolProvider } from '../../remote/interfaces/tool-provider.js';
 import { Planner } from '../../planner/index.js';
 import { PlannerLLMClient, type IPlannerLLMClient } from '../../planner/interfaces/IPlannerLLMClient.js';
 import { Storage } from '../../storage/index.js';
-import { Executor } from '../../executor/executor.js';
+import { Executor } from '../../executor/index.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
 import {
   PlannerWithMockSupport,
@@ -344,9 +344,7 @@ async function executePlanInline(
   console.log(chalk.blue('🚀 开始执行计划...'));
   console.log();
 
-  const executor = new Executor(registry, {
-    stepTimeout: config.executor.stepTimeout,
-  });
+  const executor = container.get<Executor>(Executor);
 
   const result = await executor.execute(plan);
 

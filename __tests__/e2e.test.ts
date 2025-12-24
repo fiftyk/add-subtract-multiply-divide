@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FunctionRegistry, defineFunction } from '../src/registry/index.js';
-import { Executor } from '../src/executor/index.js';
+import { ExecutorImpl } from '../src/executor/executor.js';
+import type { Executor } from '../src/executor/interfaces/Executor.js';
 import type { ExecutionPlan } from '../src/planner/types.js';
+import { ConfigManager } from '../src/config/index.js';
+
+// 初始化 ConfigManager（用于 ExecutorImpl）
+ConfigManager.initialize({ apiKey: 'test-key' });
 
 describe('E2E: 加减乘除计算', () => {
   let registry: FunctionRegistry;
@@ -70,7 +75,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    executor = new Executor(registry);
+    executor = new ExecutorImpl(registry);
   });
 
   it('计算 3 + 5 = 8', async () => {

@@ -1,6 +1,9 @@
-import type { FunctionRegistry } from '../registry/index.js';
+import 'reflect-metadata';
+import { injectable, inject } from 'inversify';
+import { FunctionRegistry } from '../registry/index.js';
 import type { ExecutionPlan } from '../planner/types.js';
 import type { ExecutionResult, StepResult } from './types.js';
+import type { Executor } from './interfaces/Executor.js';
 import { ExecutionContext } from './context.js';
 import {
   FunctionExecutionError,
@@ -10,6 +13,7 @@ import {
 import type { ILogger } from '../logger/index.js';
 import { LoggerFactory } from '../logger/index.js';
 import { PlanValidator } from '../validation/index.js';
+import { ConfigManager } from '../config/index.js';
 
 /**
  * Executor 配置选项
@@ -31,16 +35,21 @@ export interface ExecutorConfig {
 /**
  * 执行引擎 - 按照计划顺序执行 functions
  */
-export class Executor {
+@injectable()
+export class ExecutorImpl implements Executor {
   private registry: FunctionRegistry;
   private config: Required<ExecutorConfig>;
   private logger: ILogger;
 
-  constructor(registry: FunctionRegistry, config: ExecutorConfig = {}) {
+  constructor(
+    @inject(FunctionRegistry) registry: FunctionRegistry,
+    config?: ExecutorConfig
+  ) {
     this.registry = registry;
+    const appConfig = ConfigManager.get();
     this.config = {
-      stepTimeout: config.stepTimeout ?? 30000, // 默认 30 秒
-      logger: config.logger ?? LoggerFactory.create(),
+      stepTimeout: config?.stepTimeout ?? appConfig.executor.stepTimeout,
+      logger: config?.logger ?? LoggerFactory.create(),
     };
     this.logger = this.config.logger;
   }

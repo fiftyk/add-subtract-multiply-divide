@@ -14,6 +14,8 @@ import { SessionStorage } from './services/storage/interfaces/SessionStorage.js'
 import { SessionStorageImpl } from './services/storage/SessionStorage.js';
 import { Storage } from './storage/interfaces/Storage.js';
 import { StorageImpl } from './storage/StorageImpl.js';
+import { Executor } from './executor/interfaces/Executor.js';
+import { ExecutorImpl } from './executor/executor.js';
 
 const container = new Container({
     defaultScope: 'Singleton',
@@ -61,6 +63,9 @@ container.bind(SessionStorage).toDynamicValue(() => {
     const config = ConfigManager.get();
     return new SessionStorageImpl(config.storage.dataDir);
 });
+
+// Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry）
+container.bind(Executor).to(ExecutorImpl);
 
 export { container };
 export default container;

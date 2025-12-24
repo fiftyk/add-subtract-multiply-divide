@@ -151,7 +151,7 @@ export async function executeCommand(
     console.log();
 
     // 执行计划
-    const executor = new Executor(registry, { stepTimeout: config.executor.stepTimeout });
+    const executor = container.get<Executor>(Executor);
     const result = await executor.execute(plan);
 
     // 保存执行结果

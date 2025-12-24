@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Executor } from '../executor.js';
+import { ExecutorImpl } from '../executor.js';
+import type { Executor } from '../interfaces/Executor.js';
 import { ExecutionContext } from '../context.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
+import { ConfigManager } from '../../config/index.js';
+
+// 初始化 ConfigManager（用于 ExecutorImpl）
+ConfigManager.initialize({ apiKey: 'test-key' });
 
 describe('ExecutionContext', () => {
   let context: ExecutionContext;
@@ -132,7 +137,7 @@ describe('Executor', () => {
       })
     );
 
-    executor = new Executor(registry);
+    executor = new ExecutorImpl(registry);
   });
 
   describe('execute', () => {
@@ -355,7 +360,7 @@ describe('Executor', () => {
       );
 
       // 创建一个超时时间为 100ms 的 executor
-      const executorWithTimeout = new Executor(registry, { stepTimeout: 100 });
+      const executorWithTimeout = new ExecutorImpl(registry, { stepTimeout: 100 });
 
       const plan: ExecutionPlan = {
         id: 'plan-timeout',
@@ -400,7 +405,7 @@ describe('Executor', () => {
       );
 
       // 创建一个不限制超时的 executor
-      const executorNoTimeout = new Executor(registry, { stepTimeout: 0 });
+      const executorNoTimeout = new ExecutorImpl(registry, { stepTimeout: 0 });
 
       const plan: ExecutionPlan = {
         id: 'plan-no-timeout',
@@ -426,7 +431,7 @@ describe('Executor', () => {
     });
 
     it('should use default timeout of 30 seconds', () => {
-      const defaultExecutor = new Executor(registry);
+      const defaultExecutor = new ExecutorImpl(registry);
       // 通过访问 private 属性来验证默认值（仅用于测试）
       expect((defaultExecutor as any).config.stepTimeout).toBe(30000);
     });
