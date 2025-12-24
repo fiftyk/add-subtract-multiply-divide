@@ -10,6 +10,8 @@ import { AnthropicPlanRefinementLLMClient } from './services/adapters/AnthropicP
 import { ConfigManager } from './config/index.js';
 import { Planner } from './planner/interfaces/IPlanner.js';
 import { PlanRefinementLLMClient } from './services/interfaces/IPlanRefinementLLMClient.js';
+import { Storage } from './storage/interfaces/Storage.js';
+import { StorageImpl } from './storage/StorageImpl.js';
 
 const container = new Container({
     defaultScope: 'Singleton',
@@ -44,6 +46,12 @@ container.bind(PlanRefinementLLMClient).toDynamicValue(() => {
         model: config.llm.model,
         maxTokens: config.llm.maxTokens,
     });
+});
+
+// Storage - StorageImpl 实现（从 ConfigManager 获取 dataDir）
+container.bind(Storage).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new StorageImpl(config.storage.dataDir);
 });
 
 export { container };

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { Storage } from '../storage.js';
+import { StorageImpl } from '../StorageImpl.js';
+import type { Storage } from '../interfaces/Storage.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import type { ExecutionResult } from '../../executor/types.js';
 import * as fs from 'fs';
@@ -10,7 +11,7 @@ describe('Storage', () => {
   let storage: Storage;
 
   beforeEach(() => {
-    storage = new Storage(testDataDir);
+    storage = new StorageImpl(testDataDir);
   });
 
   afterEach(() => {

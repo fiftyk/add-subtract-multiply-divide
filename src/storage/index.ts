@@ -1,1 +1,2 @@
-export { Storage } from './storage.js';
+export { StorageImpl } from './StorageImpl.js';
+export { Storage } from './interfaces/Storage.js';

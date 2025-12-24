@@ -9,7 +9,7 @@ import type { FunctionRegistry } from '../../registry/index.js';
 import type { MockGenerationResult, MockMetadata } from '../types.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
-import { Storage } from '../../storage/storage.js';
+import { Storage } from '../../storage/index.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

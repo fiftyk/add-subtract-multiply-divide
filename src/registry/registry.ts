@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+import { injectable } from 'inversify';
 import type { FunctionDefinition, FunctionDefinitionInput } from './types.js';
 import {
   FunctionNotFoundError,
@@ -22,6 +24,7 @@ export function defineFunction(input: FunctionDefinitionInput): FunctionDefiniti
 /**
  * 函数注册表
  */
+@injectable()
 export class FunctionRegistry {
   private functions: Map<string, FunctionDefinition> = new Map();
   private descriptionsCache: string | null = null;

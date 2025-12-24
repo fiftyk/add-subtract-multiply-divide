@@ -1,4 +1,4 @@
-import type { Planner } from '../../planner/planner.js';
+import type { Planner } from '../../planner/interfaces/IPlanner.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { PlanResult, MockFunctionReference } from '../../planner/types.js';

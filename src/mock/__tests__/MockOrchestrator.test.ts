@@ -5,7 +5,7 @@ import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
 import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
 import type { MissingFunction } from '../../planner/types.js';
 import type { FunctionRegistry } from '../../registry/index.js';
-import type { Storage } from '../../storage/storage.js';
+import type { Storage } from '../../storage/index.js';
 import { MockOrchestrator } from '../implementations/MockOrchestrator.js';
 
 describe('MockOrchestrator', () => {

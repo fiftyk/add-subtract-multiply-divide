@@ -33,7 +33,7 @@ export async function refineCommand(
 
     // 创建 service
     const registry = container.get(FunctionRegistry);
-    const storage = new Storage(config.storage.dataDir);
+    const storage = container.get<Storage>(Storage);
     const sessionStorage = new SessionStorage(config.storage.dataDir);
 
     const planner = container.get<Planner>(Planner);

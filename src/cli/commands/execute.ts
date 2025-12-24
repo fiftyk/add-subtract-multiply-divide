@@ -23,7 +23,7 @@ export async function executeCommand(
     const config = ConfigManager.get();
 
     // 加载计划
-    const storage = new Storage(config.storage.dataDir);
+    const storage = container.get<Storage>(Storage);
     const plan = await storage.loadPlan(planId);
 
     if (!plan) {

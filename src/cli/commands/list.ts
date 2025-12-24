@@ -102,7 +102,7 @@ export const listCommand = {
     try {
       // Get centralized configuration (initialized by CLI hook)
       const config = ConfigManager.get();
-      const storage = new Storage(config.storage.dataDir);
+      const storage = container.get<Storage>(Storage);
       const plans = await storage.listPlans();
 
       if (plans.length === 0) {
@@ -137,7 +137,7 @@ export const listCommand = {
     try {
       // Get centralized configuration (initialized by CLI hook)
       const config = ConfigManager.get();
-      const storage = new Storage(config.storage.dataDir);
+      const storage = container.get<Storage>(Storage);
       const plan = await storage.loadPlan(planId);
 
       if (!plan) {

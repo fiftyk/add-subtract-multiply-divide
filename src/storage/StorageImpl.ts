@@ -1,13 +1,18 @@
+import 'reflect-metadata';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { injectable } from 'inversify';
 import type { ExecutionPlan } from '../planner/types.js';
 import type { ExecutionResult } from '../executor/types.js';
+import type { Storage } from './interfaces/Storage.js';
 
 /**
  * 持久化存储
+ * Implements Storage interface for dependency injection
  */
-export class Storage {
+@injectable()
+export class StorageImpl implements Storage {
   private dataDir: string;
   private plansDir: string;
   private executionsDir: string;

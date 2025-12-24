@@ -94,7 +94,7 @@ export async function planCommand(
     const planId = `plan-${uuidv4().slice(0, 8)}`;
 
     // 创建 Storage 实例
-    const storage = new Storage(config.storage.dataDir);
+    const storage = container.get<Storage>(Storage);
 
     if (config.mock.autoGenerate) {
       // 启用 mock 自动生成

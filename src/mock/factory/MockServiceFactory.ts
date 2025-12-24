@@ -2,7 +2,7 @@ import type { FunctionRegistry } from '../../registry/index.js';
 import type { ILLMClient } from '../interfaces/ILLMClient.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
 import type { ILogger } from '../../logger/types.js';
-import { Storage } from '../../storage/storage.js';
+import type { Storage } from '../../storage/index.js';
 import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js';
 import { FileSystemMockFileWriter } from '../implementations/FileSystemMockFileWriter.js';
 import { DynamicMockFunctionLoader } from '../implementations/DynamicMockFunctionLoader.js';

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { InteractivePlanService } from '../InteractivePlanService.js';
 import { SessionStorage } from '../storage/SessionStorage.js';
 import type { Planner } from '../../planner/planner.js';
-import type { Storage } from '../../storage/storage.js';
+import type { Storage } from '../../storage/index.js';
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { IPlanRefinementLLMClient } from '../interfaces/IPlanRefinementLLMClient.js';
 import type { ExecutionPlan } from '../../planner/types.js';
