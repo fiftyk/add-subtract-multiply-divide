@@ -148,6 +148,7 @@ export async function planCommand(
           `执行命令: npx fn-orchestrator execute ${result.plan.id}`
         )
       );
+      process.exit(0);
     } else {
       console.log(
         chalk.yellow(
@@ -169,6 +170,7 @@ export async function planCommand(
         );
         console.log();
       }
+      process.exit(1);
     }
   } catch (error) {
     console.error(

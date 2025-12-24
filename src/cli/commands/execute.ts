@@ -144,11 +144,13 @@ export async function executeCommand(
 
     if (result.success) {
       console.log(chalk.green('✅ 执行成功!'));
+      console.log(chalk.gray(`执行记录 ID: ${execId}`));
+      process.exit(0);
     } else {
       console.log(chalk.red('❌ 执行失败'));
+      console.log(chalk.gray(`执行记录 ID: ${execId}`));
+      process.exit(1);
     }
-
-    console.log(chalk.gray(`执行记录 ID: ${execId}`));
   } catch (error) {
     console.error(
       chalk.red(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`)

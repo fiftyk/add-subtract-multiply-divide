@@ -20,12 +20,13 @@ export const listCommand = {
       if (functions.length === 0) {
         console.log(chalk.yellow('没有找到已注册的函数'));
         console.log(chalk.gray(`请检查函数定义文件: ${options.functions}`));
-        return;
+        process.exit(1);
       }
 
       console.log(chalk.blue(`📚 已注册的函数 (${functions.length} 个):`));
       console.log();
       console.log(registry.getAllDescriptions());
+      process.exit(0);
     } catch (error) {
       console.error(
         chalk.red(
@@ -45,7 +46,7 @@ export const listCommand = {
 
       if (plans.length === 0) {
         console.log(chalk.yellow('没有保存的执行计划'));
-        return;
+        process.exit(0);
       }
 
       console.log(chalk.blue(`📋 执行计划列表 (${plans.length} 个):`));
@@ -60,6 +61,7 @@ export const listCommand = {
           chalk.gray(`   创建时间: ${plan.createdAt} | 步骤数: ${plan.steps.length}`)
         );
       }
+      process.exit(0);
     } catch (error) {
       console.error(
         chalk.red(
@@ -79,7 +81,7 @@ export const listCommand = {
 
       if (!plan) {
         console.log(chalk.red(`❌ 找不到计划: ${planId}`));
-        return;
+        process.exit(1);
       }
 
       // 创建临时 Planner 用于格式化显示
@@ -91,6 +93,7 @@ export const listCommand = {
       const planner = new Planner(registry, dummyLLMClient);
 
       console.log(planner.formatPlanForDisplay(plan));
+      process.exit(0);
     } catch (error) {
       console.error(
         chalk.red(
