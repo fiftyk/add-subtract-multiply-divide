@@ -64,8 +64,11 @@ container.bind(SessionStorage).toDynamicValue(() => {
     return new SessionStorageImpl(config.storage.dataDir);
 });
 
-// Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry）
-container.bind(Executor).to(ExecutorImpl);
+// Executor - ExecutorImpl 实现（依赖注入，手动传入 FunctionRegistry，config 从 ConfigManager 获取）
+container.bind(Executor).toDynamicValue((context) => {
+    const registry = context.get(FunctionRegistry);
+    return new ExecutorImpl(registry);
+});
 
 export { container };
 export default container;
