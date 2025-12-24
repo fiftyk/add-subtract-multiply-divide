@@ -6,7 +6,7 @@ import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
-import { loadConfig } from '../../config/index.js';
+import { ConfigManager } from '../../config/index.js';
 
 interface ExecuteOptions {
   functions: string;
@@ -18,8 +18,8 @@ export async function executeCommand(
   options: ExecuteOptions
 ): Promise<void> {
   try {
-    // Load configuration
-    const config = loadConfig();
+    // Get centralized configuration (initialized by CLI hook)
+    const config = ConfigManager.get();
 
     // 加载计划
     const storage = new Storage(config.storage.dataDir);

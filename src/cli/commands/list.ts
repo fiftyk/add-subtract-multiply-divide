@@ -3,6 +3,7 @@ import { FunctionRegistry } from '../../registry/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { loadFunctions } from '../utils.js';
+import { ConfigManager } from '../../config/index.js';
 
 interface ListFunctionsOptions {
   functions: string;
@@ -37,7 +38,9 @@ export const listCommand = {
 
   async plans(): Promise<void> {
     try {
-      const storage = new Storage();
+      // Get centralized configuration (initialized by CLI hook)
+      const config = ConfigManager.get();
+      const storage = new Storage(config.storage.dataDir);
       const plans = await storage.listPlans();
 
       if (plans.length === 0) {
@@ -69,7 +72,9 @@ export const listCommand = {
 
   async showPlan(planId: string): Promise<void> {
     try {
-      const storage = new Storage();
+      // Get centralized configuration (initialized by CLI hook)
+      const config = ConfigManager.get();
+      const storage = new Storage(config.storage.dataDir);
       const plan = await storage.loadPlan(planId);
 
       if (!plan) {
