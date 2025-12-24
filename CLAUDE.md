@@ -113,6 +113,94 @@ npx fn-orchestrator show-plan plan-abc123
 - 所有类依赖抽象接口，不依赖具体实现
 - 通过构造函数注入依赖（Planner 注入 LLM client，Executor 注入 Registry）
 
+## InversifyJS 容器使用规范
+
+### 接口与实现命名约定
+```
+src/
+└── storage/
+    ├── interfaces/
+    │   └── Storage.ts      # 接口 + Symbol (一行导出)
+    └── StorageImpl.ts      # 实现类 (添加 @injectable)
+```
+
+**命名规则：**
+- 接口文件名：与接口名相同，不使用 `I` 前缀
+- 接口名：`Storage`
+- Symbol：`SessionStorage = Symbol('SessionStorage')`（与接口同名）
+- 实现类名：`SessionStorageImpl`（添加 `Impl` 后缀）
+- 文件名：`StorageImpl.ts`
+
+### 接口文件导出模式
+```typescript
+// src/storage/interfaces/Storage.ts
+import type { ExecutionPlan } from '../../planner/types.js';
+
+export interface Storage {
+  savePlan(plan: ExecutionPlan): Promise<void>;
+  loadPlan(planId: string): Promise<ExecutionPlan | undefined>;
+}
+
+export const Storage = Symbol('Storage');
+```
+
+### 实现类模式
+```typescript
+// src/storage/StorageImpl.ts
+import 'reflect-metadata';
+import { injectable } from 'inversify';
+import type { Storage } from './interfaces/Storage.js';
+
+@injectable()
+export class StorageImpl implements Storage {
+  constructor(private dataDir: string = '.data') {}
+  // 实现...
+}
+```
+
+### 容器绑定模式
+```typescript
+// src/container.ts
+import { Storage } from './storage/interfaces/Storage.js';
+import { StorageImpl } from './storage/StorageImpl.js';
+
+// 简单绑定（无额外依赖）
+container.bind(Executor).to(ExecutorImpl);
+
+// 动态值绑定（需要运行时配置）
+container.bind(Storage).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new StorageImpl(config.storage.dataDir);
+});
+
+// 依赖注入绑定（自动解析依赖）
+container.bind(Planner).to(PlannerImpl);
+```
+
+### 从容器获取实例
+```typescript
+// CLI 命令中
+import container from '../../container.js';
+import { Storage, Executor } from '../services/index.js';
+
+const storage = container.get<Storage>(Storage);
+const executor = container.get<Executor>(Executor);
+```
+
+### 测试中使用实现类
+测试直接实例化实现类，不需要通过容器：
+```typescript
+import { SessionStorageImpl } from '../storage/SessionStorage.js';
+import type { SessionStorage } from '../storage/interfaces/SessionStorage.js';
+
+describe('SessionStorage', () => {
+  let storage: SessionStorage;
+  beforeEach(() => {
+    storage = new SessionStorageImpl(testDataDir);
+  });
+});
+```
+
 ## 重要代码约定
 
 ### ConfigManager 使用规范
