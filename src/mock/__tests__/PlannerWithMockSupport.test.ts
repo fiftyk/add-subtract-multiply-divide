@@ -112,8 +112,8 @@ describe('PlannerWithMockSupport', () => {
       generatedFunctions: [
         {
           functionName: 'queryPatent',
-          filePath: '/path/to/queryPatent.ts',
-          generatedAt: new Date().toISOString(),
+          filePath: '/data/plans/plan-123/mocks/queryPatent-v1.js',
+          generatedAt: '2025-12-24T10:00:00.000Z',
           isMock: true,
         },
       ],
@@ -128,7 +128,14 @@ describe('PlannerWithMockSupport', () => {
       incompletePlan.missingFunctions
     );
     expect(result.plan?.metadata?.usesMocks).toBe(true);
-    expect(result.plan?.metadata?.mockFunctions).toEqual(['queryPatent']);
+    // mockFunctions is now MockFunctionReference[] instead of string[]
+    expect(result.plan?.metadata?.mockFunctions).toHaveLength(1);
+    expect(result.plan?.metadata?.mockFunctions?.[0]).toEqual({
+      name: 'queryPatent',
+      version: 1,
+      filePath: 'mocks/queryPatent-v1.js',
+      generatedAt: '2025-12-24T10:00:00.000Z',
+    });
   });
 
   it('should handle multiple missing functions', async () => {
@@ -171,14 +178,14 @@ describe('PlannerWithMockSupport', () => {
       generatedFunctions: [
         {
           functionName: 'queryPatent',
-          filePath: '/path/to/queryPatent.ts',
-          generatedAt: new Date().toISOString(),
+          filePath: '/data/plans/plan-123/mocks/queryPatent-v1.js',
+          generatedAt: '2025-12-24T10:00:00.000Z',
           isMock: true,
         },
         {
           functionName: 'extractInventor',
-          filePath: '/path/to/extractInventor.ts',
-          generatedAt: new Date().toISOString(),
+          filePath: '/data/plans/plan-123/mocks/extractInventor-v1.js',
+          generatedAt: '2025-12-24T10:00:01.000Z',
           isMock: true,
         },
       ],
@@ -189,8 +196,15 @@ describe('PlannerWithMockSupport', () => {
     );
 
     expect(result.plan?.metadata?.mockFunctions).toHaveLength(2);
-    expect(result.plan?.metadata?.mockFunctions).toContain('queryPatent');
-    expect(result.plan?.metadata?.mockFunctions).toContain('extractInventor');
+    // Check that mock functions have the correct structure
+    const mockNames = result.plan?.metadata?.mockFunctions?.map(m => m.name) || [];
+    expect(mockNames).toContain('queryPatent');
+    expect(mockNames).toContain('extractInventor');
+
+    // Verify version and path structure
+    const queryPatent = result.plan?.metadata?.mockFunctions?.find(m => m.name === 'queryPatent');
+    expect(queryPatent?.version).toBe(1);
+    expect(queryPatent?.filePath).toBe('mocks/queryPatent-v1.js');
   });
 
   it('should not add metadata when no mocks are used', async () => {

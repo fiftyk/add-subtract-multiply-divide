@@ -40,8 +40,11 @@ export class SessionStorage {
       const content = await fs.readFile(filePath, 'utf-8');
       return JSON.parse(content) as InteractionSession;
     } catch (error) {
-      // 文件不存在
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      // 文件不存在或 JSON 格式错误
+      if (
+        (error as NodeJS.ErrnoException).code === 'ENOENT' ||
+        error instanceof SyntaxError
+      ) {
         return null;
       }
       throw error;

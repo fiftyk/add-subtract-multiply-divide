@@ -289,4 +289,143 @@ export class Storage {
       await this.deletePlan(versionedId);
     }
   }
+
+  // ============================================================================
+  // Plan Mock 函数管理（新架构）
+  // ============================================================================
+
+  /**
+   * 获取 Plan 的 mocks 目录路径
+   * 新架构：.data/plans/{planId}/mocks/
+   *
+   * @param planId - Plan ID（可能包含版本号，如 plan-abc123-v2）
+   * @returns Mocks 目录的绝对路径
+   */
+  getPlanMocksDir(planId: string): string {
+    // 提取基础 ID（移除版本号）
+    const { basePlanId } = this.parsePlanId(planId);
+    return path.join(this.plansDir, basePlanId, 'mocks');
+  }
+
+  /**
+   * 保存 mock 函数到 Plan 的 mocks 目录
+   * 文件名格式：{functionName}-v{version}.js
+   *
+   * @param planId - Plan ID
+   * @param name - 函数名
+   * @param version - Mock 版本号
+   * @param code - 函数代码（完整的 JS/TS 代码）
+   * @returns 保存的文件路径（相对于 plan 目录，如 "mocks/power-v1.js"）
+   */
+  async savePlanMock(
+    planId: string,
+    name: string,
+    version: number,
+    code: string
+  ): Promise<string> {
+    const mocksDir = this.getPlanMocksDir(planId);
+
+    // 确保 mocks 目录存在
+    await fs.mkdir(mocksDir, { recursive: true });
+
+    // 生成文件名
+    const fileName = `${name}-v${version}.js`;
+    const filePath = path.join(mocksDir, fileName);
+
+    // 保存文件
+    await this.atomicWrite(filePath, code);
+
+    // 返回相对路径（相对于 plan 目录）
+    return `mocks/${fileName}`;
+  }
+
+  /**
+   * 加载 Plan 的所有 mock 函数
+   * 动态 import 所有 .js 文件并提取 FunctionDefinition
+   *
+   * @param planId - Plan ID
+   * @returns Mock 函数定义数组
+   */
+  async loadPlanMocks(planId: string): Promise<unknown[]> {
+    const mocksDir = this.getPlanMocksDir(planId);
+
+    try {
+      // 检查目录是否存在
+      await fs.access(mocksDir);
+    } catch {
+      // 目录不存在，返回空数组
+      return [];
+    }
+
+    try {
+      const files = await fs.readdir(mocksDir);
+      const mockFiles = files.filter((file) => file.endsWith('.js'));
+
+      const functions: unknown[] = [];
+
+      for (const file of mockFiles) {
+        const filePath = path.join(mocksDir, file);
+
+        try {
+          // 动态 import（使用 file:// URL 和缓存破坏）
+          const { pathToFileURL } = await import('url');
+          const fileUrl = pathToFileURL(filePath).href;
+          const moduleUrl = `${fileUrl}?t=${Date.now()}`;
+          const module = await import(moduleUrl);
+
+          // 提取所有导出的函数定义
+          for (const key of Object.keys(module)) {
+            const exported = module[key];
+            if (
+              exported &&
+              typeof exported === 'object' &&
+              'name' in exported &&
+              'implementation' in exported
+            ) {
+              functions.push(exported);
+            }
+          }
+        } catch (error) {
+          // 记录加载失败的文件，但继续加载其他文件
+          console.warn(`Failed to load mock from ${filePath}:`, error);
+        }
+      }
+
+      return functions;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 删除 Plan 及其所有 mock 函数
+   * 删除版本化的 plan 文件和 mocks 目录
+   *
+   * @param planId - Plan ID
+   */
+  async deletePlanWithMocks(planId: string): Promise<void> {
+    const { basePlanId } = this.parsePlanId(planId);
+
+    // 1. 删除所有版本的 plan 文件
+    await this.deletePlanAllVersions(basePlanId);
+
+    // 2. 删除 mocks 目录
+    const mocksDir = this.getPlanMocksDir(planId);
+    try {
+      await fs.rm(mocksDir, { recursive: true, force: true });
+    } catch {
+      // 忽略删除失败（可能目录不存在）
+    }
+
+    // 3. 如果 plan 目录为空，删除 plan 目录
+    const planDir = path.join(this.plansDir, basePlanId);
+    try {
+      const files = await fs.readdir(planDir);
+      if (files.length === 0) {
+        await fs.rmdir(planDir);
+      }
+    } catch {
+      // 忽略错误
+    }
+  }
 }

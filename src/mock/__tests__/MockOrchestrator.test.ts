@@ -5,6 +5,7 @@ import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
 import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
 import type { MissingFunction } from '../../planner/types.js';
 import type { FunctionRegistry } from '../../registry/index.js';
+import type { Storage } from '../../storage/storage.js';
 import { MockOrchestrator } from '../implementations/MockOrchestrator.js';
 
 describe('MockOrchestrator', () => {
@@ -13,7 +14,10 @@ describe('MockOrchestrator', () => {
   let mockFunctionLoader: IMockFunctionLoader;
   let mockMetadataProvider: IMockMetadataProvider;
   let mockRegistry: FunctionRegistry;
+  let mockStorage: Storage;
   let orchestrator: MockOrchestrator;
+
+  const testPlanId = 'plan-test123';
 
   beforeEach(() => {
     mockCodeGenerator = {
@@ -34,7 +38,15 @@ describe('MockOrchestrator', () => {
     };
     mockRegistry = {} as FunctionRegistry;
 
+    // Mock Storage methods used by MockOrchestrator
+    mockStorage = {
+      getPlanMocksDir: vi.fn().mockReturnValue(`/data/plans/${testPlanId}/mocks`),
+      savePlanMock: vi.fn().mockResolvedValue(`mocks/queryPatent-v1.js`),
+    } as unknown as Storage;
+
     orchestrator = new MockOrchestrator(
+      testPlanId,
+      mockStorage,
       mockCodeGenerator,
       mockFileWriter,
       mockFunctionLoader,
@@ -43,7 +55,7 @@ describe('MockOrchestrator', () => {
     );
   });
 
-  it('should orchestrate full workflow for single function', async () => {
+  it('should orchestrate full workflow for single function with versioning', async () => {
     const missingFunction: MissingFunction = {
       name: 'queryPatent',
       description: '查询专利信息',
@@ -54,7 +66,6 @@ describe('MockOrchestrator', () => {
     };
 
     const generatedCode = 'export const queryPatent = ...';
-    const filePath = '/path/to/queryPatent-123.ts';
     const mockFunction = {
       name: 'queryPatent',
       description: '查询专利信息',
@@ -65,7 +76,9 @@ describe('MockOrchestrator', () => {
     };
 
     vi.mocked(mockCodeGenerator.generate).mockResolvedValue(generatedCode);
-    vi.mocked(mockFileWriter.write).mockResolvedValue(filePath);
+    vi.mocked(mockStorage.savePlanMock).mockResolvedValue(
+      'mocks/queryPatent-v1.js'
+    );
     vi.mocked(mockFunctionLoader.load).mockResolvedValue([mockFunction]);
 
     const result = await orchestrator.generateAndRegisterMocks([
@@ -75,7 +88,7 @@ describe('MockOrchestrator', () => {
     expect(result.success).toBe(true);
     expect(result.generatedFunctions).toHaveLength(1);
     expect(result.generatedFunctions[0].functionName).toBe('queryPatent');
-    expect(result.generatedFunctions[0].filePath).toBe(filePath);
+    expect(result.generatedFunctions[0].filePath).toContain('queryPatent-v1.js');
     expect(result.generatedFunctions[0].isMock).toBe(true);
 
     // Verify workflow steps
@@ -85,11 +98,16 @@ describe('MockOrchestrator', () => {
       parameters: missingFunction.suggestedParameters,
       returns: missingFunction.suggestedReturns,
     });
-    expect(mockFileWriter.write).toHaveBeenCalledWith(
-      generatedCode,
-      expect.stringMatching(/^queryPatent-\d+\.js$/)
+
+    // Verify storage.savePlanMock was called with version info
+    expect(mockStorage.savePlanMock).toHaveBeenCalledWith(
+      testPlanId,
+      'queryPatent',
+      1, // version 1 for first generation
+      generatedCode
     );
-    expect(mockFunctionLoader.load).toHaveBeenCalledWith(filePath);
+
+    expect(mockFunctionLoader.load).toHaveBeenCalled();
     expect(mockFunctionLoader.register).toHaveBeenCalledWith(mockRegistry, [
       mockFunction,
     ]);
@@ -97,7 +115,6 @@ describe('MockOrchestrator', () => {
       'queryPatent',
       expect.objectContaining({
         functionName: 'queryPatent',
-        filePath: filePath,
         isMock: true,
       })
     );
@@ -120,7 +137,9 @@ describe('MockOrchestrator', () => {
     ];
 
     vi.mocked(mockCodeGenerator.generate).mockResolvedValue('code');
-    vi.mocked(mockFileWriter.write).mockResolvedValue('/path/to/file.ts');
+    vi.mocked(mockStorage.savePlanMock).mockResolvedValue(
+      'mocks/func-v1.js'
+    );
     vi.mocked(mockFunctionLoader.load).mockResolvedValue([
       {
         name: 'func',
@@ -132,14 +151,12 @@ describe('MockOrchestrator', () => {
       },
     ]);
 
-    const result = await orchestrator.generateAndRegisterMocks(
-      missingFunctions
-    );
+    const result = await orchestrator.generateAndRegisterMocks(missingFunctions);
 
     expect(result.success).toBe(true);
     expect(result.generatedFunctions).toHaveLength(2);
     expect(mockCodeGenerator.generate).toHaveBeenCalledTimes(2);
-    expect(mockFileWriter.write).toHaveBeenCalledTimes(2);
+    expect(mockStorage.savePlanMock).toHaveBeenCalledTimes(2);
   });
 
   it('should collect errors for failed functions', async () => {
@@ -162,7 +179,9 @@ describe('MockOrchestrator', () => {
       .mockResolvedValueOnce('good code')
       .mockRejectedValueOnce(new Error('Generation failed'));
 
-    vi.mocked(mockFileWriter.write).mockResolvedValue('/path/to/file.ts');
+    vi.mocked(mockStorage.savePlanMock).mockResolvedValue(
+      'mocks/goodFunc-v1.js'
+    );
     vi.mocked(mockFunctionLoader.load).mockResolvedValue([
       {
         name: 'goodFunc',
@@ -174,9 +193,7 @@ describe('MockOrchestrator', () => {
       },
     ]);
 
-    const result = await orchestrator.generateAndRegisterMocks(
-      missingFunctions
-    );
+    const result = await orchestrator.generateAndRegisterMocks(missingFunctions);
 
     expect(result.success).toBe(true);
     expect(result.generatedFunctions).toHaveLength(1);
@@ -186,7 +203,7 @@ describe('MockOrchestrator', () => {
     expect(result.errors![0].error).toContain('Generation failed');
   });
 
-  it('should use timestamp in filename', async () => {
+  it('should use version numbers in filename', async () => {
     const missingFunction: MissingFunction = {
       name: 'testFunc',
       description: 'Test',
@@ -195,14 +212,18 @@ describe('MockOrchestrator', () => {
     };
 
     vi.mocked(mockCodeGenerator.generate).mockResolvedValue('code');
-    vi.mocked(mockFileWriter.write).mockResolvedValue('/path/to/file.ts');
+    vi.mocked(mockStorage.savePlanMock).mockResolvedValue(
+      'mocks/testFunc-v1.js'
+    );
     vi.mocked(mockFunctionLoader.load).mockResolvedValue([]);
 
     await orchestrator.generateAndRegisterMocks([missingFunction]);
 
-    expect(mockFileWriter.write).toHaveBeenCalledWith(
-      'code',
-      expect.stringMatching(/^testFunc-\d+\.js$/)
+    expect(mockStorage.savePlanMock).toHaveBeenCalledWith(
+      testPlanId,
+      'testFunc',
+      1, // version 1
+      'code'
     );
   });
 
@@ -215,7 +236,9 @@ describe('MockOrchestrator', () => {
     };
 
     vi.mocked(mockCodeGenerator.generate).mockResolvedValue('code');
-    vi.mocked(mockFileWriter.write).mockResolvedValue('/path/to/file.ts');
+    vi.mocked(mockStorage.savePlanMock).mockResolvedValue(
+      'mocks/testFunc-v1.js'
+    );
     vi.mocked(mockFunctionLoader.load).mockResolvedValue([
       {
         name: 'testFunc',

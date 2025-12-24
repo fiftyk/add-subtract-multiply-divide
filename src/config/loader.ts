@@ -122,17 +122,28 @@ function validateAPIConfig(api: PartialAppConfig['api']): void {
  * Load and validate complete configuration
  *
  * Priority (highest to lowest):
- * 1. Provided overrides
+ * 1. Provided overrides (CLI args)
  * 2. Environment variables
  * 3. Default values
+ *
+ * Note: CLI args must take highest priority to allow users to override
+ * .env settings (e.g., --no-auto-mock should disable even if AUTO_GENERATE_MOCK=true)
  */
 export function loadConfig(overrides?: PartialAppConfig): AppConfig {
   // Load from environment
   const envConfig = loadFromEnv();
 
-  // Merge: defaults <- env <- overrides
+  // Merge order: defaults <- env <- overrides
+  // This ensures CLI args (overrides) have highest priority
   const baseConfig = mergeConfig(DEFAULT_CONFIG, envConfig);
   const finalBaseConfig = mergeConfig(baseConfig, overrides);
+
+  // CRITICAL: Handle explicit CLI boolean overrides
+  // When CLI explicitly sets a boolean (true/false), it must override env/default
+  // This fixes the --no-auto-mock being overridden by AUTO_GENERATE_MOCK=true
+  if (overrides?.mock?.autoGenerate !== undefined) {
+    finalBaseConfig.mock.autoGenerate = overrides.mock.autoGenerate;
+  }
 
   // Handle API config separately (required)
   const apiConfig = {

@@ -1,7 +1,7 @@
 import type { Planner } from '../../planner/planner.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
 import type { FunctionRegistry } from '../../registry/index.js';
-import type { PlanResult } from '../../planner/types.js';
+import type { PlanResult, MockFunctionReference } from '../../planner/types.js';
 import type { ILogger } from '../../logger/index.js';
 import type { MockGenerationConfig } from '../types.js';
 import { LoggerFactory } from '../../logger/index.js';
@@ -32,7 +32,7 @@ export class PlannerWithMockSupport {
    */
   async plan(userRequest: string): Promise<PlanResult> {
     let iteration = 0;
-    const allGeneratedMocks: string[] = []; // Track all generated mock functions
+    const allGeneratedMocks: MockFunctionReference[] = []; // Track all generated mock functions with versions
 
     while (iteration < this.config.maxIterations) {
       iteration++;
@@ -86,15 +86,28 @@ export class PlannerWithMockSupport {
         // Now generate mocks
         this.logger.info('\n🔧 正在生成 mock 实现...');
 
-        const mockResult = await this.mockOrchestrator.generateAndRegisterMocks(
-          result.plan.missingFunctions
-        );
+        const mockResult =
+          await this.mockOrchestrator.generateAndRegisterMocks(
+            result.plan.missingFunctions
+          );
 
         if (mockResult.success && mockResult.generatedFunctions.length > 0) {
-          // Track generated mocks
-          allGeneratedMocks.push(
-            ...mockResult.generatedFunctions.map((m) => m.functionName)
-          );
+          // Track generated mocks with version information
+          for (const mockMeta of mockResult.generatedFunctions) {
+            // Extract version from filePath (format: .../mocks/functionName-v1.js)
+            const match = mockMeta.filePath.match(/\/([^/]+)-v(\d+)\.js$/);
+            const version = match ? parseInt(match[2], 10) : 1;
+            const relativePath = mockMeta.filePath.includes('/mocks/')
+              ? `mocks/${mockMeta.functionName}-v${version}.js`
+              : mockMeta.filePath;
+
+            allGeneratedMocks.push({
+              name: mockMeta.functionName,
+              version,
+              filePath: relativePath,
+              generatedAt: mockMeta.generatedAt,
+            });
+          }
 
           this.logger.info(
             `\n📊 当前 registry 中共有 ${this.registry.getAll().length} 个函数`
@@ -131,13 +144,19 @@ export class PlannerWithMockSupport {
 
     // Max iterations reached, do a final plan
     this.logger.warn(`\n${'='.repeat(60)}`);
-    this.logger.warn(`⚠️  已达到最大迭代次数 (${this.config.maxIterations})，生成最终计划...`);
+    this.logger.warn(
+      `⚠️  已达到最大迭代次数 (${this.config.maxIterations})，生成最终计划...`
+    );
     this.logger.warn(`${'='.repeat(60)}\n`);
 
     const finalResult = await this.basePlanner.plan(userRequest);
 
     // Add metadata to indicate mock usage
-    if (finalResult.success && finalResult.plan && allGeneratedMocks.length > 0) {
+    if (
+      finalResult.success &&
+      finalResult.plan &&
+      allGeneratedMocks.length > 0
+    ) {
       finalResult.plan.metadata = {
         usesMocks: true,
         mockFunctions: allGeneratedMocks,

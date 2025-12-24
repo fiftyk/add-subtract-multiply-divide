@@ -25,10 +25,11 @@ program
 
 // Global hook: Initialize ConfigManager before any command runs
 // This centralizes configuration from CLI args, env vars, and config files
-program.hook('preAction', (thisCommand) => {
+program.hook('preAction', (thisCommand, actionCommand) => {
   // Avoid double initialization (though shouldn't happen in practice)
   if (!ConfigManager.isInitialized()) {
-    const opts = thisCommand.opts();
+    // Use actionCommand.opts() to get subcommand options (e.g., plan command's options)
+    const opts = actionCommand.opts();
 
     // Initialize with CLI options (if present)
     // Commands without these options will have undefined values,

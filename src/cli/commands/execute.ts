@@ -35,11 +35,28 @@ export async function executeCommand(
     const registry = new FunctionRegistry();
     await loadFunctions(registry, options.functions);
 
-    // 同时加载 generated 目录下的 mock 函数
-    await loadFunctionsFromDirectory(
-      registry,
-      config.mock.outputDir
-    );
+    // 加载 Plan 的 mock 函数（新架构：从 plan-specific 目录加载）
+    if (plan.metadata?.usesMocks) {
+      try {
+        const planMocks = await storage.loadPlanMocks(planId);
+        planMocks.forEach((fn) => {
+          // Type assertion: the loaded modules conform to FunctionDefinition at runtime
+          registry.register(fn as any);
+        });
+        console.log(
+          chalk.gray(`已加载 ${planMocks.length} 个 plan-specific mock 函数`)
+        );
+      } catch (error) {
+        console.log(
+          chalk.yellow(
+            `⚠️ 无法加载 plan-specific mocks: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        );
+      }
+    }
+
+    // 同时加载 generated 目录下的全局 mock 函数（向后兼容）
+    await loadFunctionsFromDirectory(registry, config.mock.outputDir);
 
     // 打印所有加载的函数
     const allFunctions = registry.getAll();
@@ -49,8 +66,13 @@ export async function executeCommand(
 
     // 区分 mock 函数和普通函数
     const mockFunctions = plan.metadata?.mockFunctions || [];
-    const normalFunctions = allFunctions.filter(f => !mockFunctions.includes(f.name));
-    const loadedMocks = allFunctions.filter(f => mockFunctions.includes(f.name));
+    const mockFunctionNames = mockFunctions.map((m) => m.name);
+    const normalFunctions = allFunctions.filter(
+      (f) => !mockFunctionNames.includes(f.name)
+    );
+    const loadedMocks = allFunctions.filter((f) =>
+      mockFunctionNames.includes(f.name)
+    );
 
     if (normalFunctions.length > 0) {
       console.log(chalk.cyan('普通函数:'));
@@ -81,14 +103,14 @@ export async function executeCommand(
       // 检查计划需要的 mock 函数是否都已加载
       if (mockFunctions.length > 0) {
         const missingMocks = mockFunctions.filter(
-          name => !allFunctions.some(f => f.name === name)
+          (mockRef) => !allFunctions.some((f) => f.name === mockRef.name)
         );
 
         if (missingMocks.length > 0) {
           console.log();
           console.log(chalk.red('⚠️ 计划需要但未加载的 mock 函数:'));
-          missingMocks.forEach(name => {
-            console.log(chalk.gray(`  • ${name}`));
+          missingMocks.forEach((mockRef) => {
+            console.log(chalk.gray(`  • ${mockRef.name} (v${mockRef.version})`));
           });
           console.log();
           console.log(chalk.yellow('提示: 请重新运行 plan 命令生成这些 mock 函数'));

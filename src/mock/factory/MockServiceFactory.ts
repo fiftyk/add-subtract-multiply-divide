@@ -2,6 +2,7 @@ import type { FunctionRegistry } from '../../registry/index.js';
 import type { ILLMClient } from '../interfaces/ILLMClient.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
 import type { ILogger } from '../../logger/types.js';
+import { Storage } from '../../storage/storage.js';
 import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js';
 import { FileSystemMockFileWriter } from '../implementations/FileSystemMockFileWriter.js';
 import { DynamicMockFunctionLoader } from '../implementations/DynamicMockFunctionLoader.js';
@@ -14,6 +15,8 @@ import { AnthropicLLMClient } from '../adapters/AnthropicLLMClient.js';
  * Factory configuration for mock services
  */
 export interface MockServiceFactoryConfig {
+  planId: string; // NEW: Plan ID for storing mocks
+  storage: Storage; // NEW: Storage instance for managing plan mocks
   apiKey?: string;
   baseURL?: string;
   outputDir: string;
@@ -43,7 +46,11 @@ export class MockServiceFactory {
           'Either apiKey or llmClient must be provided to MockServiceFactory'
         );
       }
-      llmClient = new AnthropicLLMClient(config.apiKey, config.baseURL, config.logger);
+      llmClient = new AnthropicLLMClient(
+        config.apiKey,
+        config.baseURL,
+        config.logger
+      );
     }
 
     // 2. Create all service implementations
@@ -53,12 +60,15 @@ export class MockServiceFactory {
     const metadataProvider = new InMemoryMockMetadataProvider();
 
     // 3. Create validator if validation is enabled (default: true)
-    const validator = config.enableValidation !== false
-      ? new DynamicMockCodeValidator()
-      : undefined;
+    const validator =
+      config.enableValidation !== false
+        ? new DynamicMockCodeValidator()
+        : undefined;
 
     // 4. Wire everything together in the orchestrator
     return new MockOrchestrator(
+      config.planId, // NEW: Pass plan ID
+      config.storage, // NEW: Pass storage instance
       codeGenerator,
       fileWriter,
       functionLoader,

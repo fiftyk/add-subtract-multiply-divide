@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
+import { v4 as uuidv4 } from 'uuid';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner, AnthropicPlannerLLMClient } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
@@ -89,6 +90,12 @@ export async function planCommand(
     // 根据配置决定是否启用 mock 支持
     let planner: Planner | PlannerWithMockSupport;
 
+    // 生成 planId（用于 mock 存储）
+    const planId = `plan-${uuidv4().slice(0, 8)}`;
+
+    // 创建 Storage 实例
+    const storage = new Storage(config.storage.dataDir);
+
     if (config.mock.autoGenerate) {
       // 启用 mock 自动生成
       logger.debug('Mock 自动生成已启用', {
@@ -98,6 +105,8 @@ export async function planCommand(
 
       // 创建 mock 服务编排器
       const mockOrchestrator = MockServiceFactory.create({
+        planId, // NEW: Pass planId for mock storage
+        storage, // NEW: Pass storage instance
         apiKey: config.api.apiKey,
         baseURL: config.api.baseURL,
         outputDir: config.mock.outputDir,
@@ -123,11 +132,13 @@ export async function planCommand(
 
     if (!result.success || !result.plan) {
       console.log(chalk.red(`❌ 规划失败: ${result.error}`));
-      return;
+      process.exit(1);
     }
 
+    // Override the plan ID with our pre-generated one (for consistency with mock storage)
+    result.plan.id = planId;
+
     // 保存计划
-    const storage = new Storage(config.storage.dataDir);
     await storage.savePlan(result.plan);
 
     // 显示计划

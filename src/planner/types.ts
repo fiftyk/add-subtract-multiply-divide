@@ -35,6 +35,16 @@ export interface MissingFunction {
 }
 
 /**
+ * Mock 函数引用 - 记录 Plan 使用的 mock 函数详细信息
+ */
+export interface MockFunctionReference {
+  name: string;
+  version: number;
+  filePath: string; // 相对于 Plan 目录的路径，如 "mocks/power-v1.js"
+  generatedAt: string;
+}
+
+/**
  * 执行计划
  */
 export interface ExecutionPlan {
@@ -46,7 +56,7 @@ export interface ExecutionPlan {
   status: 'pending' | 'executable' | 'incomplete';
   metadata?: {
     usesMocks?: boolean;
-    mockFunctions?: string[];
+    mockFunctions?: MockFunctionReference[]; // 改为对象数组，记录版本和路径
   };
 }
 
