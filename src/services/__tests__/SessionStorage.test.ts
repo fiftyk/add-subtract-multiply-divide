@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SessionStorage } from '../storage/SessionStorage.js';
+import { SessionStorageImpl } from '../storage/SessionStorage.js';
+import type { SessionStorage } from '../storage/interfaces/SessionStorage.js';
 import type { InteractionSession } from '../types.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -9,7 +10,7 @@ describe('SessionStorage', () => {
   let storage: SessionStorage;
 
   beforeEach(async () => {
-    storage = new SessionStorage(testDataDir);
+    storage = new SessionStorageImpl(testDataDir);
     // 确保测试目录存在
     await fs.mkdir(path.join(testDataDir, 'sessions'), { recursive: true });
   });

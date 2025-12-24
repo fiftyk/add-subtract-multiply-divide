@@ -17,8 +17,8 @@ import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import {
   InteractivePlanService,
-  SessionStorage,
   PlanRefinementLLMClient,
+  SessionStorage,
 } from '../../services/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import type { AppConfig } from '../../config/types.js';
@@ -232,7 +232,7 @@ async function interactivePlanFlow(
   process.on('SIGINT', handleInterrupt);
 
   // 初始化 Service（用于改进）
-  const sessionStorage = new SessionStorage(config.storage.dataDir);
+  const sessionStorage = container.get<SessionStorage>(SessionStorage);
   const planner = container.get<Planner>(Planner);
   const refinementLLMClient = container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient);
   const service = new InteractivePlanService(

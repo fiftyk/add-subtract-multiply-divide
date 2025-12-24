@@ -10,6 +10,8 @@ import { AnthropicPlanRefinementLLMClient } from './services/adapters/AnthropicP
 import { ConfigManager } from './config/index.js';
 import { Planner } from './planner/interfaces/IPlanner.js';
 import { PlanRefinementLLMClient } from './services/interfaces/IPlanRefinementLLMClient.js';
+import { SessionStorage } from './services/storage/interfaces/SessionStorage.js';
+import { SessionStorageImpl } from './services/storage/SessionStorage.js';
 import { Storage } from './storage/interfaces/Storage.js';
 import { StorageImpl } from './storage/StorageImpl.js';
 
@@ -52,6 +54,12 @@ container.bind(PlanRefinementLLMClient).toDynamicValue(() => {
 container.bind(Storage).toDynamicValue(() => {
     const config = ConfigManager.get();
     return new StorageImpl(config.storage.dataDir);
+});
+
+// SessionStorage - SessionStorageImpl 实现（从 ConfigManager 获取 dataDir）
+container.bind(SessionStorage).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new SessionStorageImpl(config.storage.dataDir);
 });
 
 export { container };

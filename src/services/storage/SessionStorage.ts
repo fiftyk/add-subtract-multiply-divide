@@ -1,6 +1,9 @@
+import 'reflect-metadata';
+import { injectable } from 'inversify';
 import fs from 'fs/promises';
 import path from 'path';
 import type { InteractionSession } from '../types.js';
+import type { SessionStorage } from './interfaces/SessionStorage.js';
 
 /**
  * Session 存储管理
@@ -13,7 +16,8 @@ import type { InteractionSession } from '../types.js';
  * 文件格式：
  * - .data/sessions/session-{uuid}.json
  */
-export class SessionStorage {
+@injectable()
+export class SessionStorageImpl implements SessionStorage {
   private sessionsDir: string;
 
   constructor(dataDir: string = '.data') {
