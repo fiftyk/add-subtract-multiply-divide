@@ -13,6 +13,12 @@
 - 🎯 **类型安全**: TypeScript 编写，完整的类型支持
 - 🏗️ **SOLID 设计**: 遵循 SOLID 原则，易扩展易维护
 
+## 📚 文档
+
+- **[快速开始](./docs/quickstart.md)** - 5 分钟快速上手指南
+- **[配置指南](./docs/configuration.md)** - 完整的配置选项说明
+- **[Mock 生成设计](./docs/mock-generation-design.md)** - Mock 系统架构设计
+
 ## 安装
 
 ```bash
@@ -20,91 +26,40 @@ npm install
 npm run build
 ```
 
-## 配置
+## 快速配置
 
-### 环境变量
-
-设置 API Key（必需，任选其一）：
+### 1. 设置 API Key（必需）
 
 ```bash
-# 方式 1: 使用 ANTHROPIC_API_KEY（Anthropic SDK 标准）
+# 方式 1: 使用 ANTHROPIC_API_KEY
 export ANTHROPIC_API_KEY="your-api-key-here"
 
 # 方式 2: 使用 ANTHROPIC_AUTH_TOKEN（Claude Code 兼容）
 export ANTHROPIC_AUTH_TOKEN="your-api-key-here"
 ```
 
-> 💡 如果你已经在使用 Claude Code，可以直接使用现有的 `ANTHROPIC_AUTH_TOKEN` 环境变量，无需额外配置。
+> 💡 如果你已经在使用 Claude Code，可以直接使用现有的 `ANTHROPIC_AUTH_TOKEN` 环境变量。
 
-设置自定义 API 端点（可选）：
-
-```bash
-export ANTHROPIC_BASE_URL="https://your-custom-endpoint.com"
-```
-
-如果你使用代理或自定义的 Claude API 端点，可以通过 `ANTHROPIC_BASE_URL` 环境变量指定。如果不设置，将使用 Anthropic 官方端点。
-
-### Mock 自动生成配置
-
-Mock 自动生成允许系统在检测到缺失函数时，自动生成可执行的 mock 实现。
-
-**默认行为**: 禁用（需要明确启用） - Breaking Change from v1.x
-
-#### 启用方式
-
-1. **命令行参数**（最高优先级）:
-```bash
-# 启用 mock 生成
-npx fn-orchestrator plan "你的需求" --auto-mock
-
-# 禁用 mock 生成（覆盖配置文件）
-npx fn-orchestrator plan "你的需求" --no-auto-mock
-
-# 自定义最大迭代次数
-npx fn-orchestrator plan "你的需求" --auto-mock --mock-max-iterations 5
-```
-
-2. **环境变量**:
-```bash
-# 启用 mock 生成
-export AUTO_GENERATE_MOCK=true
-
-# 设置最大迭代次数
-export MOCK_MAX_ITERATIONS=5
-```
-
-3. **.env 文件**（推荐）:
-```bash
-# 在项目根目录创建 .env 文件
-AUTO_GENERATE_MOCK=true
-MOCK_MAX_ITERATIONS=3
-MOCK_OUTPUT_DIR=./functions/generated
-```
-
-#### 配置优先级
-
-命令行参数 > 环境变量 > .env 文件 > 默认值
-
-#### 最佳实践
-
-- **开发阶段**: 启用 `--auto-mock` 快速验证流程
-- **生产环境**: 禁用自动生成，使用真实函数实现
-- **CI/CD**: 通过环境变量统一控制
-
-#### 从 v1.x 迁移
-
-v2.0 将 mock 自动生成改为默认禁用。如需保持原有行为：
+### 2. 创建 .env 文件（推荐）
 
 ```bash
-# 方式 1: 每次命令添加 --auto-mock
-npx fn-orchestrator plan "需求" --auto-mock
+# 复制配置模板
+cp .env.example .env
 
-# 方式 2: 设置环境变量（推荐）
-export AUTO_GENERATE_MOCK=true
-
-# 方式 3: 创建 .env 文件
-echo "AUTO_GENERATE_MOCK=true" > .env
+# 编辑配置文件
+nano .env
 ```
+
+### 3. 更多配置选项
+
+完整的配置说明请参考：**[配置指南](./docs/configuration.md)**
+
+包括：
+- API 端点自定义
+- Mock 自动生成控制
+- 执行超时设置
+- 日志级别配置
+- 配置优先级说明
 
 ## 使用
 
@@ -271,134 +226,28 @@ npx fn-orchestrator plan "计算 9 的平方根"
 
 ## 🆕 自动 Mock 生成功能
 
-### 什么是自动 Mock 生成？
+当系统识别到缺失函数时，可以自动使用 LLM 生成可执行的 mock 实现，让你的流程立即跑通。
 
-当系统识别到缺失函数时，会自动使用 LLM 生成可执行的 mock 实现，让你的流程立即跑通，无需等待真实实现。生成的代码保存为文件，可供后续完善（"悬赏模式"）。
-
-### 使用示例
-
-#### 1. 请求需要未实现函数的任务
+### 快速启用
 
 ```bash
-npx fn-orchestrator plan "计算 16 的平方根"
+# 使用 --auto-mock 标志启用
+npx fn-orchestrator plan "计算 16 的平方根" --auto-mock
 ```
 
-#### 2. 系统自动生成 Mock 函数
+系统会：
+1. 🔍 识别缺失的函数（如 `sqrt`）
+2. 🤖 自动生成 mock 实现
+3. 💾 保存到 `functions/generated/` 目录
+4. ✅ 生成可执行的计划
 
-输出：
-```
-📝 正在分析需求...
-用户需求: 计算 16 的平方根
+生成的 mock 文件可供后续完善（"悬赏模式"）。
 
-已加载 4 个函数: add, subtract, multiply, divide
+### 了解更多
 
-🔧 Generating mock implementations...
-✅ Generated 1 mock function(s)
-
-✅ 计划生成成功！
-
-📋 执行计划 #plan-abc123:
-用户需求: 计算 16 的平方根
-状态: ✅ 可执行
-
-步骤:
-  Step 1: sqrt(number=16)
-    → 计算 16 的平方根
-
-⚠️  此计划使用了 MOCK 数据，结果仅供测试
-📁 Mock functions: sqrt
-💡 提示: 编辑 functions/generated/ 中的文件来实现真实逻辑
-
-执行命令: npx fn-orchestrator execute plan-abc123
-```
-
-#### 3. 生成的 Mock 函数文件
-
-系统在 `functions/generated/` 目录下生成了 `sqrt-{timestamp}.js` 文件：
-
-```javascript
-// 🤖 AUTO-GENERATED MOCK FUNCTION
-// Function: sqrt
-// Description: 计算一个数字的平方根
-// TODO: Replace with real implementation
-// Generated at: 2025-12-23T06:11:37.769Z
-
-import { defineFunction } from '../../dist/src/registry/index.js';
-
-export const sqrt = defineFunction({
-  name: 'sqrt',
-  description: '计算一个数字的平方根',
-  scenario: '数学计算和数值处理',
-  parameters: [
-    { name: 'number', type: 'number', description: '需要计算平方根的非负数' }
-  ],
-  returns: { type: 'number', description: '输入数字的平方根' },
-  implementation: (number) => {
-    // ⚠️ MOCK IMPLEMENTATION - 返回模拟数据
-    return 3.162;  // 实际应该是 Math.sqrt(number)
-  }
-});
-```
-
-#### 4. 立即执行使用 Mock 数据
-
-```bash
-npx fn-orchestrator execute plan-abc123 -y
-```
-
-输出：
-```
-🚀 开始执行...
-
-执行结果 - 计划 #plan-abc123
-
-✅ Step 1: sqrt(number=16)
-   → 结果: 3.162
-
-📦 最终结果: 3.162
-✅ 执行成功!
-```
-
-#### 5. 完善 Mock 实现
-
-编辑 `functions/generated/sqrt-{timestamp}.js`，替换为真实实现：
-
-```javascript
-  implementation: (number) => {
-    return Math.sqrt(number);  // 真实实现
-  }
-```
-
-重新执行计划即可得到正确结果。
-
-### Mock 生成的优势
-
-1. **快速验证流程**: 不用等待所有函数实现完成，就能测试整个调用链路
-2. **团队协作**: 生成的 mock 文件可以作为"悬赏任务"分配给团队成员完善
-3. **TDD 友好**: 先跑通流程，再逐步完善实现
-4. **清晰标记**: 自动添加 `🤖 AUTO-GENERATED` 注释和 `TODO` 提示
-5. **真实可执行**: 生成的不是空实现，而是返回合理模拟数据的代码
-
-### 技术实现
-
-Mock 生成功能基于 SOLID 原则设计：
-
-- **SRP (单一职责)**: 5个独立类各司其职
-  - `IMockCodeGenerator` - 仅生成代码
-  - `IMockFileWriter` - 仅写入文件
-  - `IMockFunctionLoader` - 仅加载函数
-  - `IMockMetadataProvider` - 仅管理元数据
-  - `MockOrchestrator` - 协调工作流
-
-- **OCP (开闭原则)**: 使用装饰器模式扩展 Planner，零修改原有代码
-
-- **LSP (里氏替换)**: Mock 函数与真实函数完全兼容，使用相同类型定义
-
-- **ISP (接口隔离)**: 6个小接口，每个只包含1-3个方法
-
-- **DIP (依赖倒置)**: 所有类依赖抽象接口，通过构造函数注入
-
-详见: [设计文档](docs/mock-generation-design.md)
+- **使用指南**: 参考 [快速开始](./docs/quickstart.md) 中的 Mock 生成示例
+- **配置说明**: 参考 [配置指南](./docs/configuration.md) 了解如何启用和配置
+- **技术设计**: 参考 [Mock 生成设计](./docs/mock-generation-design.md) 了解架构实现
 
 ## 项目结构
 
