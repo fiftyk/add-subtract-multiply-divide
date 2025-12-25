@@ -2,7 +2,9 @@ import 'reflect-metadata';
 import { Container } from 'inversify';
 import { FunctionRegistry } from './registry/index.js';
 import { ToolProvider } from './tools/interfaces/ToolProvider.js';
+import { ToolFormatter } from './tools/interfaces/ToolFormatter.js';
 import { LocalFunctionToolProvider } from './tools/LocalFunctionToolProvider.js';
+import { StandardToolFormatter } from './tools/ToolFormatter.js';
 import { PlannerLLMClient } from './planner/interfaces/IPlannerLLMClient.js';
 import { AnthropicPlannerLLMClient } from './planner/adapters/AnthropicPlannerLLMClient.js';
 import { PlannerImpl } from './planner/planner.js';
@@ -26,6 +28,9 @@ container.bind(FunctionRegistry).toSelf();
 
 // ToolProvider - 单例（依赖同一个 FunctionRegistry 实例）
 container.bind<ToolProvider>(ToolProvider).to(LocalFunctionToolProvider);
+
+// ToolFormatter - 单例
+container.bind<ToolFormatter>(ToolFormatter).to(StandardToolFormatter);
 
 // PlannerLLMClient - 动态创建（从 ConfigManager 获取配置）
 container.bind(PlannerLLMClient).toDynamicValue(() => {

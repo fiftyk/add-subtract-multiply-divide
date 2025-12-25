@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlannerImpl } from '../planner.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
-import { LocalFunctionToolProvider } from '../../tools/index.js';
+import { LocalFunctionToolProvider, StandardToolFormatter } from '../../tools/index.js';
 import type { ExecutionPlan } from '../types.js';
 import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
 
@@ -15,15 +15,17 @@ class MockLLMClient implements IPlannerLLMClient {
 }
 
 describe('Planner', () => {
-  let planner: Planner;
+  let planner: PlannerImpl;
   let registry: FunctionRegistry;
   let mockLLMClient: MockLLMClient;
   let toolProvider: LocalFunctionToolProvider;
+  let toolFormatter: StandardToolFormatter;
 
   beforeEach(() => {
     registry = new FunctionRegistry();
     mockLLMClient = new MockLLMClient();
     toolProvider = new LocalFunctionToolProvider(registry);
+    toolFormatter = new StandardToolFormatter();
 
     // 注册测试用的数学函数
     registry.register(
@@ -54,7 +56,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new PlannerImpl(toolProvider, registry, mockLLMClient);
+    planner = new PlannerImpl(toolProvider, toolFormatter, registry, mockLLMClient);
   });
 
   describe('plan', () => {

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { injectable, inject } from 'inversify';
 import { FunctionRegistry } from '../registry/index.js';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
+import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
 import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';
@@ -10,13 +11,14 @@ import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
 
 /**
  * 函数编排规划器
- * Follows DIP: Depends on ToolProvider and IPlannerLLMClient abstractions
+ * Follows DIP: Depends on ToolProvider, ToolFormatter and IPlannerLLMClient abstractions
  * Follows LSP: Implements Planner interface for substitutability
  */
 @injectable()
 export class PlannerImpl implements Planner {
   constructor(
     @inject(ToolProvider) private toolProvider: ToolProvider,
+    @inject(ToolFormatter) private toolFormatter: ToolFormatter,
     @inject(FunctionRegistry) private registry: FunctionRegistry,
     @inject(PlannerLLMClient) private llmClient: IPlannerLLMClient
   ) {}
@@ -54,23 +56,7 @@ export class PlannerImpl implements Planner {
    */
   private buildFunctionsDescription(): string {
     const tools = this.toolProvider.searchTools();
-    if (tools.length === 0) {
-      return '当前没有可用的函数。';
-    }
-
-    return tools
-      .map((fn) => {
-        const params = fn.parameters
-          .map((p) => `    - ${p.name} (${p.type}): ${p.description}`)
-          .join('\n');
-
-        return `- ${fn.name}: ${fn.description}
-  使用场景: ${fn.scenario}
-  参数:
-${params || '    (无参数)'}
-  返回值: ${fn.returns.type} - ${fn.returns.description}`;
-      })
-      .join('\n\n');
+    return this.toolFormatter.formatForLLM(tools);
   }
 
   /**
