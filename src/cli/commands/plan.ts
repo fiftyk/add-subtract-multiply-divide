@@ -135,14 +135,20 @@ export async function planCommand(
     // 显示 mock 警告
     if (result.plan.metadata?.usesMocks) {
       console.log(chalk.yellow('⚠️  此计划使用了 MOCK 数据，结果仅供测试'));
+
+      // 提取函数名列表
+      const mockFunctionNames = result.plan.metadata.mockFunctions?.map((f: { name: string }) => f.name).join(', ') || '';
       console.log(
         chalk.gray(
-          `📁 Mock functions: ${result.plan.metadata.mockFunctions?.join(', ')}`
+          `📁 Mock functions: ${mockFunctionNames}`
         )
       );
+
+      // 显示 mock 文件路径
+      const mockDir = storage.getPlanMocksDir(result.plan.id);
       console.log(
         chalk.cyan(
-          '💡 提示: 编辑 functions/generated/ 中的文件来实现真实逻辑'
+          `💡 提示: 编辑 ${mockDir} 中的文件来实现真实逻辑`
         )
       );
       console.log();
