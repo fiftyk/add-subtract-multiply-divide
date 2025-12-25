@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { Container } from 'inversify';
 import { FunctionRegistry } from './registry/index.js';
-import { ToolProvider } from './remote/interfaces/tool-provider.js';
-import { LocalFunctionToolProvider } from './remote/implementations/LocalFunctionToolProvider.js';
+import { ToolProvider } from './tools/interfaces/ToolProvider.js';
+import { LocalFunctionToolProvider } from './tools/LocalFunctionToolProvider.js';
 import { PlannerLLMClient } from './planner/interfaces/IPlannerLLMClient.js';
 import { AnthropicPlannerLLMClient } from './planner/adapters/AnthropicPlannerLLMClient.js';
 import { PlannerImpl } from './planner/planner.js';

@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { injectable, inject } from 'inversify';
-import { FunctionRegistry } from '../../registry/index.js';
-import { ToolProvider } from '../interfaces/tool-provider.js';
-import type { ToolDefinition } from '../types.js';
+import { FunctionRegistry } from '../registry/index.js';
+import { ToolProvider } from './interfaces/ToolProvider.js';
+import type { ToolDefinition } from './types.js';
 
 /**
  * 本地函数工具提供者

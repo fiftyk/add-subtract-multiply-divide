@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
 import { injectable, inject } from 'inversify';
 import { FunctionRegistry } from '../registry/index.js';
-import { ToolProvider } from '../remote/interfaces/tool-provider.js';
+import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
 import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';

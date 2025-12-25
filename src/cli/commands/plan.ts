@@ -3,7 +3,7 @@ import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
-import { ToolProvider } from '../../remote/interfaces/tool-provider.js';
+import { ToolProvider } from '../../tools/interfaces/ToolProvider.js';
 import { Planner } from '../../planner/index.js';
 import { PlannerLLMClient, type IPlannerLLMClient } from '../../planner/interfaces/IPlannerLLMClient.js';
 import { Storage } from '../../storage/index.js';
