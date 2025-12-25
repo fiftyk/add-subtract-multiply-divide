@@ -4,6 +4,8 @@ import type { Executor } from '../interfaces/Executor.js';
 import { ExecutionContext } from '../context.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
+import { StepType } from '../../planner/types.js';
+import { isFunctionCallStep } from '../../planner/type-guards.js';
 import { ConfigManager } from '../../config/index.js';
 
 // 初始化 ConfigManager（用于 ExecutorImpl）
@@ -148,6 +150,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'add',
             description: '加法',
             parameters: {
@@ -165,7 +168,11 @@ describe('Executor', () => {
       expect(result.success).toBe(true);
       expect(result.finalResult).toBe(8);
       expect(result.steps).toHaveLength(1);
-      expect(result.steps[0].result).toBe(8);
+
+      const step0 = result.steps[0];
+      if (isFunctionCallStep(step0)) {
+        expect(step0.result).toBe(8);
+      }
     });
 
     it('should execute a multi-step plan with references', async () => {
@@ -176,6 +183,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'add',
             description: '3 + 5',
             parameters: {
@@ -185,6 +193,7 @@ describe('Executor', () => {
           },
           {
             stepId: 2,
+            type: StepType.FUNCTION_CALL,
             functionName: 'multiply',
             description: '* 2',
             parameters: {
@@ -201,8 +210,8 @@ describe('Executor', () => {
 
       expect(result.success).toBe(true);
       expect(result.finalResult).toBe(16);
-      expect(result.steps[0].result).toBe(8);
-      expect(result.steps[1].result).toBe(16);
+      expect((result.steps[0] as any).result).toBe(8);
+      expect((result.steps[1] as any).result).toBe(16);
     });
 
     it('should handle execution errors', async () => {
@@ -212,6 +221,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'divide',
             description: '除法',
             parameters: {
@@ -239,6 +249,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'subtract',
             description: '10 - 3',
             parameters: {
@@ -248,6 +259,7 @@ describe('Executor', () => {
           },
           {
             stepId: 2,
+            type: StepType.FUNCTION_CALL,
             functionName: 'multiply',
             description: '* 4',
             parameters: {
@@ -257,6 +269,7 @@ describe('Executor', () => {
           },
           {
             stepId: 3,
+            type: StepType.FUNCTION_CALL,
             functionName: 'divide',
             description: '/ 2',
             parameters: {
@@ -272,9 +285,9 @@ describe('Executor', () => {
       const result = await executor.execute(plan);
 
       expect(result.success).toBe(true);
-      expect(result.steps[0].result).toBe(7); // 10 - 3
-      expect(result.steps[1].result).toBe(28); // 7 * 4
-      expect(result.steps[2].result).toBe(14); // 28 / 2
+      expect((result.steps[0] as any).result).toBe(7); // 10 - 3
+      expect((result.steps[1] as any).result).toBe(28); // 7 * 4
+      expect((result.steps[2] as any).result).toBe(14); // 28 / 2
       expect(result.finalResult).toBe(14);
     });
 
@@ -285,6 +298,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'asyncAdd',
             description: '异步加法',
             parameters: {
@@ -301,7 +315,7 @@ describe('Executor', () => {
 
       expect(result.success).toBe(true);
       expect(result.finalResult).toBe(8);
-      expect(result.steps[0].result).toBe(8);
+      expect((result.steps[0] as any).result).toBe(8);
     });
 
     it('should execute mixed sync and async functions in chain', async () => {
@@ -312,6 +326,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'asyncAdd',
             description: 'async add',
             parameters: {
@@ -321,6 +336,7 @@ describe('Executor', () => {
           },
           {
             stepId: 2,
+            type: StepType.FUNCTION_CALL,
             functionName: 'multiply',
             description: '* 2',
             parameters: {
@@ -336,8 +352,8 @@ describe('Executor', () => {
       const result = await executor.execute(plan);
 
       expect(result.success).toBe(true);
-      expect(result.steps[0].result).toBe(8);
-      expect(result.steps[1].result).toBe(16);
+      expect((result.steps[0] as any).result).toBe(8);
+      expect((result.steps[1] as any).result).toBe(16);
       expect(result.finalResult).toBe(16);
     });
 
@@ -368,6 +384,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'slowFunction',
             description: '慢操作',
             parameters: {
@@ -413,6 +430,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'slowFunction2',
             description: '慢操作',
             parameters: {
@@ -427,7 +445,7 @@ describe('Executor', () => {
       const result = await executorNoTimeout.execute(plan);
 
       expect(result.success).toBe(true);
-      expect(result.steps[0].result).toBe(99);
+      expect((result.steps[0] as any).result).toBe(99);
     });
 
     it('should use default timeout of 30 seconds', () => {
@@ -445,6 +463,7 @@ describe('Executor', () => {
         steps: [
           {
             stepId: 1,
+            type: StepType.FUNCTION_CALL,
             functionName: 'add',
             description: '加法',
             parameters: {

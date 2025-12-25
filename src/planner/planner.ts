@@ -4,7 +4,9 @@ import { injectable, inject } from 'inversify';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
 import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
-import type { ExecutionPlan, PlanResult } from './types.js';
+import type { ExecutionPlan, PlanResult, FunctionCallStep } from './types.js';
+import { StepType } from './types.js';
+import { isFunctionCallStep } from './type-guards.js';
 import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';
 import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
@@ -72,10 +74,16 @@ export class PlannerImpl implements Planner {
     const responseText = await this.llmClient.generatePlan(prompt);
     const parsed = parseLLMResponse(responseText);
 
+    // 将解析的 steps 转换为 FunctionCallStep 格式
+    const steps: FunctionCallStep[] = parsed.steps.map((step) => ({
+      ...step,
+      type: StepType.FUNCTION_CALL,
+    }));
+
     return {
       id: `plan-${uuidv4().slice(0, 8)}`,
       userRequest,
-      steps: parsed.steps,
+      steps,
       missingFunctions: parsed.missingFunctions,
       createdAt: new Date().toISOString(),
       status: parsed.status,
@@ -90,8 +98,11 @@ export class PlannerImpl implements Planner {
    */
   private async validatePlan(plan: ExecutionPlan): Promise<boolean> {
     for (const step of plan.steps) {
-      if (!(await this.toolProvider.hasTool(step.functionName))) {
-        return false;
+      // 只验证函数调用步骤，用户输入步骤不需要验证
+      if (isFunctionCallStep(step)) {
+        if (!(await this.toolProvider.hasTool(step.functionName))) {
+          return false;
+        }
       }
     }
     return true;
@@ -111,9 +122,15 @@ export class PlannerImpl implements Planner {
     if (plan.steps.length > 0) {
       lines.push('步骤:');
       for (const step of plan.steps) {
-        const params = this.formatParameters(step.parameters);
-        lines.push(`  Step ${step.stepId}: ${step.functionName}(${params})`);
-        lines.push(`    → ${step.description}`);
+        if (isFunctionCallStep(step)) {
+          const params = this.formatParameters(step.parameters);
+          lines.push(`  Step ${step.stepId}: ${step.functionName}(${params})`);
+          lines.push(`    → ${step.description}`);
+        } else {
+          // 用户输入步骤
+          lines.push(`  Step ${step.stepId}: [User Input]`);
+          lines.push(`    → ${step.description}`);
+        }
       }
     }
 

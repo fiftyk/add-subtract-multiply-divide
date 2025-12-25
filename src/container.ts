@@ -20,6 +20,8 @@ import { Storage } from './storage/interfaces/Storage.js';
 import { StorageImpl } from './storage/StorageImpl.js';
 import { Executor } from './executor/interfaces/Executor.js';
 import { ExecutorImpl } from './executor/executor.js';
+import { UserInputProvider } from './user-input/interfaces/UserInputProvider.js';
+import { CLIUserInputProvider } from './user-input/adapters/CLIUserInputProvider.js';
 
 const container = new Container({
     defaultScope: 'Singleton',
@@ -74,11 +76,11 @@ container.bind(SessionStorage).toDynamicValue(() => {
     return new SessionStorageImpl(config.storage.dataDir);
 });
 
-// Executor - ExecutorImpl 实现（依赖注入，手动传入 FunctionRegistry，config 从 ConfigManager 获取）
-container.bind(Executor).toDynamicValue((context) => {
-    const registry = context.get(FunctionRegistry);
-    return new ExecutorImpl(registry);
-});
+// UserInputProvider - CLIUserInputProvider 实现（单例）
+container.bind(UserInputProvider).to(CLIUserInputProvider);
+
+// Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry 和 UserInputProvider）
+container.bind(Executor).to(ExecutorImpl);
 
 export { container };
 export default container;

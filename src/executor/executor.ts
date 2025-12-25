@@ -1,19 +1,28 @@
 import 'reflect-metadata';
-import { injectable, inject } from 'inversify';
+import { injectable, inject, optional, unmanaged } from 'inversify';
 import { FunctionRegistry } from '../registry/index.js';
-import type { ExecutionPlan } from '../planner/types.js';
-import type { ExecutionResult, StepResult } from './types.js';
+import type { ExecutionPlan, FunctionCallStep, UserInputStep } from '../planner/types.js';
+import { StepType } from '../planner/types.js';
+import { isFunctionCallStep, isUserInputStep } from '../planner/type-guards.js';
+import type {
+  ExecutionResult,
+  StepResult,
+  FunctionCallResult,
+  UserInputResult,
+} from './types.js';
 import type { Executor } from './interfaces/Executor.js';
 import { ExecutionContext } from './context.js';
 import {
   FunctionExecutionError,
   ExecutionTimeoutError,
   getUserFriendlyMessage,
+  UnsupportedFieldTypeError,
 } from '../errors/index.js';
 import type { ILogger } from '../logger/index.js';
 import { LoggerFactory } from '../logger/index.js';
 import { PlanValidator } from '../validation/index.js';
 import { ConfigManager } from '../config/index.js';
+import { UserInputProvider } from '../user-input/interfaces/UserInputProvider.js';
 
 /**
  * Executor 配置选项
@@ -38,14 +47,17 @@ export interface ExecutorConfig {
 @injectable()
 export class ExecutorImpl implements Executor {
   private registry: FunctionRegistry;
+  private userInputProvider?: UserInputProvider;
   private config: Required<ExecutorConfig>;
   private logger: ILogger;
 
   constructor(
     @inject(FunctionRegistry) registry: FunctionRegistry,
-    config?: ExecutorConfig
+    @unmanaged() config?: ExecutorConfig,
+    @inject(UserInputProvider) @optional() userInputProvider?: UserInputProvider
   ) {
     this.registry = registry;
+    this.userInputProvider = userInputProvider;
     const appConfig = ConfigManager.get();
     this.config = {
       stepTimeout: config?.stepTimeout ?? appConfig.executor.stepTimeout,
@@ -72,7 +84,10 @@ export class ExecutorImpl implements Executor {
     let overallError: string | undefined;
 
     for (const step of plan.steps) {
-      this.logger.debug('Executing step', { stepId: step.stepId, functionName: step.functionName });
+      const stepDesc = isFunctionCallStep(step)
+        ? `function: ${step.functionName}`
+        : 'user input';
+      this.logger.debug('Executing step', { stepId: step.stepId, type: stepDesc });
 
       const stepResult = await this.executeStepWithTimeout(step, context);
       stepResults.push(stepResult);
@@ -82,19 +97,25 @@ export class ExecutorImpl implements Executor {
         overallError = `步骤 ${step.stepId} 执行失败: ${stepResult.error}`;
         this.logger.error('Step execution failed', undefined, {
           stepId: step.stepId,
-          functionName: step.functionName,
+          type: stepResult.type,
           error: stepResult.error,
         });
         break;
       }
 
       // 存储结果供后续步骤引用
-      context.setStepResult(step.stepId, stepResult.result);
-      finalResult = stepResult.result;
+      if (stepResult.type === StepType.FUNCTION_CALL) {
+        context.setStepResult(step.stepId, stepResult.result);
+        finalResult = stepResult.result;
+      } else if (stepResult.type === StepType.USER_INPUT) {
+        // 用户输入步骤存储整个 values 对象
+        context.setStepResult(step.stepId, stepResult.values);
+        finalResult = stepResult.values;
+      }
 
       this.logger.debug('Step completed successfully', {
         stepId: step.stepId,
-        result: stepResult.result
+        type: stepResult.type
       });
     }
 
@@ -124,7 +145,7 @@ export class ExecutorImpl implements Executor {
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
-    // 如果超时设置为 0，不限制超时
+    // 如果超时设置为 0，不限��超时
     if (this.config.stepTimeout === 0) {
       return this.executeStep(step, context);
     }
@@ -133,22 +154,35 @@ export class ExecutorImpl implements Executor {
       // 使用 Promise.race 实现超时
       return await Promise.race([
         this.executeStep(step, context),
-        this.createTimeoutPromise(step.stepId, step.functionName, this.config.stepTimeout),
+        this.createTimeoutPromise(step.stepId, this.config.stepTimeout),
       ]);
     } catch (error) {
       // 捕获超时错误并转换为 StepResult 格式
       if (error instanceof ExecutionTimeoutError) {
-        // 解析参数以包含在错误结果中
-        const resolvedParams = context.resolveParameters(step.parameters);
-        return {
-          stepId: step.stepId,
-          functionName: step.functionName,
-          parameters: resolvedParams,
-          result: undefined,
-          success: false,
-          error: error.message,
-          executedAt: new Date().toISOString(),
-        };
+        if (isFunctionCallStep(step)) {
+          // 函数调用步骤超时
+          const resolvedParams = context.resolveParameters(step.parameters);
+          return {
+            stepId: step.stepId,
+            type: StepType.FUNCTION_CALL,
+            functionName: step.functionName,
+            parameters: resolvedParams,
+            result: undefined,
+            success: false,
+            error: error.message,
+            executedAt: new Date().toISOString(),
+          };
+        } else {
+          // 用户输入步骤超时
+          return {
+            stepId: step.stepId,
+            type: StepType.USER_INPUT,
+            values: {},
+            success: false,
+            error: error.message,
+            executedAt: new Date().toISOString(),
+          };
+        }
       }
       throw error; // 重新抛出非超时错误
     }
@@ -159,23 +193,40 @@ export class ExecutorImpl implements Executor {
    */
   private createTimeoutPromise(
     stepId: number,
-    functionName: string,
     timeout: number
   ): Promise<StepResult> {
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new ExecutionTimeoutError(stepId, functionName, timeout));
+        reject(new ExecutionTimeoutError(stepId, 'step execution', timeout));
       }, timeout);
     });
   }
 
   /**
-   * 执行单个步骤
+   * 执行单个步骤（根据类型分派）
    */
   private async executeStep(
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
+    if (isFunctionCallStep(step)) {
+      return this.executeFunctionCall(step, context);
+    } else if (isUserInputStep(step)) {
+      return this.executeUserInput(step, context);
+    } else {
+      // 类型守卫应该确保永远不会到这里
+      const exhaustiveCheck: never = step;
+      throw new Error(`Unknown step type: ${(exhaustiveCheck as any).type}`);
+    }
+  }
+
+  /**
+   * 执行函数调用步骤
+   */
+  private async executeFunctionCall(
+    step: FunctionCallStep,
+    context: ExecutionContext
+  ): Promise<FunctionCallResult> {
     const executedAt = new Date().toISOString();
     let resolvedParams: Record<string, unknown> = {};
 
@@ -188,6 +239,7 @@ export class ExecutorImpl implements Executor {
 
       return {
         stepId: step.stepId,
+        type: StepType.FUNCTION_CALL,
         functionName: step.functionName,
         parameters: resolvedParams,
         result,
@@ -204,11 +256,71 @@ export class ExecutorImpl implements Executor {
 
       return {
         stepId: step.stepId,
+        type: StepType.FUNCTION_CALL,
         functionName: step.functionName,
         parameters: resolvedParams,
         result: undefined,
         success: false,
         error: getUserFriendlyMessage(executionError),
+        executedAt,
+      };
+    }
+  }
+
+  /**
+   * 执行用户输入步骤
+   */
+  private async executeUserInput(
+    step: UserInputStep,
+    context: ExecutionContext
+  ): Promise<UserInputResult> {
+    const executedAt = new Date().toISOString();
+
+    try {
+      // 检查是否有 UserInputProvider
+      if (!this.userInputProvider) {
+        throw new Error(
+          'User input step requires a UserInputProvider, but none was provided to Executor'
+        );
+      }
+
+      this.logger.info('Requesting user input', { stepId: step.stepId });
+
+      // 检查所有字段类型是否支持
+      for (const field of step.schema.fields) {
+        if (!this.userInputProvider.supportsFieldType(field.type)) {
+          throw new UnsupportedFieldTypeError(field.type, 'CLIUserInputProvider');
+        }
+      }
+
+      // 请求用户输入
+      const result = await this.userInputProvider.requestInput(step.schema);
+
+      this.logger.info('User input received', {
+        stepId: step.stepId,
+        skipped: result.skipped,
+        fieldCount: Object.keys(result.values).length,
+      });
+
+      return {
+        stepId: step.stepId,
+        type: StepType.USER_INPUT,
+        values: result.values,
+        skipped: result.skipped,
+        timestamp: result.timestamp,
+        success: true,
+        executedAt,
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : undefined;
+      this.logger.error('User input failed', err, { stepId: step.stepId });
+
+      return {
+        stepId: step.stepId,
+        type: StepType.USER_INPUT,
+        values: {},
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
         executedAt,
       };
     }
@@ -225,16 +337,36 @@ export class ExecutorImpl implements Executor {
 
     for (const step of result.steps) {
       const icon = step.success ? '✅' : '❌';
-      const params = Object.entries(step.parameters)
-        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-        .join(', ');
 
-      lines.push(`${icon} Step ${step.stepId}: ${step.functionName}(${params})`);
+      if (step.type === StepType.FUNCTION_CALL) {
+        // 函数调用步骤
+        const params = Object.entries(step.parameters)
+          .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+          .join(', ');
 
-      if (step.success) {
-        lines.push(`   → 结果: ${JSON.stringify(step.result)}`);
-      } else {
-        lines.push(`   → 错误: ${step.error}`);
+        lines.push(`${icon} Step ${step.stepId}: ${step.functionName}(${params})`);
+
+        if (step.success) {
+          lines.push(`   → 结果: ${JSON.stringify(step.result)}`);
+        } else {
+          lines.push(`   → 错误: ${step.error}`);
+        }
+      } else if (step.type === StepType.USER_INPUT) {
+        // 用户输入步骤
+        lines.push(`${icon} Step ${step.stepId}: [User Input]`);
+
+        if (step.success) {
+          if (step.skipped) {
+            lines.push(`   → 已跳过`);
+          } else {
+            const values = Object.entries(step.values)
+              .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+              .join(', ');
+            lines.push(`   → 输入: ${values}`);
+          }
+        } else {
+          lines.push(`   → 错误: ${step.error}`);
+        }
       }
     }
 

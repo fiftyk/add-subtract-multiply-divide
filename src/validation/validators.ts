@@ -1,5 +1,6 @@
 import type { FunctionDefinition } from '../registry/types.js';
 import type { ExecutionPlan } from '../planner/types.js';
+import { isFunctionCallStep } from '../planner/type-guards.js';
 import { ParameterValidationError, PlanValidationError } from './errors.js';
 
 /**
@@ -138,28 +139,32 @@ export class PlanValidator {
       });
     }
 
-    // Validate function name
-    if (!step.functionName || typeof step.functionName !== 'string') {
-      throw new PlanValidationError('Step must have a function name', {
-        stepId: step.stepId,
-        functionName: step.functionName,
-      });
-    }
+    // 只对函数调用步骤进行函数名和参数验证
+    if (isFunctionCallStep(step)) {
+      // Validate function name
+      if (!step.functionName || typeof step.functionName !== 'string') {
+        throw new PlanValidationError('Step must have a function name', {
+          stepId: step.stepId,
+          functionName: step.functionName,
+        });
+      }
 
-    // Validate parameters
-    if (!step.parameters || typeof step.parameters !== 'object') {
-      throw new PlanValidationError('Step must have parameters object', {
-        stepId: step.stepId,
-        parameters: step.parameters,
-      });
-    }
+      // Validate parameters
+      if (!step.parameters || typeof step.parameters !== 'object') {
+        throw new PlanValidationError('Step must have parameters object', {
+          stepId: step.stepId,
+          parameters: step.parameters,
+        });
+      }
 
-    // Validate parameter references
-    for (const [paramName, paramValue] of Object.entries(step.parameters)) {
-      if (paramValue.type === 'reference') {
-        this.validateReference(paramValue.value as string, step.stepId, allSteps);
+      // Validate parameter references
+      for (const [paramName, paramValue] of Object.entries(step.parameters)) {
+        if (paramValue.type === 'reference') {
+          this.validateReference(paramValue.value as string, step.stepId, allSteps);
+        }
       }
     }
+    // 用户输入步骤验证在运行时由 UserInputProvider 完成
   }
 
   /**
@@ -170,12 +175,12 @@ export class PlanValidator {
     currentStepId: number,
     allSteps: ExecutionPlan['steps']
   ): void {
-    // Parse reference format: "step.{stepId}.result"
-    const match = reference.match(/^step\.(\d+)\.result$/);
+    // Parse reference format: "step.{stepId}.result" or "step.{stepId}.{fieldName}"
+    const match = reference.match(/^step\.(\d+)\.(.+)$/);
     if (!match) {
       throw new PlanValidationError('Invalid reference format', {
         reference,
-        expectedFormat: 'step.{stepId}.result',
+        expectedFormat: 'step.{stepId}.result or step.{stepId}.{fieldName}',
       });
     }
 

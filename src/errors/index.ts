@@ -155,3 +155,36 @@ export function getUserFriendlyMessage(error: unknown): string {
   }
   return String(error);
 }
+
+/**
+ * User input timeout error
+ */
+export class UserInputTimeoutError extends OrchestratorError {
+  constructor(timeout: number) {
+    const message = `User input timed out after ${timeout}ms`;
+    super(message, 'USER_INPUT_TIMEOUT', { timeout });
+  }
+}
+
+/**
+ * User input cancelled error
+ */
+export class UserInputCancelledError extends OrchestratorError {
+  constructor() {
+    const message = 'User input was cancelled';
+    super(message, 'USER_INPUT_CANCELLED', {});
+  }
+}
+
+/**
+ * Unsupported field type error
+ */
+export class UnsupportedFieldTypeError extends OrchestratorError {
+  constructor(fieldType: string, providerType: string) {
+    const message = `Field type "${fieldType}" is not supported by ${providerType}`;
+    super(message, 'UNSUPPORTED_FIELD_TYPE', {
+      fieldType,
+      providerType,
+    });
+  }
+}

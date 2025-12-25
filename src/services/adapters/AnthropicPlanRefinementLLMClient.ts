@@ -5,6 +5,7 @@ import type {
 } from '../types.js';
 import type { PlanRefinementLLMClient } from '../interfaces/IPlanRefinementLLMClient.js';
 import type { ExecutionPlan } from '../../planner/types.js';
+import { isFunctionCallStep } from '../../planner/type-guards.js';
 import type { FunctionDefinition } from '../../registry/types.js';
 
 /**
@@ -233,7 +234,8 @@ ${historyDesc ? `## 对话历史\n\n${historyDesc}\n` : ''}
 
     // 验证依赖有效性
     for (const step of plan.steps) {
-      if (step.dependsOn) {
+      // 只有函数调用步骤有 dependsOn
+      if (isFunctionCallStep(step) && step.dependsOn) {
         for (const depId of step.dependsOn) {
           if (depId >= step.stepId) {
             throw new Error(

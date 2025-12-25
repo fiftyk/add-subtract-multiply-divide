@@ -30,7 +30,8 @@
     "inquirer": "^9.2.0",
     "inversify": "^7.10.8",
     "reflect-metadata": "^0.2.2",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.7",

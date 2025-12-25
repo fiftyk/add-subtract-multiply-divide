@@ -19,6 +19,7 @@ import {
   SessionStorage,
 } from '../../services/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
+import { isFunctionCallStep } from '../../planner/type-guards.js';
 import type { AppConfig } from '../../config/types.js';
 
 interface PlanOptions {
@@ -361,18 +362,26 @@ function formatPlanForDisplay(plan: ExecutionPlan): string {
   lines.push(chalk.white('步骤:'));
 
   for (const step of plan.steps) {
-    const params = Object.entries(step.parameters)
-      .map(([k, v]: [string, any]) => {
-        if (v.type === 'reference') {
-          return `${k}=\${${v.value}}`;
-        }
-        return `${k}=${JSON.stringify(v.value)}`;
-      })
-      .join(', ');
+    if (isFunctionCallStep(step)) {
+      const params = Object.entries(step.parameters)
+        .map(([k, v]: [string, any]) => {
+          if (v.type === 'reference') {
+            return `${k}=\${${v.value}}`;
+          }
+          return `${k}=${JSON.stringify(v.value)}`;
+        })
+        .join(', ');
 
-    lines.push(chalk.white(`  Step ${step.stepId}: ${step.functionName}(${params})`));
-    if (step.description) {
-      lines.push(chalk.gray(`    → ${step.description}`));
+      lines.push(chalk.white(`  Step ${step.stepId}: ${step.functionName}(${params})`));
+      if (step.description) {
+        lines.push(chalk.gray(`    → ${step.description}`));
+      }
+    } else {
+      // 用户输入步骤
+      lines.push(chalk.white(`  Step ${step.stepId}: [User Input]`));
+      if (step.description) {
+        lines.push(chalk.gray(`    → ${step.description}`));
+      }
     }
   }
 

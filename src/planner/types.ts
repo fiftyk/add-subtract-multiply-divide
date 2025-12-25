@@ -7,15 +7,56 @@ export interface ParameterValue {
 }
 
 /**
- * 执行计划中的一个步骤
+ * 步骤类型枚举
  */
-export interface PlanStep {
+export enum StepType {
+  /** 函数调用(原有类型) */
+  FUNCTION_CALL = 'function_call',
+
+  /** 用户输入(新增) */
+  USER_INPUT = 'user_input',
+}
+
+/**
+ * 基础步骤接口
+ */
+export interface BasePlanStep {
   stepId: number;
-  functionName: string;
+  type: StepType;
   description: string;
+}
+
+/**
+ * 函数调用步骤(原有)
+ */
+export interface FunctionCallStep extends BasePlanStep {
+  type: StepType.FUNCTION_CALL;
+  functionName: string;
   parameters: Record<string, ParameterValue>;
   dependsOn?: number[]; // 预留：依赖的步骤 ID
 }
+
+/**
+ * 用户输入步骤(新增)
+ */
+export interface UserInputStep extends BasePlanStep {
+  type: StepType.USER_INPUT;
+
+  /** A2UI Schema */
+  schema: import('../user-input/interfaces/A2UISchema.js').A2UISchema;
+
+  /**
+   * 输入结果的存储名称(可选)
+   * 后续步骤可通过 ${step.N.result} 或 ${step.N.fieldId} 引用
+   */
+  outputName?: string;
+}
+
+/**
+ * 执行计划中的一个步骤
+ * 使用判别联合类型支持多种步骤类型
+ */
+export type PlanStep = FunctionCallStep | UserInputStep;
 
 /**
  * 缺失的函数定义
