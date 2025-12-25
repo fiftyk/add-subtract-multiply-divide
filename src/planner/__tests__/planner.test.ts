@@ -56,7 +56,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new PlannerImpl(toolProvider, toolFormatter, registry, mockLLMClient);
+    planner = new PlannerImpl(toolProvider, toolFormatter, mockLLMClient);
   });
 
   describe('plan', () => {

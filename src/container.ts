@@ -43,7 +43,7 @@ container.bind(PlannerLLMClient).toDynamicValue(() => {
     });
 });
 
-// Planner - PlannerImpl 实现（依赖注入，自动注入 ToolProvider, FunctionRegistry, PlannerLLMClient）
+// Planner - PlannerImpl 实现（依赖注入，自动注入 ToolProvider, ToolFormatter, PlannerLLMClient）
 container.bind(Planner).to(PlannerImpl);
 
 // PlanRefinementLLMClient - 动态创建（从 ConfigManager 获取配置）

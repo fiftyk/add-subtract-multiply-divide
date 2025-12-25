@@ -1,10 +1,9 @@
 import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
 import { injectable, inject } from 'inversify';
-import { FunctionRegistry } from '../registry/index.js';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
-import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
+import type { ExecutionPlan, PlanResult } from './types.js';
 import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';
 import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
@@ -19,7 +18,6 @@ export class PlannerImpl implements Planner {
   constructor(
     @inject(ToolProvider) private toolProvider: ToolProvider,
     @inject(ToolFormatter) private toolFormatter: ToolFormatter,
-    @inject(FunctionRegistry) private registry: FunctionRegistry,
     @inject(PlannerLLMClient) private llmClient: IPlannerLLMClient
   ) {}
 
@@ -85,7 +83,7 @@ export class PlannerImpl implements Planner {
    */
   validatePlan(plan: ExecutionPlan): boolean {
     for (const step of plan.steps) {
-      if (!this.registry.has(step.functionName)) {
+      if (!this.toolProvider.hasTool(step.functionName)) {
         return false;
       }
     }

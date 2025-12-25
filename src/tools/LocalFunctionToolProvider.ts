@@ -21,6 +21,13 @@ export class LocalFunctionToolProvider implements ToolProvider {
   }
 
   /**
+   * 验证工具是否存在
+   */
+  hasTool(id: string): boolean {
+    return this.registry.has(id);
+  }
+
+  /**
    * 将 FunctionDefinition 转换为 ToolDefinition
    */
   private toToolDefinition(fn: { name: string; description: string; scenario: string; parameters: unknown[]; returns: { type: unknown; description: unknown } }): ToolDefinition {
