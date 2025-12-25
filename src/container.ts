@@ -2,8 +2,10 @@ import 'reflect-metadata';
 import { Container } from 'inversify';
 import { FunctionRegistry } from './registry/index.js';
 import { ToolProvider } from './tools/interfaces/ToolProvider.js';
+import { ToolSelector } from './tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from './tools/interfaces/ToolFormatter.js';
 import { LocalFunctionToolProvider } from './tools/LocalFunctionToolProvider.js';
+import { AllToolsSelector } from './tools/AllToolsSelector.js';
 import { StandardToolFormatter } from './tools/ToolFormatter.js';
 import { PlannerLLMClient } from './planner/interfaces/IPlannerLLMClient.js';
 import { AnthropicPlannerLLMClient } from './planner/adapters/AnthropicPlannerLLMClient.js';
@@ -29,6 +31,9 @@ container.bind(FunctionRegistry).toSelf();
 // ToolProvider - 单例（依赖同一个 FunctionRegistry 实例）
 container.bind<ToolProvider>(ToolProvider).to(LocalFunctionToolProvider);
 
+// ToolSelector - 单例（默认使用 AllToolsSelector 策略）
+container.bind<ToolSelector>(ToolSelector).to(AllToolsSelector);
+
 // ToolFormatter - 单例
 container.bind<ToolFormatter>(ToolFormatter).to(StandardToolFormatter);
 
@@ -43,7 +48,7 @@ container.bind(PlannerLLMClient).toDynamicValue(() => {
     });
 });
 
-// Planner - PlannerImpl 实现（依赖注入，自动注入 ToolProvider, ToolFormatter, PlannerLLMClient）
+// Planner - PlannerImpl 实现（依赖注入，自动注入 ToolProvider, ToolSelector, ToolFormatter, PlannerLLMClient）
 container.bind(Planner).to(PlannerImpl);
 
 // PlanRefinementLLMClient - 动态创建（从 ConfigManager 获取配置）

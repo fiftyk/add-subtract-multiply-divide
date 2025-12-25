@@ -6,7 +6,6 @@ import type { ExecutionPlan, PlanResult } from '../types.js';
  *
  * 职责：
  * - 根据用户需求生成执行计划
- * - 验证计划中的函数是否已注册
  * - 格式化计划用于 CLI 显示
  */
 export const Planner = Symbol('Planner');
@@ -18,13 +17,6 @@ export interface Planner {
    * @returns 规划结果，包含是否成功和计划内容
    */
   plan(userRequest: string): Promise<PlanResult>;
-
-  /**
-   * 验证计划中的所有函数是否已注册
-   * @param plan - 要验证的计划
-   * @returns 验证是否通过
-   */
-  validatePlan(plan: ExecutionPlan): boolean;
 
   /**
    * 格式化计划用于 CLI 显示

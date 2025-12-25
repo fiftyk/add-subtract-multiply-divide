@@ -9,12 +9,14 @@ export const ToolProvider = Symbol('ToolProvider');
 export interface ToolProvider {
   /**
    * 查询所有可用工具
+   * 异步设计以支持远程工具提供者（网络请求、数据库查询等）
    */
-  searchTools(): ToolDefinition[];
+  searchTools(): Promise<ToolDefinition[]>;
 
   /**
    * 验证工具是否存在
+   * 异步设计以支持远程工具提供者
    * @param id - 工具唯一标识
    */
-  hasTool(id: string): boolean;
+  hasTool(id: string): Promise<boolean>;
 }

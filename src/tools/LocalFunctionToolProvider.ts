@@ -14,16 +14,18 @@ export class LocalFunctionToolProvider implements ToolProvider {
 
   /**
    * 查询所有可用工具（本地函数）
+   * 异步实现以符合接口设计（本地操作无需真正异步）
    */
-  searchTools(): ToolDefinition[] {
+  async searchTools(): Promise<ToolDefinition[]> {
     const functions = this.registry.getAll();
     return functions.map((fn) => this.toToolDefinition(fn));
   }
 
   /**
    * 验证工具是否存在
+   * 异步实现以符合接口设计（本地操作无需真正异步）
    */
-  hasTool(id: string): boolean {
+  async hasTool(id: string): Promise<boolean> {
     return this.registry.has(id);
   }
 

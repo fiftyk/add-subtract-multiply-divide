@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
 import { injectable, inject } from 'inversify';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
+import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
 import type { ExecutionPlan, PlanResult } from './types.js';
 import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
@@ -10,13 +11,14 @@ import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
 
 /**
  * 函数编排规划器
- * Follows DIP: Depends on ToolProvider, ToolFormatter and IPlannerLLMClient abstractions
+ * Follows DIP: Depends on ToolProvider, ToolSelector, ToolFormatter and IPlannerLLMClient abstractions
  * Follows LSP: Implements Planner interface for substitutability
  */
 @injectable()
 export class PlannerImpl implements Planner {
   constructor(
     @inject(ToolProvider) private toolProvider: ToolProvider,
+    @inject(ToolSelector) private toolSelector: ToolSelector,
     @inject(ToolFormatter) private toolFormatter: ToolFormatter,
     @inject(PlannerLLMClient) private llmClient: IPlannerLLMClient
   ) {}
@@ -26,11 +28,20 @@ export class PlannerImpl implements Planner {
    */
   async plan(userRequest: string): Promise<PlanResult> {
     try {
-      const functionsDescription = this.buildFunctionsDescription();
+      // 1. 选择工具
+      const selectedTools = await this.toolSelector.selectTools(
+        userRequest,
+        this.toolProvider
+      );
+
+      // 2. 构建函数描述
+      const functionsDescription = this.toolFormatter.formatForLLM(selectedTools);
+
+      // 3. 调用 LLM 生成计划
       const plan = await this.callLLM(userRequest, functionsDescription);
 
-      // 验证计划中的函数是否都存在
-      if (plan.status === 'executable' && !this.validatePlan(plan)) {
+      // 4. 验证计划中的函数是否都已注册（支持动态生成的函数）
+      if (plan.status === 'executable' && !(await this.validatePlan(plan))) {
         return {
           success: false,
           error: '计划中包含未注册的函数',
@@ -49,13 +60,6 @@ export class PlannerImpl implements Planner {
     }
   }
 
-  /**
-   * 构建函数的描述信息（用于 LLM prompt）
-   */
-  private buildFunctionsDescription(): string {
-    const tools = this.toolProvider.searchTools();
-    return this.toolFormatter.formatForLLM(tools);
-  }
 
   /**
    * 调用 LLM 生成计划
@@ -80,10 +84,13 @@ export class PlannerImpl implements Planner {
 
   /**
    * 验证计划中的所有函数是否已注册
+   * 查询 ToolProvider 以支持运行时动态注册的函数（如 mock 生成）
+   * @param plan - 要验证的执行计划
+   * @returns 验证是否通过
    */
-  validatePlan(plan: ExecutionPlan): boolean {
+  private async validatePlan(plan: ExecutionPlan): Promise<boolean> {
     for (const step of plan.steps) {
-      if (!this.toolProvider.hasTool(step.functionName)) {
+      if (!(await this.toolProvider.hasTool(step.functionName))) {
         return false;
       }
     }

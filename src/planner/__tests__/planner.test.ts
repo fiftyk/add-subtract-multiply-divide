@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlannerImpl } from '../planner.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
-import { LocalFunctionToolProvider, StandardToolFormatter } from '../../tools/index.js';
+import { LocalFunctionToolProvider, AllToolsSelector, StandardToolFormatter } from '../../tools/index.js';
 import type { ExecutionPlan } from '../types.js';
 import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
 
@@ -19,12 +19,14 @@ describe('Planner', () => {
   let registry: FunctionRegistry;
   let mockLLMClient: MockLLMClient;
   let toolProvider: LocalFunctionToolProvider;
+  let toolSelector: AllToolsSelector;
   let toolFormatter: StandardToolFormatter;
 
   beforeEach(() => {
     registry = new FunctionRegistry();
     mockLLMClient = new MockLLMClient();
     toolProvider = new LocalFunctionToolProvider(registry);
+    toolSelector = new AllToolsSelector();
     toolFormatter = new StandardToolFormatter();
 
     // 注册测试用的数学函数
@@ -56,7 +58,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new PlannerImpl(toolProvider, toolFormatter, mockLLMClient);
+    planner = new PlannerImpl(toolProvider, toolSelector, toolFormatter, mockLLMClient);
   });
 
   describe('plan', () => {
@@ -158,46 +160,6 @@ describe('Planner', () => {
       expect(result.plan?.status).toBe('incomplete');
       expect(result.plan?.missingFunctions).toHaveLength(1);
       expect(result.plan?.missingFunctions?.[0].name).toBe('sqrt');
-    });
-  });
-
-  describe('validatePlan', () => {
-    it('should validate that all referenced functions exist', () => {
-      const plan: ExecutionPlan = {
-        id: 'plan-001',
-        userRequest: 'test',
-        steps: [
-          {
-            stepId: 1,
-            functionName: 'add',
-            description: '',
-            parameters: {},
-          },
-        ],
-        createdAt: new Date().toISOString(),
-        status: 'executable',
-      };
-
-      expect(planner.validatePlan(plan)).toBe(true);
-    });
-
-    it('should fail validation for non-existent functions', () => {
-      const plan: ExecutionPlan = {
-        id: 'plan-001',
-        userRequest: 'test',
-        steps: [
-          {
-            stepId: 1,
-            functionName: 'nonexistent',
-            description: '',
-            parameters: {},
-          },
-        ],
-        createdAt: new Date().toISOString(),
-        status: 'executable',
-      };
-
-      expect(planner.validatePlan(plan)).toBe(false);
     });
   });
 
