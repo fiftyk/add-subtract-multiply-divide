@@ -4,12 +4,12 @@ import { injectable, inject } from 'inversify';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
 import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
-import type { ExecutionPlan, PlanResult, FunctionCallStep } from './types.js';
+import type { ExecutionPlan, PlanResult, FunctionCallStep, UserInputStep, PlanStep } from './types.js';
 import { StepType } from './types.js';
 import { isFunctionCallStep } from './type-guards.js';
 import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';
-import { buildPlannerPrompt, parseLLMResponse } from './prompt.js';
+import { buildPlannerPrompt, parseLLMResponse, type RawPlanStep } from './prompt.js';
 
 /**
  * 函数编排规划器
@@ -74,11 +74,10 @@ export class PlannerImpl implements Planner {
     const responseText = await this.llmClient.generatePlan(prompt);
     const parsed = parseLLMResponse(responseText);
 
-    // 将解析的 steps 转换为 FunctionCallStep 格式
-    const steps: FunctionCallStep[] = parsed.steps.map((step) => ({
-      ...step,
-      type: StepType.FUNCTION_CALL,
-    }));
+    // 将解析的原始步骤转换为 PlanStep 格式
+    const steps: PlanStep[] = parsed.steps.map((rawStep) =>
+      this.convertRawStep(rawStep)
+    );
 
     return {
       id: `plan-${uuidv4().slice(0, 8)}`,
@@ -88,6 +87,32 @@ export class PlannerImpl implements Planner {
       createdAt: new Date().toISOString(),
       status: parsed.status,
     };
+  }
+
+  /**
+   * 将 LLM 返回的原始步骤转换为类型化的 PlanStep
+   */
+  private convertRawStep(rawStep: RawPlanStep): PlanStep {
+    if (rawStep.type === 'function_call') {
+      // 转换为 FunctionCallStep
+      return {
+        stepId: rawStep.stepId,
+        type: StepType.FUNCTION_CALL,
+        functionName: rawStep.functionName,
+        description: rawStep.description,
+        parameters: rawStep.parameters,
+        dependsOn: rawStep.dependsOn,
+      };
+    } else {
+      // 转换为 UserInputStep
+      return {
+        stepId: rawStep.stepId,
+        type: StepType.USER_INPUT,
+        description: rawStep.description,
+        schema: rawStep.schema,
+        outputName: rawStep.outputName,
+      };
+    }
   }
 
   /**
