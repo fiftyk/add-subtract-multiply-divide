@@ -11,13 +11,21 @@ import {
  * Follows SRP: Only responsible for code generation
  */
 export class LLMMockCodeGenerator implements IMockCodeGenerator {
-  constructor(private llmClient: ILLMClient) {}
+  private importPath: string;
+
+  constructor(
+    private llmClient: ILLMClient,
+    importPath?: string
+  ) {
+    // 默认路径：从 .data/plans/{planId}/mocks/ 到 dist/src/registry/index.js
+    this.importPath = importPath || '../../../../dist/src/registry/index.js';
+  }
 
   /**
    * Generate mock function code from specification
    */
   async generate(spec: MockFunctionSpec): Promise<string> {
-    const prompt = buildMockCodeGenerationPrompt(spec);
+    const prompt = buildMockCodeGenerationPrompt(spec, this.importPath);
     const rawCode = await this.llmClient.generateCode(prompt);
     const extractedCode = extractCodeFromLLMResponse(rawCode);
     return this.formatCode(extractedCode, spec);
@@ -32,12 +40,12 @@ export class LLMMockCodeGenerator implements IMockCodeGenerator {
     // Ensure the code has proper import
     let formattedCode = code;
     if (!code.includes("import { defineFunction }")) {
-      formattedCode = `import { defineFunction } from '../../dist/src/registry/index.js';\n\n${code}`;
+      formattedCode = `import { defineFunction } from '${this.importPath}';\n\n${code}`;
     } else {
-      // Replace incorrect import path with correct one
+      // Normalize import path to use the correct one
       formattedCode = code.replace(
-        /from ['"]\.\.\/\.\.\/src\/registry\/index\.js['"]/g,
-        "from '../../dist/src/registry/index.js'"
+        /from ['"][^'"]+registry\/index\.js['"]/g,
+        `from '${this.importPath}'`
       );
     }
 

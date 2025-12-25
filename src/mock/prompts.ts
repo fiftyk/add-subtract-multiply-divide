@@ -2,21 +2,18 @@ import type { MockFunctionSpec } from './types.js';
 
 /**
  * Build prompt for LLM to generate mock function code
+ * @param spec - Mock function specification
+ * @param importPath - Relative path to registry/index.js from mock output directory
  */
-export function buildMockCodeGenerationPrompt(spec: MockFunctionSpec): string {
+export function buildMockCodeGenerationPrompt(
+  spec: MockFunctionSpec,
+  importPath: string = '../../../../dist/src/registry/index.js'
+): string {
   const paramsDoc = spec.parameters
     .map(
       (p) => `- ${p.name} (${p.type}): ${p.description}`
     )
     .join('\n');
-
-  // Build parameters array string for the example
-  const paramsArrayStr = spec.parameters
-    .map(
-      (p) =>
-        `    { name: '${p.name}', type: '${p.type}', description: '${p.description}' }`
-    )
-    .join(',\n');
 
   return `你是一个 JavaScript 代码生成专家。请根据以下函数规格生成一个完整的函数实现。
 
@@ -46,7 +43,7 @@ ${paramsDoc}
 
 技术要求：
 1. 使用 defineFunction 辅助函数定义函数
-2. 从 '../../dist/src/registry/index.js' 导入 defineFunction
+2. 从 '${importPath}' 导入 defineFunction
 3. 使用 export const 导出函数
 4. 添加适当的 scenario 字段，描述使用场景（中文，20字以内）
 5. 代码必须是纯 JavaScript，可以直接执行
@@ -69,7 +66,7 @@ ${paramsDoc}
 代码格式示例：
 
 【纯函数示例 - 平方根】
-import { defineFunction } from '../../dist/src/registry/index.js';
+import { defineFunction } from '${importPath}';
 
 export const sqrt = defineFunction({
   name: 'sqrt',
@@ -88,7 +85,7 @@ export const sqrt = defineFunction({
 });
 
 【外部依赖示例 - API查询】
-import { defineFunction } from '../../dist/src/registry/index.js';
+import { defineFunction } from '${importPath}';
 
 export const queryPatent = defineFunction({
   name: 'queryPatent',

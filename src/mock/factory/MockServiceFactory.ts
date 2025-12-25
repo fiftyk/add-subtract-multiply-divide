@@ -19,7 +19,7 @@ export interface MockServiceFactoryConfig {
   storage: Storage; // NEW: Storage instance for managing plan mocks
   apiKey?: string;
   baseURL?: string;
-  outputDir: string;
+  outputDir: string; // 保留用于向后兼容，但优先使用 storage.getPlanMocksDir(planId)
   registry: FunctionRegistry;
   logger: ILogger; // Required: logger for logging mock generation process
   llmClient?: ILLMClient; // Optional: allow custom LLM client
@@ -53,19 +53,28 @@ export class MockServiceFactory {
       );
     }
 
-    // 2. Create all service implementations
-    const codeGenerator = new LLMMockCodeGenerator(llmClient);
-    const fileWriter = new FileSystemMockFileWriter(config.outputDir);
+    // 2. 使用 Storage 获取正确的 mock 目录路径
+    const mockDir = config.storage.getPlanMocksDir(config.planId);
+
+    // 3. 计算从 mockDir 到 dist/src/registry/index.js 的相对路径
+    // mockDir: .data/plans/{planId}/mocks/
+    // target: dist/src/registry/index.js
+    // 相对路径: ../../../../dist/src/registry/index.js
+    const importPath = '../../../../dist/src/registry/index.js';
+
+    // 4. Create all service implementations
+    const codeGenerator = new LLMMockCodeGenerator(llmClient, importPath);
+    const fileWriter = new FileSystemMockFileWriter(mockDir);
     const functionLoader = new DynamicMockFunctionLoader();
     const metadataProvider = new InMemoryMockMetadataProvider();
 
-    // 3. Create validator if validation is enabled (default: true)
+    // 5. Create validator if validation is enabled (default: true)
     const validator =
       config.enableValidation !== false
         ? new DynamicMockCodeValidator()
         : undefined;
 
-    // 4. Wire everything together in the orchestrator
+    // 6. Wire everything together in the orchestrator
     return new MockOrchestrator(
       config.planId, // NEW: Pass plan ID
       config.storage, // NEW: Pass storage instance
