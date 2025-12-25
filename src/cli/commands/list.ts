@@ -3,8 +3,7 @@ import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
-import { ConfigManager } from '../../config/index.js';
+import { loadFunctions } from '../utils.js';
 
 interface ListFunctionsOptions {
   functions: string;
@@ -13,19 +12,11 @@ interface ListFunctionsOptions {
 export const listCommand = {
   async functions(options: ListFunctionsOptions): Promise<void> {
     try {
-      // Get centralized configuration
-      const config = ConfigManager.get();
-
       const registry = container.get(FunctionRegistry);
 
       // 加载内置函数
       await loadFunctions(registry, options.functions);
-      const builtinCount = registry.getAll().length;
-
-      // 加载 mock 函数
-      await loadFunctionsFromDirectory(registry, config.mock.outputDir);
       const allFunctions = registry.getAll();
-      const mockCount = allFunctions.length - builtinCount;
 
       if (allFunctions.length === 0) {
         console.log(chalk.yellow('没有找到已注册的函数'));
@@ -33,57 +24,20 @@ export const listCommand = {
         process.exit(1);
       }
 
-      // 统计信息
+      // 显示函数列表
       console.log(chalk.blue(`📚 已注册的函数 (${allFunctions.length} 个):`));
-      if (builtinCount > 0) {
-        console.log(chalk.gray(`  - 内置函数: ${builtinCount} 个`));
-      }
-      if (mockCount > 0) {
-        console.log(chalk.yellow(`  - Mock 函数: ${mockCount} 个 (${config.mock.outputDir})`));
-      }
       console.log();
 
-      // 区分显示内置函数和 mock 函数
-      const builtinFunctionNames = ['add', 'subtract', 'multiply', 'divide'];
-      const builtinFunctions = allFunctions.filter(f => builtinFunctionNames.includes(f.name));
-      const mockFunctions = allFunctions.filter(f => !builtinFunctionNames.includes(f.name));
-
-      // 显示内置函数
-      if (builtinFunctions.length > 0) {
-        console.log(chalk.cyan('═══ 内置函数 ═══'));
-        console.log();
-        for (const func of builtinFunctions) {
-          console.log(chalk.white(`- ${func.name}: ${func.description}`));
-          if (func.scenario) {
-            console.log(chalk.gray(`  使用场景: ${func.scenario}`));
-          }
-          console.log(chalk.gray('  参数:'));
-          for (const param of func.parameters) {
-            console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
-          }
-          console.log(chalk.gray(`  返回值: ${func.returns.type} - ${func.returns.description}`));
-          console.log();
+      for (const func of allFunctions) {
+        console.log(chalk.white(`- ${func.name}: ${func.description}`));
+        if (func.scenario) {
+          console.log(chalk.gray(`  使用场景: ${func.scenario}`));
         }
-      }
-
-      // 显示 mock 函数
-      if (mockFunctions.length > 0) {
-        console.log(chalk.yellow('═══ Mock 函数 ═══'));
-        console.log();
-        for (const func of mockFunctions) {
-          console.log(chalk.yellow(`- ${func.name}: ${func.description}`));
-          if (func.scenario) {
-            console.log(chalk.gray(`  使用场景: ${func.scenario}`));
-          }
-          console.log(chalk.gray('  参数:'));
-          for (const param of func.parameters) {
-            console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
-          }
-          console.log(chalk.gray(`  返回值: ${func.returns.type} - ${func.returns.description}`));
-          console.log();
+        console.log(chalk.gray('  参数:'));
+        for (const param of func.parameters) {
+          console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
         }
-        console.log(chalk.gray(`💡 提示: Mock 函数位于 ${config.mock.outputDir}/ 目录`));
-        console.log(chalk.gray('   你可以编辑这些文件来实现真实逻辑'));
+        console.log(chalk.gray(`  返回值: ${func.returns.type} - ${func.returns.description}`));
         console.log();
       }
 
@@ -100,8 +54,6 @@ export const listCommand = {
 
   async plans(): Promise<void> {
     try {
-      // Get centralized configuration (initialized by CLI hook)
-      const config = ConfigManager.get();
       const storage = container.get<Storage>(Storage);
       const plans = await storage.listPlans();
 
@@ -135,8 +87,6 @@ export const listCommand = {
 
   async showPlan(planId: string): Promise<void> {
     try {
-      // Get centralized configuration (initialized by CLI hook)
-      const config = ConfigManager.get();
       const storage = container.get<Storage>(Storage);
       const plan = await storage.loadPlan(planId);
 

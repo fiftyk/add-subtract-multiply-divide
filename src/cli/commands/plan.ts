@@ -3,12 +3,10 @@ import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
-import { ToolProvider } from '../../tools/interfaces/ToolProvider.js';
 import { Planner } from '../../planner/index.js';
-import { PlannerLLMClient, type IPlannerLLMClient } from '../../planner/interfaces/IPlannerLLMClient.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/index.js';
-import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
+import { loadFunctions } from '../utils.js';
 import {
   PlannerWithMockSupport,
   MockServiceFactory,
@@ -44,12 +42,6 @@ export async function planCommand(
     const registry = container.get(FunctionRegistry);
     await loadFunctions(registry, options.functions);
 
-    // 加载已生成的 mock 函数
-    await loadFunctionsFromDirectory(
-      registry,
-      config.mock.outputDir
-    );
-
     // 检查是否有可用函数
     const allFunctions = registry.getAll();
     if (allFunctions.length === 0) {
@@ -78,13 +70,7 @@ export async function planCommand(
     // 创建 logger (支持 LOG_LEVEL 环境变量)
     const logger = LoggerFactory.createFromEnv();
 
-    // 从容器获取 LLM 客户端
-    const llmClient = container.get<IPlannerLLMClient>(PlannerLLMClient);
-
-    // 从容器获取工具提供者
-    const toolProvider = container.get<ToolProvider>(ToolProvider);
-
-    // 创建基础规划器
+    // 创建基础规划器（容器自动注入依赖）
     const basePlanner = container.get<Planner>(Planner);
 
     // 根据配置决定是否启用 mock 支持
@@ -100,7 +86,6 @@ export async function planCommand(
       // 启用 mock 自动生成
       logger.debug('Mock 自动生成已启用', {
         maxIterations: config.mock.maxIterations,
-        outputDir: config.mock.outputDir,
       });
 
       // 创建 mock 服务编排器
@@ -262,7 +247,7 @@ async function interactivePlanFlow(
 
       // 执行命令
       if (command === 'execute' || command === 'e') {
-        await executePlanInline(currentPlan, registry, config);
+        await executePlanInline(currentPlan);
         break;  // 执行完成后退出
       }
       // 退出命令
@@ -335,11 +320,7 @@ async function interactivePlanFlow(
 /**
  * 内联执行计划
  */
-async function executePlanInline(
-  plan: ExecutionPlan,
-  registry: FunctionRegistry,
-  config: AppConfig
-): Promise<void> {
+async function executePlanInline(plan: ExecutionPlan): Promise<void> {
   console.log();
   console.log(chalk.blue('🚀 开始执行计划...'));
   console.log();

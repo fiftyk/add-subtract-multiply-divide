@@ -1,13 +1,11 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import path from 'path';
 import container from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { loadFunctions, loadFunctionsFromDirectory } from '../utils.js';
-import { ConfigManager } from '../../config/index.js';
+import { loadFunctions } from '../utils.js';
 
 interface ExecuteOptions {
   functions: string;
@@ -19,9 +17,6 @@ export async function executeCommand(
   options: ExecuteOptions
 ): Promise<void> {
   try {
-    // Get centralized configuration (initialized by CLI hook)
-    const config = ConfigManager.get();
-
     // 加载计划
     const storage = container.get<Storage>(Storage);
     const plan = await storage.loadPlan(planId);
@@ -55,9 +50,6 @@ export async function executeCommand(
         );
       }
     }
-
-    // 同时加载 generated 目录下的全局 mock 函数（向后兼容）
-    await loadFunctionsFromDirectory(registry, config.mock.outputDir);
 
     // 打印所有加载的函数
     const allFunctions = registry.getAll();
