@@ -161,6 +161,111 @@ describe('Planner', () => {
       expect(result.plan?.missingFunctions).toHaveLength(1);
       expect(result.plan?.missingFunctions?.[0].name).toBe('sqrt');
     });
+
+    it('should accept dynamically registered functions after plan generation', async () => {
+      // 模拟场景：第一次 LLM 调用返回使用 sqrt 的计划
+      const mockResponseWithSqrt: ExecutionPlan = {
+        id: 'plan-004',
+        userRequest: '计算 9 的平方根',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'sqrt',
+            description: '计算 9 的平方根',
+            parameters: {
+              x: { type: 'literal', value: 9 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      vi.spyOn(planner, 'callLLM').mockResolvedValue(mockResponseWithSqrt);
+
+      // 第一次调用应该失败（sqrt 未注册）
+      const result1 = await planner.plan('计算 9 的平方根');
+      expect(result1.success).toBe(false);
+      expect(result1.error).toBe('计划中包含未注册的函数');
+
+      // 模拟 mock 生成：动态注册 sqrt 函数
+      registry.register(
+        defineFunction({
+          name: 'sqrt',
+          description: '计算一个数的平方根',
+          scenario: '当需要计算平方根时使用',
+          parameters: [
+            { name: 'x', type: 'number', description: '要计算平方根的数' },
+          ],
+          returns: { type: 'number', description: '平方根结果' },
+          implementation: (x: number) => Math.sqrt(x),
+        })
+      );
+
+      // 第二次调用应该成功（sqrt 已动态注册）
+      const result2 = await planner.plan('计算 9 的平方根');
+      expect(result2.success).toBe(true);
+      expect(result2.plan?.steps).toHaveLength(1);
+      expect(result2.plan?.steps[0].functionName).toBe('sqrt');
+      expect(result2.plan?.status).toBe('executable');
+    });
+
+    it('should validate against runtime registry state, not initial selectedTools', async () => {
+      // 这个测试确保验证逻辑查询的是运行时的 ToolProvider，而不是静态的 selectedTools 快照
+
+      const mockResponseWithPower: ExecutionPlan = {
+        id: 'plan-005',
+        userRequest: '计算 2 的 3 次方',
+        steps: [
+          {
+            stepId: 1,
+            functionName: 'power',
+            description: '计算 2 的 3 次方',
+            parameters: {
+              base: { type: 'literal', value: 2 },
+              exponent: { type: 'literal', value: 3 },
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      // Mock callLLM to return plan using 'power' function
+      vi.spyOn(planner, 'callLLM').mockResolvedValue(mockResponseWithPower);
+
+      // 在调用 plan() 之前注册 power 函数（模拟 mock 生成器在 LLM 调用后立即注册）
+      // 注意：实际场景中是 PlannerWithMockSupport 装饰器在检测到 missingFunctions 后注册
+      // 但这里我们测试的是 validatePlan 能正确查询运行时状态
+
+      // 首先验证 power 不存在
+      expect(registry.has('power')).toBe(false);
+      const result1 = await planner.plan('计算 2 的 3 次方');
+      expect(result1.success).toBe(false);
+
+      // 动态注册 power
+      registry.register(
+        defineFunction({
+          name: 'power',
+          description: '计算幂运算',
+          scenario: '当需要计算幂运算时使用',
+          parameters: [
+            { name: 'base', type: 'number', description: '底数' },
+            { name: 'exponent', type: 'number', description: '指数' },
+          ],
+          returns: { type: 'number', description: '幂运算结果' },
+          implementation: (base: number, exponent: number) => Math.pow(base, exponent),
+        })
+      );
+
+      // 验证 power 现在存在
+      expect(registry.has('power')).toBe(true);
+
+      // 再次调用应该成功
+      const result2 = await planner.plan('计算 2 的 3 次方');
+      expect(result2.success).toBe(true);
+      expect(result2.plan?.status).toBe('executable');
+    });
   });
 
   describe('formatPlanForDisplay', () => {
