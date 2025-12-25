@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔌 **LLMAdapter 接口抽象**: 重构代码生成器架构
+  - 新增 `LLMAdapter` 接口，抽象 LLM 调用层
+  - 新增 `ClaudeCodeLLMAdapter`: Claude Code CLI 实现（`claude -p`）
+  - 重命名 `AnthropicLLMClient` → `AnthropicLLMAdapter`
+  - 支持切换不同 LLM provider（API/CLI）
+- 🏭 **MockServiceFactory 工厂类改造**: 符合 InversifyJS 容器规范
+  - `MockServiceFactory.ts`: 接口定义 + Symbol
+  - `MockServiceFactoryImpl.ts`: 实现类，使用 `@injectable`
+  - 通过容器注入 `LLMAdapter`、`Storage`、`FunctionRegistry` 依赖
+- ✅ 新增 7 个 `MockServiceFactoryImpl` 单元测试
+
+### Changed
 - 🎮 **交互模式**: `plan` 命令新增 `-i/--interactive` 选项，支持一站式完成计划、改进、执行
   - 简化的单输入交互设计，支持直接输入改进指令或执行命令
   - 新增 `show` (s) 命令：在交互过程中随时查看当前计划

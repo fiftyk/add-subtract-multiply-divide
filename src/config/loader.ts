@@ -8,8 +8,10 @@ import { config as dotenvConfig } from 'dotenv';
  * Automatically loads .env file from project root
  */
 function loadFromEnv(): PartialAppConfig {
-  // Load .env file if it exists
-  dotenvConfig();
+  // Load .env file if it exists (skip in test to avoid pollution)
+  if (process.env.NODE_ENV !== 'test') {
+    dotenvConfig();
+  }
 
   const config: PartialAppConfig = {};
 

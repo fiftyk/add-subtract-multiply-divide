@@ -12,7 +12,7 @@
 - ⚡ **自动 Mock 生成**: 当缺少函数时，自动生成可执行的 mock 实现，让流程立即跑通
 - 📝 **版本管理**: 计划改进支持版本追踪（v1, v2, v3...）
 - 💾 **会话持久化**: 对话历史自动保存，支持继续之前的会话
-- ✅ **TDD 开发**: 149 个单元测试确保代码质量
+- ✅ **TDD 开发**: 156 个单元测试确保代码质量
 - 📦 **持久化存储**: 计划和执行记录本地保存
 - 🎯 **类型安全**: TypeScript 编写，完整的类型支持
 - 🏗️ **SOLID 设计**: 遵循 SOLID 原则，易扩展易维护
@@ -320,13 +320,14 @@ npm test
 - ✅ 6 个 Planner 测试
 - ✅ 15 个 Executor 测试
 - ✅ 27 个 Storage 测试（含版本管理）
-- ✅ 26 个 Mock 生成测试
+- ✅ 33 个 Mock 生成测试
 - ✅ 38 个 Config 管理测试
 - ✅ 14 个 Logger 测试
 - ✅ 12 个 InteractivePlanService 测试（新增）
+- ✅ 7 个 MockServiceFactoryImpl 测试（新增）
 - ✅ 8 个端到端测试
 
-**总计: 149 个测试，100% 通过率（7 个预存在的配置测试需更新）**
+**总计: 156 个测试，100% 通过率**
 
 ### 端到端测试用例
 
@@ -443,7 +444,7 @@ Executor
 2. **Planner**: 调用 Claude API，将自然语言转为结构化计划
 3. **Executor**: 按计划顺序执行，处理步骤间数据传递
 4. **Storage**: 持久化计划和执行记录到本地文件
-5. **Mock Generator** (新增): 自动生成缺失函数的 mock 实现
+5. **Mock Generator** (重构): 支持多 LLM Provider（Anthropic API / Claude Code CLI）
 6. **CLI**: 命令行交互界面
 
 ## 开发

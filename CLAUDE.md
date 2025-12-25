@@ -76,9 +76,22 @@ npx fn-orchestrator show-plan plan-abc123
 **MockOrchestrator**
 - 协调 4 个组件完成 mock 生成工作流：
   - `IMockCodeGenerator`: 使用 LLM 生成 TypeScript 代码
-  - `IMockFileWriter`: 保存到 `functions/generated/` 目录
+  - `IMockFileWriter`: 保存到 `.data/plans/{planId}/mocks/` 目录
   - `IMockFunctionLoader`: 动态加载并注册函数到 registry
   - `IMockMetadataProvider`: 管理 mock 元数据（标记为 mock）
+
+**LLMAdapter (代码生成器接口)**
+- 抽象 LLM 调用层，支持切换不同 provider
+- 接口方法：`generateCode(prompt: string): Promise<string>`
+- 实现类：
+  - `AnthropicLLMAdapter`: Anthropic API 调用
+  - `ClaudeCodeLLMAdapter`: Claude Code CLI 调用
+
+**MockServiceFactory (工厂模式)**
+- 接口 + 实现类分离（符合 InversifyJS 规范）
+- `MockServiceFactory`: 接口，定义 `createOrchestrator(planId)` 方法
+- `MockServiceFactoryImpl`: 实现类，使用 `@injectable` 装饰器
+- 通过容器注入 `LLMAdapter`、`Storage`、`FunctionRegistry` 依赖
 
 **Executor**
 - 顺序执行计划中的步骤
@@ -241,10 +254,44 @@ export const myFunction = defineFunction({
 ### Mock 生成工作流
 1. 用户执行 `plan "需求" --auto-mock`
 2. CLI hook 初始化 ConfigManager，设置 `autoMock: true`
-3. `planCommand` 使用 `PlannerWithMockSupport` 装饰器
+3. `planCommand` 从容器获取 `MockServiceFactory`，创建 `MockOrchestrator`
 4. 检测到缺失函数时，`MockOrchestrator` 协调生成：
-   - LLM 生成代码 → 保存文件 → 加载注册 → 标记元数据
+   - `LLMMockCodeGenerator` 使用 `LLMAdapter` 生成代码
+   - 保存到 `.data/plans/{planId}/mocks/` 目录
+   - 加载注册 → 标记元数据
 5. 重新规划，直到成功或达到最大迭代次数
+
+### Mock 代码生成架构
+```
+┌─────────────────────┐
+│     LLMAdapter      │  ← 底层接口：抽象 LLM 调用
+│ generateCode(prompt)│    AnthropicLLMAdapter / ClaudeCodeLLMAdapter
+└─────────┬───────────┘
+          ↑
+          │ 组合
+          ↓
+┌─────────────────────┐
+│ IMockCodeGenerator  │  ← 高层接口：prompt 构建 + 格式化
+│   generate(spec)    │    LLMMockCodeGenerator
+└─────────────────────┘
+```
+
+### MockServiceFactory 容器绑定
+```typescript
+// src/container.ts
+import { LLMAdapter } from './mock/interfaces/LLMAdapter.js';
+import { AnthropicLLMAdapter } from './mock/adapters/AnthropicLLMAdapter.js';
+import { MockServiceFactory, MockServiceFactoryImpl } from './mock/factory/MockServiceFactory.js';
+
+// LLMAdapter - AnthropicLLMAdapter 实现（从 ConfigManager 获取配置）
+container.bind(LLMAdapter).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new AnthropicLLMAdapter(config.api.apiKey, config.api.baseURL);
+});
+
+// MockServiceFactory - 单例（依赖注入 LLMAdapter, Storage, FunctionRegistry）
+container.bind(MockServiceFactory).to(MockServiceFactoryImpl);
+```
 
 ### Logger 使用
 ```typescript
@@ -281,10 +328,15 @@ src/
 ├── storage/               # 持久化存储
 ├── mock/                  # Mock 自动生成系统
 │   ├── interfaces/        # 6 个小接口 (ISP)
+│   │   └── LLMAdapter.ts  # LLM 调用抽象接口
 │   ├── implementations/   # 具体实现类
 │   ├── decorators/        # PlannerWithMockSupport (OCP)
 │   ├── adapters/          # LLM 适配器
+│   │   ├── AnthropicLLMAdapter.ts
+│   │   └── ClaudeCodeLLMAdapter.ts
 │   └── factory/           # 工厂类
+│       ├── MockServiceFactory.ts      # 接口
+│       └── MockServiceFactoryImpl.ts  # 实现类
 ├── validation/            # 数据验证
 ├── errors/                # 自定义错误类型
 └── logger/                # 日志系统
@@ -346,4 +398,6 @@ LOG_LEVEL=info  # debug, info, warn, error
 **Mock 生成失败**
 - 检查 `AUTO_GENERATE_MOCK` 是否启用
 - 查看日志中 LLM API 调用是否成功
-- 验证生成的代码文件是否保存到 `functions/generated/`
+- 验证生成的代码文件是否保存到 `.data/plans/{planId}/mocks/`
+- 确认 `LLMAdapter` 绑定正确（AnthropicLLMAdapter 或 ClaudeCodeLLMAdapter）
+- Claude Code CLI 模式需要确保 `claude` 命令在 PATH 中可用

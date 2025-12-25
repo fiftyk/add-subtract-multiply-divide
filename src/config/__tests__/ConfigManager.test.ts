@@ -8,6 +8,10 @@ describe('ConfigManager', () => {
   beforeEach(() => {
     // Reset process.env and ConfigManager before each test
     process.env = { ...originalEnv };
+    // Remove LLM-related env vars that might interfere with tests
+    delete process.env.LLM_MODEL;
+    delete process.env.LLM_MAX_TOKENS;
+    delete process.env.ANTHROPIC_BASE_URL;
     ConfigManager.reset();
   });
 
