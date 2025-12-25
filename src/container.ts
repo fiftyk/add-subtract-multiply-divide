@@ -22,6 +22,10 @@ import { Executor } from './executor/interfaces/Executor.js';
 import { ExecutorImpl } from './executor/executor.js';
 import { UserInputProvider } from './user-input/interfaces/UserInputProvider.js';
 import { CLIUserInputProvider } from './user-input/adapters/CLIUserInputProvider.js';
+import { LLMAdapter } from './mock/interfaces/LLMAdapter.js';
+import { AnthropicLLMAdapter } from './mock/adapters/AnthropicLLMAdapter.js';
+import { MockServiceFactory } from './mock/factory/MockServiceFactory.js';
+import { MockServiceFactoryImpl } from './mock/factory/MockServiceFactoryImpl.js';
 
 const container = new Container({
     defaultScope: 'Singleton',
@@ -82,5 +86,17 @@ container.bind(UserInputProvider).to(CLIUserInputProvider);
 // Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry 和 UserInputProvider）
 container.bind(Executor).to(ExecutorImpl);
 
-export { container };
+// LLMAdapter - AnthropicLLMAdapter 实现（从 ConfigManager 获取配置）
+container.bind(LLMAdapter).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new AnthropicLLMAdapter(
+        config.api.apiKey,
+        config.api.baseURL
+    );
+});
+
+// MockServiceFactory - 单例（依赖注入 LLMAdapter, Storage, FunctionRegistry）
+container.bind(MockServiceFactory).to(MockServiceFactoryImpl);
+
+export { container, MockServiceFactory };
 export default container;

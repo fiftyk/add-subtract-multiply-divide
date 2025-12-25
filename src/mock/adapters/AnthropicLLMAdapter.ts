@@ -1,13 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ILLMClient } from '../interfaces/ILLMClient.js';
+import type { LLMAdapter } from '../interfaces/LLMAdapter.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 
 /**
- * Anthropic LLM client adapter
- * Follows Adapter pattern: Wraps Anthropic SDK to match ILLMClient interface
+ * Anthropic API LLM adapter
+ * Uses Anthropic API (Claude) for code generation
  */
-export class AnthropicLLMClient implements ILLMClient {
+export class AnthropicLLMAdapter implements LLMAdapter {
   private client: Anthropic;
   private logger: ILogger;
 

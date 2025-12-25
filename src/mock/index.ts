@@ -10,7 +10,7 @@ export { PlannerWithMockSupport } from './decorators/PlannerWithMockSupport.js';
 
 // Factory for creating mock services
 export { MockServiceFactory } from './factory/MockServiceFactory.js';
-export type { MockServiceFactoryConfig } from './factory/MockServiceFactory.js';
+export { MockServiceFactoryImpl } from './factory/MockServiceFactoryImpl.js';
 
 // Core interfaces (for custom implementations)
 export type { IMockCodeGenerator } from './interfaces/IMockCodeGenerator.js';
@@ -18,7 +18,7 @@ export type { IMockFileWriter } from './interfaces/IMockFileWriter.js';
 export type { IMockFunctionLoader } from './interfaces/IMockFunctionLoader.js';
 export type { IMockMetadataProvider } from './interfaces/IMockMetadataProvider.js';
 export type { IMockOrchestrator } from './interfaces/IMockOrchestrator.js';
-export type { ILLMClient } from './interfaces/ILLMClient.js';
+export { LLMAdapter } from './interfaces/LLMAdapter.js';
 export type {
   IMockCodeValidator,
   ValidationResult,
@@ -43,4 +43,5 @@ export { DynamicMockCodeValidator } from './implementations/DynamicMockCodeValid
 export { MockOrchestrator } from './implementations/MockOrchestrator.js';
 
 // Adapters
-export { AnthropicLLMClient } from './adapters/AnthropicLLMClient.js';
+export { AnthropicLLMAdapter } from './adapters/AnthropicLLMAdapter.js';
+export { ClaudeCodeLLMAdapter } from './adapters/ClaudeCodeLLMAdapter.js';

@@ -1,5 +1,5 @@
 import type { IMockCodeGenerator } from '../interfaces/IMockCodeGenerator.js';
-import type { ILLMClient } from '../interfaces/ILLMClient.js';
+import type { LLMAdapter } from '../interfaces/LLMAdapter.js';
 import type { MockFunctionSpec } from '../types.js';
 import {
   buildMockCodeGenerationPrompt,
@@ -14,7 +14,7 @@ export class LLMMockCodeGenerator implements IMockCodeGenerator {
   private importPath: string;
 
   constructor(
-    private llmClient: ILLMClient,
+    private llmClient: LLMAdapter,
     importPath?: string
   ) {
     // 默认路径：从 .data/plans/{planId}/mocks/ 到 dist/src/registry/index.js

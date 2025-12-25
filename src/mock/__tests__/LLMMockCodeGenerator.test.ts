@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { ILLMClient } from '../interfaces/ILLMClient.js';
+import type { LLMAdapter } from '../interfaces/LLMAdapter.js';
 import type { MockFunctionSpec } from '../types.js';
 import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js';
 
 describe('LLMMockCodeGenerator', () => {
-  let mockLLMClient: ILLMClient;
+  let mockLLMClient: LLMAdapter;
   let generator: LLMMockCodeGenerator;
 
   beforeEach(() => {

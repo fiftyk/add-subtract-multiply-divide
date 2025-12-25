@@ -1,16 +1,13 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
-import container from '../../container.js';
+import container, { MockServiceFactory } from '../../container.js';
 import { FunctionRegistry } from '../../registry/index.js';
 import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/index.js';
 import { loadFunctions } from '../utils.js';
-import {
-  PlannerWithMockSupport,
-  MockServiceFactory,
-} from '../../mock/index.js';
+import { PlannerWithMockSupport } from '../../mock/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import {
@@ -89,16 +86,9 @@ export async function planCommand(
         maxIterations: config.mock.maxIterations,
       });
 
-      // 创建 mock 服务编排器
-      const mockOrchestrator = MockServiceFactory.create({
-        planId, // NEW: Pass planId for mock storage
-        storage, // NEW: Pass storage instance
-        apiKey: config.api.apiKey,
-        baseURL: config.api.baseURL,
-        outputDir: config.mock.outputDir,
-        registry,
-        logger,
-      });
+      // 从容器获取 MockServiceFactory，创建 mock 服务编排器
+      const mockServiceFactory = container.get<MockServiceFactory>(MockServiceFactory);
+      const mockOrchestrator = mockServiceFactory.createOrchestrator(planId);
 
       // 使用装饰器包装规划器，添加 mock 支持（OCP - 不修改原有 Planner）
       planner = new PlannerWithMockSupport(
