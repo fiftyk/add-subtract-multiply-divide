@@ -13,7 +13,7 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageJson = JSON.parse(
-  readFileSync(join(__dirname, '../../../package.json'), 'utf-8')
+  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
 );
 
 const program = new Command();

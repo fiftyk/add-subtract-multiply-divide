@@ -1,8 +1,11 @@
+import 'reflect-metadata';
 import { spawn } from 'node:child_process';
+import { injectable } from 'inversify';
 import type { LLMAdapter } from '../interfaces/LLMAdapter.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 
+@injectable()
 /**
  * Claude Code CLI LLM adapter
  * Uses Claude Code CLI (claude -p) for code generation
@@ -11,7 +14,7 @@ export class ClaudeCodeLLMAdapter implements LLMAdapter {
   private logger: ILogger;
 
   constructor(logger?: ILogger) {
-    this.logger = logger ?? LoggerFactory.create();
+    this.logger = logger ?? LoggerFactory.createFromEnv();
   }
 
   /**
@@ -28,7 +31,7 @@ export class ClaudeCodeLLMAdapter implements LLMAdapter {
     this.logger.debug('📝 Prompt:', { prompt: truncatedPrompt });
 
     return new Promise((resolve, reject) => {
-      const child = spawn('claude', ['-p'], {
+      const child = spawn('claude-switcher', ['MINMAX', '--', '-p'], {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
