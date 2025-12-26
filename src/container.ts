@@ -87,12 +87,18 @@ container.bind(UserInputProvider).to(CLIUserInputProvider);
 // Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry 和 UserInputProvider）
 container.bind(Executor).to(ExecutorImpl);
 
-// LLMAdapter - 根据配置选择实现（anthropic 或 claude-code）
+// LLMAdapter - 根据配置选择实现
+// 默认使用 Anthropic API，如果设置了 MOCK_GENERATOR_CMD 则使用 CLI
 container.bind(LLMAdapter).toDynamicValue(() => {
     const config = ConfigManager.get();
-    if (config.llm.adapter === 'claude-code') {
-        return new ClaudeCodeLLMAdapter();
+    const { command, args } = config.mockCodeGenerator;
+
+    if (command && args) {
+        // 使用 CLI 命令（如 claude-switcher, gemini 等）
+        return new ClaudeCodeLLMAdapter(command, args);
     }
+
+    // 默认使用 Anthropic API
     return new AnthropicLLMAdapter(
         config.api.apiKey,
         config.api.baseURL

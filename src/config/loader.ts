@@ -40,15 +40,13 @@ function loadFromEnv(): PartialAppConfig {
       maxTokens: parseInt(process.env.LLM_MAX_TOKENS, 10),
     };
   }
-  // LLM Adapter Type (anthropic | claude-code)
-  if (process.env.LLM_ADAPTER) {
-    const adapter = process.env.LLM_ADAPTER.toLowerCase();
-    if (adapter === 'claude-code' || adapter === 'anthropic') {
-      config.llm = {
-        ...config.llm,
-        adapter: adapter as 'anthropic' | 'claude-code',
-      };
-    }
+
+  // Mock Code Generator Configuration
+  if (process.env.MOCK_GENERATOR_CMD || process.env.MOCK_GENERATOR_ARGS) {
+    config.mockCodeGenerator = {
+      command: process.env.MOCK_GENERATOR_CMD || '',
+      args: process.env.MOCK_GENERATOR_ARGS || '',
+    };
   }
 
   // Executor Configuration
@@ -116,6 +114,10 @@ function mergeConfig(
     executor: { ...base.executor, ...override.executor },
     storage: { ...base.storage, ...override.storage },
     mock: { ...base.mock, ...override.mock },
+    mockCodeGenerator: {
+      ...base.mockCodeGenerator,
+      ...override.mockCodeGenerator,
+    },
   };
 }
 

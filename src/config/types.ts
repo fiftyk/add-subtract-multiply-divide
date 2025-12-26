@@ -9,9 +9,14 @@ export interface APIConfig {
 }
 
 /**
- * LLM Adapter Type
+ * Mock Code Generator Configuration
  */
-export type LLMAdapterType = 'anthropic' | 'claude-code';
+export interface MockCodeGeneratorConfig {
+  /** Command to invoke for code generation (e.g., 'claude-switcher', 'gemini') */
+  command: string;
+  /** Command arguments (e.g., 'MINMAX -- -p', '-p') */
+  args: string;
+}
 
 /**
  * LLM Configuration
@@ -21,8 +26,6 @@ export interface LLMConfig {
   model: string;
   /** Maximum tokens for completion */
   maxTokens: number;
-  /** LLM adapter type for mock code generation */
-  adapter: LLMAdapterType;
 }
 
 /**
@@ -71,6 +74,7 @@ export interface AppConfig {
   executor: ExecutorConfig;
   storage: StorageConfig;
   mock: MockConfig;
+  mockCodeGenerator: MockCodeGeneratorConfig;
 }
 
 /**
@@ -82,4 +86,5 @@ export type PartialAppConfig = {
   executor?: Partial<ExecutorConfig>;
   storage?: Partial<StorageConfig>;
   mock?: Partial<MockConfig>;
+  mockCodeGenerator?: Partial<MockCodeGeneratorConfig>;
 };

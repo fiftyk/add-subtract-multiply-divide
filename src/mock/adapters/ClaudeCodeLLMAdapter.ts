@@ -7,21 +7,65 @@ import { LoggerFactory } from '../../logger/index.js';
 
 @injectable()
 /**
- * Claude Code CLI LLM adapter
- * Uses Claude Code CLI (claude -p) for code generation
+ * CLI LLM adapter for code generation
+ * Supports any CLI tool that reads prompt from stdin and outputs code to stdout
+ * Examples: claude-switcher, gemini, ollama, etc.
  */
 export class ClaudeCodeLLMAdapter implements LLMAdapter {
   private logger: ILogger;
+  private command: string;
+  private args: string[];
 
-  constructor(logger?: ILogger) {
+  constructor(command: string, args: string, logger?: ILogger) {
     this.logger = logger ?? LoggerFactory.createFromEnv();
+    this.command = command;
+    // Parse space-separated args into array, preserving quoted arguments
+    this.args = this.parseArgs(args);
   }
 
   /**
-   * Generate code using Claude Code CLI
+   * Parse space-separated args string into array
+   * Handles quoted arguments correctly
+   */
+  private parseArgs(args: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuote = false;
+    let quoteChar = '';
+
+    for (let i = 0; i < args.length; i++) {
+      const char = args[i];
+
+      if ((char === '"' || char === "'") && !inQuote) {
+        inQuote = true;
+        quoteChar = char;
+      } else if (char === quoteChar && inQuote) {
+        inQuote = false;
+        quoteChar = '';
+      } else if (char === ' ' && !inQuote) {
+        if (current) {
+          result.push(current);
+          current = '';
+        }
+      } else {
+        current += char;
+      }
+    }
+
+    if (current) {
+      result.push(current);
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate code using CLI tool
    */
   async generateCode(prompt: string): Promise<string> {
-    this.logger.debug('🤖 Sending request to Claude Code CLI for code generation', {
+    this.logger.debug('🤖 Sending request to CLI for code generation', {
+      command: this.command,
+      args: this.args,
       promptLength: prompt.length,
     });
 
@@ -31,7 +75,7 @@ export class ClaudeCodeLLMAdapter implements LLMAdapter {
     this.logger.debug('📝 Prompt:', { prompt: truncatedPrompt });
 
     return new Promise((resolve, reject) => {
-      const child = spawn('claude-switcher', ['MINMAX', '--', '-p'], {
+      const child = spawn(this.command, this.args, {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -48,13 +92,15 @@ export class ClaudeCodeLLMAdapter implements LLMAdapter {
 
       child.on('close', (code) => {
         if (code === 0) {
-          this.logger.debug('✅ Received response from Claude Code CLI', {
+          this.logger.debug('✅ Received response from CLI', {
+            command: this.command,
             responseLength: stdout.length,
           });
           resolve(stdout);
         } else {
-          const error = new Error(`Claude CLI exited with code ${code}: ${stderr}`);
-          this.logger.error('❌ Claude Code CLI failed', error, {
+          const error = new Error(`${this.command} exited with code ${code}: ${stderr}`);
+          this.logger.error('❌ CLI command failed', error, {
+            command: this.command,
             promptLength: prompt.length,
             stderr,
           });
@@ -63,13 +109,14 @@ export class ClaudeCodeLLMAdapter implements LLMAdapter {
       });
 
       child.on('error', (error) => {
-        this.logger.error('❌ Claude Code CLI failed', error, {
+        this.logger.error('❌ CLI command failed', error, {
+          command: this.command,
           promptLength: prompt.length,
         });
         reject(error);
       });
 
-      // Send the prompt to Claude CLI
+      // Send the prompt to CLI
       child.stdin.write(prompt);
       child.stdin.end();
     });
