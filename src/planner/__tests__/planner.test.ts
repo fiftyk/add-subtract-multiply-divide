@@ -4,10 +4,10 @@ import { PlannerImpl } from '../planner.js';
 import { FunctionRegistry, defineFunction } from '../../registry/index.js';
 import { LocalFunctionToolProvider, AllToolsSelector, StandardToolFormatter } from '../../tools/index.js';
 import type { ExecutionPlan } from '../types.js';
-import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
+import type { PlannerLLMClient } from '../interfaces/PlannerLLMClient.js';
 
 // Mock LLM Client for testing
-class MockLLMClient implements IPlannerLLMClient {
+class MockLLMClient implements PlannerLLMClient {
   async generatePlan(prompt: string): Promise<string> {
     // This will be mocked in tests
     return '';

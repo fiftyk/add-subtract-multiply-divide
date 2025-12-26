@@ -4,16 +4,16 @@ import { injectable, inject } from 'inversify';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
 import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
-import type { ExecutionPlan, PlanResult, FunctionCallStep, UserInputStep, PlanStep } from './types.js';
+import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
 import { StepType } from './types.js';
 import { isFunctionCallStep } from './type-guards.js';
-import { IPlannerLLMClient, PlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
+import { PlannerLLMClient } from './interfaces/PlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';
 import { buildPlannerPrompt, parseLLMResponse, type RawPlanStep } from './prompt.js';
 
 /**
  * 函数编排规划器
- * Follows DIP: Depends on ToolProvider, ToolSelector, ToolFormatter and IPlannerLLMClient abstractions
+ * Follows DIP: Depends on ToolProvider, ToolSelector, ToolFormatter and PlannerLLMClient abstractions
  * Follows LSP: Implements Planner interface for substitutability
  */
 @injectable()
@@ -22,7 +22,7 @@ export class PlannerImpl implements Planner {
     @inject(ToolProvider) private toolProvider: ToolProvider,
     @inject(ToolSelector) private toolSelector: ToolSelector,
     @inject(ToolFormatter) private toolFormatter: ToolFormatter,
-    @inject(PlannerLLMClient) private llmClient: IPlannerLLMClient
+    @inject(PlannerLLMClient) private llmClient: PlannerLLMClient
   ) {}
 
   /**

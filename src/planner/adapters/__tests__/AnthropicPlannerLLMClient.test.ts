@@ -194,7 +194,7 @@ describe('AnthropicPlannerLLMClient', () => {
     });
   });
 
-  describe('implements IPlannerLLMClient', () => {
+  describe('implements PlannerLLMClient', () => {
     it('should have generatePlan method', () => {
       const client = new AnthropicPlannerLLMClient({
         apiKey: 'test-api-key',

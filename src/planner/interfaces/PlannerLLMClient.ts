@@ -5,7 +5,7 @@
  */
 export const PlannerLLMClient = Symbol('PlannerLLMClient');
 
-export interface IPlannerLLMClient {
+export interface PlannerLLMClient {
   /**
    * Generate a plan from user request and available functions
    * @param prompt - The complete prompt including user request and functions

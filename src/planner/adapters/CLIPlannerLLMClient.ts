@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { spawn } from 'node:child_process';
 import { injectable } from 'inversify';
-import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
+import type { PlannerLLMClient } from '../interfaces/PlannerLLMClient.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 
@@ -11,7 +11,7 @@ import { LoggerFactory } from '../../logger/index.js';
  * Supports any CLI tool that reads prompt from stdin and outputs plan JSON to stdout
  * Examples: claude-switcher, gemini, ollama, etc.
  */
-export class CLIPlannerLLMClient implements IPlannerLLMClient {
+export class CLPlannerLLMClient implements PlannerLLMClient {
   private logger: ILogger;
   private command: string;
   private args: string[];
