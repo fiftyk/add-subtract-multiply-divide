@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FunctionRegistry, defineFunction } from '../registry';
-import type { FunctionDefinition } from '../types';
+import { FunctionRegistry, LocalFunctionRegistry, defineFunction } from '../index.js';
+import type { FunctionDefinition } from '../types.js';
 
 describe('FunctionRegistry', () => {
   let registry: FunctionRegistry;
 
   beforeEach(() => {
-    registry = new FunctionRegistry();
+    registry = new LocalFunctionRegistry();
   });
 
   describe('register', () => {

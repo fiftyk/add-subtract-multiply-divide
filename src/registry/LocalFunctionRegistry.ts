@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { injectable } from 'inversify';
 import type { FunctionDefinition, FunctionDefinitionInput } from './types.js';
+import type { FunctionRegistry } from './interfaces/FunctionRegistry.js';
 import {
   FunctionNotFoundError,
   FunctionAlreadyRegisteredError,
@@ -22,10 +23,11 @@ export function defineFunction(input: FunctionDefinitionInput): FunctionDefiniti
 }
 
 /**
- * 函数注册表
+ * 本地函数注册表
+ * 实现 FunctionRegistry 接口，提供本地函数的注册和执行能力
  */
 @injectable()
-export class FunctionRegistry {
+export class LocalFunctionRegistry implements FunctionRegistry {
   private functions: Map<string, FunctionDefinition> = new Map();
 
   /**
@@ -89,5 +91,12 @@ export class FunctionRegistry {
    */
   clear(): void {
     this.functions.clear();
+  }
+
+  /**
+   * 获取注册中心类型标识
+   */
+  getType(): 'local' | 'remote' {
+    return 'local';
   }
 }

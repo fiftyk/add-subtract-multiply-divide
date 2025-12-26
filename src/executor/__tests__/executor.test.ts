@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ExecutorImpl } from '../executor.js';
 import type { Executor } from '../interfaces/Executor.js';
 import { ExecutionContext } from '../context.js';
-import { FunctionRegistry, defineFunction } from '../../registry/index.js';
+import { FunctionRegistry, LocalFunctionRegistry, defineFunction } from '../../registry/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import { StepType } from '../../planner/types.js';
 import { isFunctionCallStep } from '../../planner/type-guards.js';
@@ -59,7 +59,7 @@ describe('Executor', () => {
   let registry: FunctionRegistry;
 
   beforeEach(() => {
-    registry = new FunctionRegistry();
+    registry = new LocalFunctionRegistry();
 
     registry.register(
       defineFunction({

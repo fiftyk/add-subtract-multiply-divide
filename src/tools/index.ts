@@ -11,8 +11,12 @@ export type { ToolSelector as IToolSelector } from './interfaces/ToolSelector.js
 export { ToolFormatter } from './interfaces/ToolFormatter.js';
 export type { ToolFormatter as IToolFormatter } from './interfaces/ToolFormatter.js';
 
+// Symbols
+export { LOCAL_TOOL_PROVIDER, REMOTE_TOOL_PROVIDER } from './symbols.js';
+
 // Implementations
 export { LocalFunctionToolProvider } from './LocalFunctionToolProvider.js';
+export { CompositeToolProvider } from './CompositeToolProvider.js';
 export { AllToolsSelector } from './AllToolsSelector.js';
 export { StandardToolFormatter } from './ToolFormatter.js';
 

@@ -103,6 +103,53 @@ function loadMockConfig(): PartialAppConfig['mock'] {
 }
 
 /**
+ * Load MCP configuration from environment variables
+ * Supports stdio and http transport configurations
+ */
+function loadMCPConfig(): PartialAppConfig['mcp'] {
+  const enabled = process.env.MCP_ENABLED;
+  const stdioCommand = process.env.MCP_STDIO_COMMAND;
+  const stdioArgs = process.env.MCP_STDIO_ARGS;
+  const httpUrl = process.env.MCP_HTTP_URL;
+  const httpToken = process.env.MCP_HTTP_ACCESS_TOKEN;
+
+  // If no MCP env vars are set, return undefined to use defaults
+  if (!enabled && !stdioCommand && !httpUrl) {
+    return undefined;
+  }
+
+  const mcp: PartialAppConfig['mcp'] = {
+    enabled: enabled ? parseBoolean(enabled) : true,
+    servers: [],
+  };
+
+  // Add stdio server if configured
+  if (stdioCommand) {
+    const stdioArgsList = stdioArgs
+      ? stdioArgs.split(',').map((arg) => arg.trim())
+      : [];
+    mcp.servers!.push({
+      name: 'stdio-server',
+      type: 'stdio',
+      command: stdioCommand,
+      args: stdioArgsList.length > 0 ? stdioArgsList : undefined,
+    });
+  }
+
+  // Add http server if configured
+  if (httpUrl) {
+    mcp.servers!.push({
+      name: 'http-server',
+      type: 'http',
+      url: httpUrl,
+      ...(httpToken && { accessToken: httpToken }),
+    });
+  }
+
+  return mcp;
+}
+
+/**
  * Load configuration from environment variables
  * Automatically loads .env file from project root
  */
@@ -122,6 +169,7 @@ function loadFromEnv(): PartialAppConfig {
   const mockConfig = loadMockConfig();
   const mockCodeGeneratorConfig = loadGeneratorConfig('MOCK_GENERATOR_CMD', 'MOCK_GENERATOR_ARGS');
   const plannerGeneratorConfig = loadGeneratorConfig('PLANNER_GENERATOR_CMD', 'PLANNER_GENERATOR_ARGS');
+  const mcpConfig = loadMCPConfig();
 
   // Assign to config object (only if defined)
   if (apiConfig) config.api = apiConfig;
@@ -131,6 +179,7 @@ function loadFromEnv(): PartialAppConfig {
   if (mockConfig) config.mock = mockConfig;
   if (mockCodeGeneratorConfig) config.mockCodeGenerator = mockCodeGeneratorConfig;
   if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
+  if (mcpConfig) config.mcp = mcpConfig;
 
   return config;
 }
@@ -156,6 +205,10 @@ function mergeConfig(
     plannerGenerator: {
       ...base.plannerGenerator,
       ...override.plannerGenerator,
+    },
+    mcp: {
+      ...base.mcp,
+      ...override.mcp,
     },
   };
 }

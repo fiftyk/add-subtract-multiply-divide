@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import container from '../../container.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionRegistry } from '../../registry/interfaces/FunctionRegistry.js';
 import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
@@ -28,7 +28,7 @@ export async function executeCommand(
     }
 
     // 加载函数（先加载，以便显示已加载的函数列表）
-    const registry = container.get(FunctionRegistry);
+    const registry = container.get<FunctionRegistry>(FunctionRegistry);
     await loadFunctions(registry, options.functions);
 
     // 加载 Plan 的 mock 函数（新架构：从 plan-specific 目录加载）

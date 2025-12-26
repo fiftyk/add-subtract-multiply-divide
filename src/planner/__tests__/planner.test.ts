@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlannerImpl } from '../planner.js';
-import { FunctionRegistry, defineFunction } from '../../registry/index.js';
+import { FunctionRegistry, LocalFunctionRegistry, defineFunction } from '../../registry/index.js';
 import { LocalFunctionToolProvider, AllToolsSelector, StandardToolFormatter } from '../../tools/index.js';
 import type { ExecutionPlan } from '../types.js';
 import type { PlannerLLMClient } from '../interfaces/PlannerLLMClient.js';
@@ -23,7 +23,7 @@ describe('Planner', () => {
   let toolFormatter: StandardToolFormatter;
 
   beforeEach(() => {
-    registry = new FunctionRegistry();
+    registry = new LocalFunctionRegistry();
     mockLLMClient = new MockLLMClient();
     toolProvider = new LocalFunctionToolProvider(registry);
     toolSelector = new AllToolsSelector();

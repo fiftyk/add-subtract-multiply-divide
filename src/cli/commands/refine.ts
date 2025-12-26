@@ -7,7 +7,7 @@ import {
 } from '../../services/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionRegistry } from '../../registry/interfaces/FunctionRegistry.js';
 import { ConfigManager } from '../../config/index.js';
 import { PlanRefinementLLMClient } from '../../services/interfaces/IPlanRefinementLLMClient.js';
 
@@ -32,7 +32,7 @@ export async function refineCommand(
     const config = ConfigManager.get();
 
     // 创建 service
-    const registry = container.get(FunctionRegistry);
+    const registry = container.get<FunctionRegistry>(FunctionRegistry);
     const storage = container.get<Storage>(Storage);
     const sessionStorage = container.get<SessionStorage>(SessionStorage);
 
