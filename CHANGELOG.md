@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 支持任意支持 stdin/stdout 的 CLI 工具
 - 🔌 **LLMAdapter 接口抽象**: 重构代码生成器架构
   - 新增 `LLMAdapter` 接口，抽象 LLM 调用层
-  - 新增 `ClaudeCodeLLMAdapter`: Claude Code CLI 实现（`claude -p`）
+  - 新增 `CLILLMAdapter`: CLI 命令实现（支持任意 CLI 工具）
   - 重命名 `AnthropicLLMClient` → `AnthropicLLMAdapter`
   - 支持切换不同 LLM provider（API/CLI）
 - 🏭 **MockServiceFactory 工厂类改造**: 符合 InversifyJS 容器规范

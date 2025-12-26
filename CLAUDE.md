@@ -85,7 +85,7 @@ npx fn-orchestrator show-plan plan-abc123
 - 接口方法：`generateCode(prompt: string): Promise<string>`
 - 实现类：
   - `AnthropicLLMAdapter`: Anthropic API 调用
-  - `ClaudeCodeLLMAdapter`: Claude Code CLI 调用
+  - `CLILLMAdapter`: CLI 命令调用（如 claude-switcher, gemini 等）
 
 **MockServiceFactory (工厂模式)**
 - 接口 + 实现类分离（符合 InversifyJS 规范）
@@ -265,7 +265,7 @@ export const myFunction = defineFunction({
 ```
 ┌─────────────────────┐
 │     LLMAdapter      │  ← 底层接口：抽象 LLM 调用
-│ generateCode(prompt)│    AnthropicLLMAdapter / ClaudeCodeLLMAdapter
+│ generateCode(prompt)│    AnthropicLLMAdapter / CLILLMAdapter
 └─────────┬───────────┘
           ↑
           │ 组合
@@ -333,7 +333,7 @@ src/
 │   ├── decorators/        # PlannerWithMockSupport (OCP)
 │   ├── adapters/          # LLM 适配器
 │   │   ├── AnthropicLLMAdapter.ts
-│   │   └── ClaudeCodeLLMAdapter.ts
+│   │   └── CLILLMAdapter.ts
 │   └── factory/           # 工厂类
 │       ├── MockServiceFactory.ts      # 接口
 │       └── MockServiceFactoryImpl.ts  # 实现类
@@ -399,5 +399,5 @@ LOG_LEVEL=info  # debug, info, warn, error
 - 检查 `AUTO_GENERATE_MOCK` 是否启用
 - 查看日志中 LLM API 调用是否成功
 - 验证生成的代码文件是否保存到 `.data/plans/{planId}/mocks/`
-- 确认 `LLMAdapter` 绑定正确（AnthropicLLMAdapter 或 ClaudeCodeLLMAdapter）
-- Claude Code CLI 模式需要确保 `claude` 命令在 PATH 中可用
+- 确认 `LLMAdapter` 绑定正确（AnthropicLLMAdapter 或 CLILLMAdapter）
+- CLI 模式需要确保对应命令在 PATH 中可用

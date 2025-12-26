@@ -11,7 +11,7 @@ import { LoggerFactory } from '../../logger/index.js';
  * Supports any CLI tool that reads prompt from stdin and outputs code to stdout
  * Examples: claude-switcher, gemini, ollama, etc.
  */
-export class ClaudeCodeLLMAdapter implements LLMAdapter {
+export class CLILLMAdapter implements LLMAdapter {
   private logger: ILogger;
   private command: string;
   private args: string[];
@@ -95,6 +95,7 @@ export class ClaudeCodeLLMAdapter implements LLMAdapter {
           this.logger.debug('✅ Received response from CLI', {
             command: this.command,
             responseLength: stdout.length,
+            output: stdout,
           });
           resolve(stdout);
         } else {

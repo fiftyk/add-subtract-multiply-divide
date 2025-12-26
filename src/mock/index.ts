@@ -44,4 +44,4 @@ export { MockOrchestrator } from './implementations/MockOrchestrator.js';
 
 // Adapters
 export { AnthropicLLMAdapter } from './adapters/AnthropicLLMAdapter.js';
-export { ClaudeCodeLLMAdapter } from './adapters/ClaudeCodeLLMAdapter.js';
+export { CLILLMAdapter } from './adapters/CLILLMAdapter.js';

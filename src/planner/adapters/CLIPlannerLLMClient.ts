@@ -95,6 +95,7 @@ export class CLIPlannerLLMClient implements PlannerLLMClient {
           this.logger.debug('✅ Received response from CLI', {
             command: this.command,
             responseLength: stdout.length,
+            output: stdout,
           });
           resolve(stdout);
         } else {

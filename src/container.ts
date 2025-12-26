@@ -25,7 +25,7 @@ import { UserInputProvider } from './user-input/interfaces/UserInputProvider.js'
 import { CLIUserInputProvider } from './user-input/adapters/CLIUserInputProvider.js';
 import { LLMAdapter } from './mock/interfaces/LLMAdapter.js';
 import { AnthropicLLMAdapter } from './mock/adapters/AnthropicLLMAdapter.js';
-import { ClaudeCodeLLMAdapter } from './mock/adapters/ClaudeCodeLLMAdapter.js';
+import { CLILLMAdapter } from './mock/adapters/CLILLMAdapter.js';
 import { MockServiceFactory } from './mock/factory/MockServiceFactory.js';
 import { MockServiceFactoryImpl } from './mock/factory/MockServiceFactoryImpl.js';
 
@@ -105,7 +105,7 @@ container.bind(LLMAdapter).toDynamicValue(() => {
 
     if (command && args) {
         // 使用 CLI 命令（如 claude-switcher, gemini 等）
-        return new ClaudeCodeLLMAdapter(command, args);
+        return new CLILLMAdapter(command, args);
     }
 
     // 默认使用 Anthropic API
