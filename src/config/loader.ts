@@ -4,6 +4,105 @@ import * as path from 'path';
 import { config as dotenvConfig } from 'dotenv';
 
 /**
+ * Parse boolean string to boolean value
+ * Accepts: "true", "1", "yes", "on" (case-insensitive) → true
+ *          "false", "0", "no", "off" (case-insensitive) → false
+ */
+function parseBoolean(value: string | undefined): boolean {
+  if (value === undefined) return false;
+  return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
+}
+
+/**
+ * Load API configuration from environment variables
+ * Priority: ANTHROPIC_API_KEY > ANTHROPIC_AUTH_TOKEN (Claude Code compatibility)
+ */
+function loadAPIConfig(): PartialAppConfig['api'] {
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+  if (!apiKey) return undefined;
+
+  return {
+    apiKey,
+    ...(process.env.ANTHROPIC_BASE_URL && { baseURL: process.env.ANTHROPIC_BASE_URL }),
+  };
+}
+
+/**
+ * Load LLM configuration from environment variables
+ */
+function loadLLMConfig(): PartialAppConfig['llm'] {
+  const model = process.env.LLM_MODEL;
+  const maxTokensStr = process.env.LLM_MAX_TOKENS;
+
+  if (!model && !maxTokensStr) return undefined;
+
+  const llm: PartialAppConfig['llm'] = {};
+  if (model) llm.model = model;
+  if (maxTokensStr) llm.maxTokens = parseInt(maxTokensStr, 10);
+  return llm;
+}
+
+/**
+ * Load generator configuration (for mock or planner) from environment variables
+ */
+function loadGeneratorConfig(
+  cmdKey: string,
+  argsKey: string
+): PartialAppConfig['mockCodeGenerator'] | PartialAppConfig['plannerGenerator'] {
+  const cmd = process.env[cmdKey];
+  const args = process.env[argsKey];
+
+  if (!cmd && !args) return undefined;
+  return { command: cmd || '', args: args || '' };
+}
+
+/**
+ * Load executor configuration from environment variables
+ */
+function loadExecutorConfig(): PartialAppConfig['executor'] {
+  const timeout = process.env.EXECUTOR_STEP_TIMEOUT;
+  if (!timeout) return undefined;
+  return { stepTimeout: parseInt(timeout, 10) };
+}
+
+/**
+ * Load storage configuration from environment variables
+ */
+function loadStorageConfig(): PartialAppConfig['storage'] {
+  const dataDir = process.env.STORAGE_DATA_DIR;
+  if (!dataDir) return undefined;
+  return { dataDir: path.resolve(dataDir) };
+}
+
+/**
+ * Load mock configuration from environment variables
+ */
+function loadMockConfig(): PartialAppConfig['mock'] {
+  const outputDir = process.env.MOCK_OUTPUT_DIR;
+  const autoGenerate = process.env.AUTO_GENERATE_MOCK;
+  const maxIterations = process.env.MOCK_MAX_ITERATIONS;
+
+  if (!outputDir && autoGenerate === undefined && !maxIterations) return undefined;
+
+  const mock: PartialAppConfig['mock'] = {};
+
+  if (outputDir) mock.outputDir = path.resolve(outputDir);
+  if (autoGenerate !== undefined) mock.autoGenerate = parseBoolean(autoGenerate);
+  if (maxIterations) {
+    const parsed = parseInt(maxIterations, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      mock.maxIterations = parsed;
+    } else {
+      console.warn(
+        `Warning: Invalid MOCK_MAX_ITERATIONS value "${maxIterations}". Using default value.`
+      );
+    }
+  }
+
+  return mock;
+}
+
+/**
  * Load configuration from environment variables
  * Automatically loads .env file from project root
  */
@@ -15,95 +114,23 @@ function loadFromEnv(): PartialAppConfig {
 
   const config: PartialAppConfig = {};
 
-  // API Configuration
-  // Priority: ANTHROPIC_API_KEY > ANTHROPIC_AUTH_TOKEN (Claude Code compatibility)
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
-  if (apiKey) {
-    config.api = {
-      apiKey,
-    };
-  }
-  if (process.env.ANTHROPIC_BASE_URL) {
-    config.api = {
-      ...config.api,
-      baseURL: process.env.ANTHROPIC_BASE_URL,
-    };
-  }
+  // Load each configuration section
+  const apiConfig = loadAPIConfig();
+  const llmConfig = loadLLMConfig();
+  const executorConfig = loadExecutorConfig();
+  const storageConfig = loadStorageConfig();
+  const mockConfig = loadMockConfig();
+  const mockCodeGeneratorConfig = loadGeneratorConfig('MOCK_GENERATOR_CMD', 'MOCK_GENERATOR_ARGS');
+  const plannerGeneratorConfig = loadGeneratorConfig('PLANNER_GENERATOR_CMD', 'PLANNER_GENERATOR_ARGS');
 
-  // LLM Configuration
-  if (process.env.LLM_MODEL) {
-    config.llm = { model: process.env.LLM_MODEL };
-  }
-  if (process.env.LLM_MAX_TOKENS) {
-    config.llm = {
-      ...config.llm,
-      maxTokens: parseInt(process.env.LLM_MAX_TOKENS, 10),
-    };
-  }
-
-  // Mock Code Generator Configuration
-  if (process.env.MOCK_GENERATOR_CMD || process.env.MOCK_GENERATOR_ARGS) {
-    config.mockCodeGenerator = {
-      command: process.env.MOCK_GENERATOR_CMD || '',
-      args: process.env.MOCK_GENERATOR_ARGS || '',
-    };
-  }
-
-  // Planner Generator Configuration
-  if (process.env.PLANNER_GENERATOR_CMD || process.env.PLANNER_GENERATOR_ARGS) {
-    config.plannerGenerator = {
-      command: process.env.PLANNER_GENERATOR_CMD || '',
-      args: process.env.PLANNER_GENERATOR_ARGS || '',
-    };
-  }
-
-  // Executor Configuration
-  if (process.env.EXECUTOR_STEP_TIMEOUT) {
-    config.executor = {
-      stepTimeout: parseInt(process.env.EXECUTOR_STEP_TIMEOUT, 10),
-    };
-  }
-
-  // Storage Configuration
-  if (process.env.STORAGE_DATA_DIR) {
-    config.storage = {
-      dataDir: path.resolve(process.env.STORAGE_DATA_DIR),
-    };
-  }
-
-  // Mock Configuration
-  if (
-    process.env.MOCK_OUTPUT_DIR ||
-    process.env.AUTO_GENERATE_MOCK !== undefined ||
-    process.env.MOCK_MAX_ITERATIONS !== undefined
-  ) {
-    config.mock = {};
-
-    if (process.env.MOCK_OUTPUT_DIR) {
-      config.mock.outputDir = path.resolve(process.env.MOCK_OUTPUT_DIR);
-    }
-
-    // AUTO_GENERATE_MOCK: 支持多种布尔格式
-    // Accepts: "true", "1", "yes", "on" (case-insensitive) → true
-    //          "false", "0", "no", "off" (case-insensitive) → false
-    if (process.env.AUTO_GENERATE_MOCK !== undefined) {
-      const value = process.env.AUTO_GENERATE_MOCK.toLowerCase();
-      config.mock.autoGenerate = ['true', '1', 'yes', 'on'].includes(value);
-    }
-
-    if (process.env.MOCK_MAX_ITERATIONS !== undefined) {
-      const parsed = parseInt(process.env.MOCK_MAX_ITERATIONS, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        config.mock.maxIterations = parsed;
-      } else {
-        // Log warning but don't throw - graceful degradation
-        console.warn(
-          `Warning: Invalid MOCK_MAX_ITERATIONS value "${process.env.MOCK_MAX_ITERATIONS}". ` +
-          `Using default value.`
-        );
-      }
-    }
-  }
+  // Assign to config object (only if defined)
+  if (apiConfig) config.api = apiConfig;
+  if (llmConfig) config.llm = llmConfig;
+  if (executorConfig) config.executor = executorConfig;
+  if (storageConfig) config.storage = storageConfig;
+  if (mockConfig) config.mock = mockConfig;
+  if (mockCodeGeneratorConfig) config.mockCodeGenerator = mockCodeGeneratorConfig;
+  if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
 
   return config;
 }
