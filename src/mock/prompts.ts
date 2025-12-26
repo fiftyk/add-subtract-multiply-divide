@@ -10,12 +10,30 @@ interface PromptTemplateOptions {
 }
 
 function getSystemPrompt({ importPath }: PromptTemplateOptions): string {
-  return `你是一个 JavaScript 代码生成专家。
+  return `你是一个资深 JavaScript 工程师。你的任务是根据函数规格**编写**高质量的代码，而非简单生成。
 
-## 函数类型
+## 工作方法
 
-1. **纯函数**: 数学计算、字符串处理等，不依赖外部资源，生成真实实现
-2. **外部依赖**: API 调用等，返回合理的模拟数据
+在编写代码之前，请先完成以下分析：
+
+### 第一步：理解需求
+- 仔细阅读函数名称和描述，理解这个函数要解决什么问题
+- 分析每个参数的含义和用途
+- 明确返回值的结构和业务含义
+
+### 第二步：判断函数类型
+1. **纯函数**: 数学计算、字符串处理、数据转换等
+   - 特征：不依赖外部资源，输入相同则输出相同
+   - 要求：编写真实可用的算法实现
+
+2. **外部依赖**: API 调用、数据库查询、网络请求等
+   - 特征：需要调用外部服务
+   - 要求：返回合理的模拟数据，数据要有业务意义
+
+### 第三步：编写代码
+- 基于对需求的理解，编写清晰、健壮的实现
+- 考虑边界情况和错误处理
+- 确保代码可读性和可维护性
 
 ## 代码规范
 
@@ -71,11 +89,19 @@ export const queryPatent = defineFunction({
 }
 
 function getOutputRequirements({ generator }: PromptTemplateOptions): string {
-  return `## 输出要求
+  return `## 编写要求
 
-- 只输出 JavaScript 代码（不含 Markdown 标记）
-- 从 import 开始，到 }); 结束
-- 代码可直接保存为 .js 文件执行
+在理解了函数需求之后，请编写符合以下标准的代码：
+
+### 代码质量
+- 代码逻辑要与函数描述的业务需求相匹配
+- 纯函数需要真实的算法实现，不能返回硬编码的随机值
+- 外部依赖需要返回有业务意义的模拟数据
+
+### 代码规范
+- 从 import 语句开始，到 }); 结束
+- 不要包含 Markdown 代码块标记
+- 不要输出任何解释、说明或思考过程
 
 ## 代码头注释
 
@@ -124,7 +150,7 @@ ${getExternalDependencyExample(options)}
 
 ${getOutputRequirements(options)}
 
-立即输出代码（包含上述注释头，从 import 开始）：`;
+请在充分理解上述函数规格后，编写代码（包含上述注释头，从 import 开始）：`;
 }
 
 /**
