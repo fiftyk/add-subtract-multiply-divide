@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import container, { MockServiceFactory } from '../../container.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionRegistry } from '../../registry/interfaces/FunctionRegistry.js';
 import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/index.js';
@@ -37,7 +37,7 @@ export async function planCommand(
     const config = ConfigManager.get();
 
     // 从容器获取注册表
-    const registry = container.get(FunctionRegistry);
+    const registry = container.get<FunctionRegistry>(FunctionRegistry);
     await loadFunctions(registry, options.functions);
 
     // 检查是否有可用函数

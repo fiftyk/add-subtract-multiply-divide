@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { injectable } from 'inversify';
 import type { ToolDefinition } from './types.js';
-import type { ToolFormatter as IToolFormatter } from './interfaces/ToolFormatter.js';
+import type { ToolFormatter } from './interfaces/ToolFormatter.js';
 
 /**
  * 标准工具格式化器实现
@@ -15,7 +15,7 @@ import type { ToolFormatter as IToolFormatter } from './interfaces/ToolFormatter
  * 遵循 SRP：专注于格式化逻辑，不负责工具的获取或管理
  */
 @injectable()
-export class StandardToolFormatter implements IToolFormatter {
+export class StandardToolFormatter implements ToolFormatter {
   /**
    * 将工具列表格式化为 LLM prompt 字符串
    *

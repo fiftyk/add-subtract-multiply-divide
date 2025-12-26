@@ -86,6 +86,7 @@ export interface AppConfig {
   mock: MockConfig;
   mockCodeGenerator: MockCodeGeneratorConfig;
   plannerGenerator: PlannerGeneratorConfig;
+  mcp: MCPConfig;
 }
 
 /**
@@ -99,4 +100,52 @@ export type PartialAppConfig = {
   mock?: Partial<MockConfig>;
   mockCodeGenerator?: Partial<MockCodeGeneratorConfig>;
   plannerGenerator?: Partial<PlannerGeneratorConfig>;
+  mcp?: Partial<MCPConfig>;
 };
+
+/**
+ * MCP Server Configuration - Stdio Transport
+ */
+export interface MCPStdioServerConfig {
+  /** Server name */
+  name: string;
+  /** Transport type */
+  type: 'stdio';
+  /** Command to execute */
+  command: string;
+  /** Command arguments */
+  args?: string[];
+  /** Environment variables */
+  env?: Record<string, string>;
+  /** Working directory */
+  cwd?: string;
+}
+
+/**
+ * MCP Server Configuration - HTTP Transport
+ */
+export interface MCPHttpServerConfig {
+  /** Server name */
+  name: string;
+  /** Transport type */
+  type: 'http';
+  /** MCP Server URL */
+  url: string;
+  /** Access token for authentication */
+  accessToken?: string;
+}
+
+/**
+ * Union type for MCP server configurations
+ */
+export type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig;
+
+/**
+ * MCP Configuration
+ */
+export interface MCPConfig {
+  /** Enable/disable MCP support */
+  enabled: boolean;
+  /** List of MCP servers */
+  servers: MCPServerConfig[];
+}

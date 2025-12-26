@@ -28,4 +28,8 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
     command: '',
     args: '',
   },
+  mcp: {
+    enabled: false,
+    servers: [],
+  },
 };

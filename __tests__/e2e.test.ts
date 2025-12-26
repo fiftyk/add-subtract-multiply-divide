@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FunctionRegistry, defineFunction } from '../src/registry/index.js';
+import { FunctionRegistry, LocalFunctionRegistry, defineFunction } from '../src/registry/index.js';
 import { ExecutorImpl } from '../src/executor/executor.js';
 import type { Executor } from '../src/executor/interfaces/Executor.js';
 import type { ExecutionPlan } from '../src/planner/types.js';
@@ -13,7 +13,7 @@ describe('E2E: 加减乘除计算', () => {
   let executor: Executor;
 
   beforeEach(() => {
-    registry = new FunctionRegistry();
+    registry = new LocalFunctionRegistry();
 
     // 注册加减乘除函数
     registry.register(
@@ -289,7 +289,7 @@ describe('E2E: 加减乘除计算', () => {
 
 describe('E2E: 缺口识别', () => {
   it('识别缺失的函数', () => {
-    const registry = new FunctionRegistry();
+    const registry = new LocalFunctionRegistry();
 
     // 只注册加法
     registry.register(

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { injectable, inject } from 'inversify';
-import { FunctionRegistry } from '../registry/index.js';
+import { FunctionRegistry } from '../registry/interfaces/FunctionRegistry.js';
 import { ToolProvider } from './interfaces/ToolProvider.js';
 import type { ToolDefinition } from './types.js';
 

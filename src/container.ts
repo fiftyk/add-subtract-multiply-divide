@@ -1,12 +1,15 @@
 import 'reflect-metadata';
 import { Container } from 'inversify';
-import { FunctionRegistry } from './registry/index.js';
+import { FunctionRegistry } from './registry/interfaces/FunctionRegistry.js';
+import { LocalFunctionRegistry } from './registry/LocalFunctionRegistry.js';
 import { ToolProvider } from './tools/interfaces/ToolProvider.js';
 import { ToolSelector } from './tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from './tools/interfaces/ToolFormatter.js';
 import { LocalFunctionToolProvider } from './tools/LocalFunctionToolProvider.js';
 import { AllToolsSelector } from './tools/AllToolsSelector.js';
 import { StandardToolFormatter } from './tools/ToolFormatter.js';
+import { CompositeToolProvider } from './tools/CompositeToolProvider.js';
+import { LocalToolProviderSymbol, RemoteToolProviderSymbol } from './tools/providerSymbols.js';
 import { PlannerLLMClient } from './planner/interfaces/PlannerLLMClient.js';
 import { AnthropicPlannerLLMClient } from './planner/adapters/AnthropicPlannerLLMClient.js';
 import { CLIPlannerLLMClient } from './planner/adapters/CLIPlannerLLMClient.js';
@@ -28,16 +31,24 @@ import { AnthropicLLMAdapter } from './mock/adapters/AnthropicLLMAdapter.js';
 import { CLILLMAdapter } from './mock/adapters/CLILLMAdapter.js';
 import { MockServiceFactory } from './mock/factory/MockServiceFactory.js';
 import { MockServiceFactoryImpl } from './mock/factory/MockServiceFactoryImpl.js';
+import { RemoteFunctionRegistry, MCPClient, NoOpRemoteFunctionRegistry } from './mcp/index.js';
+import { RemoteToolProvider } from './mcp/RemoteToolProvider.js';
 
 const container = new Container({
     defaultScope: 'Singleton',
 });
 
-// FunctionRegistry - 单例（确保整个应用共享同一个实例）
-container.bind(FunctionRegistry).toSelf();
+// FunctionRegistry - 绑定到本地实现类
+container.bind(FunctionRegistry).to(LocalFunctionRegistry);
 
-// ToolProvider - 单例（依赖同一个 FunctionRegistry 实例）
-container.bind<ToolProvider>(ToolProvider).to(LocalFunctionToolProvider);
+// ToolProvider - 默认使用 CompositeToolProvider（合并本地和远程工具）
+// LocalFunctionToolProvider 和 RemoteToolProvider 通过独立 Symbol 注入到 CompositeToolProvider
+// 绑定具体实现到独立 Symbol
+container.bind<LocalFunctionToolProvider>(LocalToolProviderSymbol).to(LocalFunctionToolProvider);
+container.bind<RemoteToolProvider>(RemoteToolProviderSymbol).to(RemoteToolProvider);
+
+// ToolProvider - 绑定到 CompositeToolProvider（合并所有工具）
+container.bind(ToolProvider).to(CompositeToolProvider);
 
 // ToolSelector - 单例（默认使用 AllToolsSelector 策略）
 container.bind<ToolSelector>(ToolSelector).to(AllToolsSelector);
@@ -117,6 +128,31 @@ container.bind(LLMAdapter).toDynamicValue(() => {
 
 // MockServiceFactory - 单例（依赖注入 LLMAdapter, Storage, FunctionRegistry）
 container.bind(MockServiceFactory).to(MockServiceFactoryImpl);
+
+// RemoteFunctionRegistry - 动态创建（根据 MCP 配置）
+// 没有配置服务器时使用 NoOp 实现
+container.bind<RemoteFunctionRegistry>(RemoteFunctionRegistry).toDynamicValue(() => {
+    const config = ConfigManager.get();
+
+    // 没有配置服务器时使用 NoOp 实现
+    if (config.mcp.servers.length === 0) {
+        return new NoOpRemoteFunctionRegistry();
+    }
+
+    // 使用第一个配置的服务器
+    const serverConfig = config.mcp.servers[0];
+    const mcpConfig = {
+        name: serverConfig.name,
+        transportType: serverConfig.type,
+        transportConfig: serverConfig,
+    };
+
+    return new MCPClient(mcpConfig);
+});
+
+// RemoteToolProvider - 可选绑定（向后兼容）
+// 使用 @optional() 装饰器的消费者在 MCP 未启用时会接收 undefined
+container.bind<RemoteToolProvider>(RemoteToolProvider).to(RemoteToolProvider);
 
 export { container, MockServiceFactory };
 export default container;

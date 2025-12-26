@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged } from 'inversify';
-import { FunctionRegistry } from '../registry/index.js';
+import { FunctionRegistry } from '../registry/interfaces/FunctionRegistry.js';
 import type { ExecutionPlan, FunctionCallStep, UserInputStep } from '../planner/types.js';
 import { StepType } from '../planner/types.js';
 import { isFunctionCallStep, isUserInputStep } from '../planner/type-guards.js';
@@ -23,6 +23,7 @@ import { LoggerFactory } from '../logger/index.js';
 import { PlanValidator } from '../validation/index.js';
 import { ConfigManager } from '../config/index.js';
 import { UserInputProvider } from '../user-input/interfaces/UserInputProvider.js';
+import { RemoteFunctionRegistry } from '../mcp/interfaces/RemoteFunctionRegistry.js';
 
 /**
  * Executor 配置选项
@@ -47,6 +48,7 @@ export interface ExecutorConfig {
 @injectable()
 export class ExecutorImpl implements Executor {
   private registry: FunctionRegistry;
+  private remoteRegistry?: RemoteFunctionRegistry;
   private userInputProvider?: UserInputProvider;
   private config: Required<ExecutorConfig>;
   private logger: ILogger;
@@ -54,9 +56,11 @@ export class ExecutorImpl implements Executor {
   constructor(
     @inject(FunctionRegistry) registry: FunctionRegistry,
     @unmanaged() config?: ExecutorConfig,
+    @inject(RemoteFunctionRegistry) @optional() remoteRegistry?: RemoteFunctionRegistry,
     @inject(UserInputProvider) @optional() userInputProvider?: UserInputProvider
   ) {
     this.registry = registry;
+    this.remoteRegistry = remoteRegistry;
     this.userInputProvider = userInputProvider;
     const appConfig = ConfigManager.get();
     this.config = {
@@ -234,18 +238,46 @@ export class ExecutorImpl implements Executor {
       // 解析参数
       resolvedParams = context.resolveParameters(step.parameters);
 
-      // 执行函数（支持异步）
-      const result = await this.registry.execute(step.functionName, resolvedParams);
+      // 优先查找本地函数
+      if (this.registry.has(step.functionName)) {
+        const result = await this.registry.execute(step.functionName, resolvedParams);
+        return {
+          stepId: step.stepId,
+          type: StepType.FUNCTION_CALL,
+          functionName: step.functionName,
+          parameters: resolvedParams,
+          result,
+          success: true,
+          executedAt,
+        };
+      }
 
-      return {
-        stepId: step.stepId,
-        type: StepType.FUNCTION_CALL,
-        functionName: step.functionName,
-        parameters: resolvedParams,
-        result,
-        success: true,
-        executedAt,
-      };
+      // 检查远程函数（MCP）
+      if (this.remoteRegistry && await this.remoteRegistry.has(step.functionName)) {
+        // 连接远程注册中心（如果尚未连接）
+        if (!this.remoteRegistry.isConnected()) {
+          await this.remoteRegistry.connect();
+        }
+
+        const remoteResult = await this.remoteRegistry.execute(step.functionName, resolvedParams);
+
+        if (remoteResult.success) {
+          return {
+            stepId: step.stepId,
+            type: StepType.FUNCTION_CALL,
+            functionName: step.functionName,
+            parameters: resolvedParams,
+            result: remoteResult.content,
+            success: true,
+            executedAt,
+          };
+        } else {
+          throw new Error(remoteResult.error || 'Remote function execution failed');
+        }
+      }
+
+      // 函数不存在
+      throw new Error(`Function not found: ${step.functionName}`);
     } catch (error) {
       // 包装为 FunctionExecutionError 以保留上下文
       const executionError = new FunctionExecutionError(
