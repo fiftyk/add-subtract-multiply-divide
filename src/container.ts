@@ -87,9 +87,16 @@ container.bind(UserInputProvider).to(CLIUserInputProvider);
 // Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry 和 UserInputProvider）
 container.bind(Executor).to(ExecutorImpl);
 
-// LLMAdapter - ClaudeCodeLLMAdapter 实现（使用 claude-switcher）
+// LLMAdapter - 根据配置选择实现（anthropic 或 claude-code）
 container.bind(LLMAdapter).toDynamicValue(() => {
-    return new ClaudeCodeLLMAdapter();
+    const config = ConfigManager.get();
+    if (config.llm.adapter === 'claude-code') {
+        return new ClaudeCodeLLMAdapter();
+    }
+    return new AnthropicLLMAdapter(
+        config.api.apiKey,
+        config.api.baseURL
+    );
 });
 
 // MockServiceFactory - 单例（依赖注入 LLMAdapter, Storage, FunctionRegistry）

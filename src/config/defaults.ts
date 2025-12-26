@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
   llm: {
     model: 'claude-sonnet-4-20250514',
     maxTokens: 1024,
+    adapter: 'anthropic', // 默认使用 Anthropic API
   },
   executor: {
     stepTimeout: 30000, // 30 seconds

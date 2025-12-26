@@ -9,6 +9,11 @@ export interface APIConfig {
 }
 
 /**
+ * LLM Adapter Type
+ */
+export type LLMAdapterType = 'anthropic' | 'claude-code';
+
+/**
  * LLM Configuration
  */
 export interface LLMConfig {
@@ -16,6 +21,8 @@ export interface LLMConfig {
   model: string;
   /** Maximum tokens for completion */
   maxTokens: number;
+  /** LLM adapter type for mock code generation */
+  adapter: LLMAdapterType;
 }
 
 /**

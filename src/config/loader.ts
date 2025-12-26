@@ -40,6 +40,16 @@ function loadFromEnv(): PartialAppConfig {
       maxTokens: parseInt(process.env.LLM_MAX_TOKENS, 10),
     };
   }
+  // LLM Adapter Type (anthropic | claude-code)
+  if (process.env.LLM_ADAPTER) {
+    const adapter = process.env.LLM_ADAPTER.toLowerCase();
+    if (adapter === 'claude-code' || adapter === 'anthropic') {
+      config.llm = {
+        ...config.llm,
+        adapter: adapter as 'anthropic' | 'claude-code',
+      };
+    }
+  }
 
   // Executor Configuration
   if (process.env.EXECUTOR_STEP_TIMEOUT) {
