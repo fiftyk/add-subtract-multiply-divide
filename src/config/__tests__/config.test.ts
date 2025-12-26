@@ -223,4 +223,128 @@ describe('Configuration System', () => {
       expect(config.llm.model).toBe(DEFAULT_CONFIG.llm.model); // default
     });
   });
+
+  describe('API Key Priority', () => {
+    it('should use ANTHROPIC_API_KEY when both are set', () => {
+      process.env.ANTHROPIC_API_KEY = 'primary-key';
+      process.env.ANTHROPIC_AUTH_TOKEN = 'secondary-key';
+      const config = loadConfig();
+
+      expect(config.api.apiKey).toBe('primary-key');
+    });
+
+    it('should fallback to ANTHROPIC_AUTH_TOKEN when ANTHROPIC_API_KEY not set', () => {
+      delete process.env.ANTHROPIC_API_KEY;
+      process.env.ANTHROPIC_AUTH_TOKEN = 'auth-token-key';
+      const config = loadConfig();
+
+      expect(config.api.apiKey).toBe('auth-token-key');
+    });
+  });
+
+  describe('Mock Code Generator Configuration', () => {
+    it('should load mock code generator config from environment variables', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.MOCK_GENERATOR_CMD = 'claude-switcher';
+      process.env.MOCK_GENERATOR_ARGS = 'MINMAX -- -p';
+      const config = loadConfig();
+
+      expect(config.mockCodeGenerator.command).toBe('claude-switcher');
+      expect(config.mockCodeGenerator.args).toBe('MINMAX -- -p');
+    });
+
+    it('should use empty strings when only command is set', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.MOCK_GENERATOR_CMD = 'claude-switcher';
+      delete process.env.MOCK_GENERATOR_ARGS;
+      const config = loadConfig();
+
+      expect(config.mockCodeGenerator.command).toBe('claude-switcher');
+      expect(config.mockCodeGenerator.args).toBe('');
+    });
+
+    it('should use empty strings when only args is set', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      delete process.env.MOCK_GENERATOR_CMD;
+      process.env.MOCK_GENERATOR_ARGS = '-p';
+      const config = loadConfig();
+
+      expect(config.mockCodeGenerator.command).toBe('');
+      expect(config.mockCodeGenerator.args).toBe('-p');
+    });
+  });
+
+  describe('Planner Generator Configuration', () => {
+    it('should load planner generator config from environment variables', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.PLANNER_GENERATOR_CMD = 'gemini';
+      process.env.PLANNER_GENERATOR_ARGS = '--plan';
+      const config = loadConfig();
+
+      expect(config.plannerGenerator.command).toBe('gemini');
+      expect(config.plannerGenerator.args).toBe('--plan');
+    });
+
+    it('should use empty strings when only PLANNER_GENERATOR_CMD is set', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.PLANNER_GENERATOR_CMD = 'ollama';
+      delete process.env.PLANNER_GENERATOR_ARGS;
+      const config = loadConfig();
+
+      expect(config.plannerGenerator.command).toBe('ollama');
+      expect(config.plannerGenerator.args).toBe('');
+    });
+  });
+
+  describe('mergeConfig', () => {
+    it('should merge plannerGenerator configs', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.PLANNER_GENERATOR_CMD = 'env-cmd';
+
+      const config = loadConfig({
+        plannerGenerator: { command: 'override-cmd', args: '-p' },
+      });
+
+      expect(config.plannerGenerator.command).toBe('override-cmd');
+      expect(config.plannerGenerator.args).toBe('-p');
+    });
+
+    it('should merge mockCodeGenerator configs', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.MOCK_GENERATOR_CMD = 'env-cmd';
+
+      const config = loadConfig({
+        mockCodeGenerator: { command: 'override-cmd', args: '--gen' },
+      });
+
+      expect(config.mockCodeGenerator.command).toBe('override-cmd');
+      expect(config.mockCodeGenerator.args).toBe('--gen');
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle empty string values', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.LLM_MODEL = '';
+      process.env.LLM_MAX_TOKENS = '';
+
+      const config = loadConfig();
+
+      // 空字符串会被忽略，使用默认值
+      expect(config.llm.model).toBe(DEFAULT_CONFIG.llm.model);
+      expect(config.llm.maxTokens).toBe(DEFAULT_CONFIG.llm.maxTokens);
+    });
+
+    it('should load with valid model name', () => {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.LLM_MODEL = 'custom-model';
+      delete process.env.LLM_MAX_TOKENS;
+
+      const config = loadConfig();
+
+      expect(config.llm.model).toBe('custom-model');
+      // maxTokens not provided, should use default
+      expect(config.llm.maxTokens).toBe(DEFAULT_CONFIG.llm.maxTokens);
+    });
+  });
 });
