@@ -1,36 +1,33 @@
 import type { A2UISchema } from '../user-input/interfaces/A2UISchema.js';
+import { StepType } from './types.js';
 
-/**
- * LLM 返回的原始步骤格式（函数调用步骤）
- */
-export interface RawFunctionCallStep {
+// Step type constants for validation
+export const STEP_TYPE_FUNCTION_CALL = StepType.FUNCTION_CALL;
+export const STEP_TYPE_USER_INPUT = StepType.USER_INPUT;
+
+// ============================================================
+// Types
+// ============================================================
+
+export type RawFunctionCallStep = {
   stepId: number;
   type: 'function_call';
   functionName: string;
   description: string;
   parameters: Record<string, { type: 'literal' | 'reference'; value: unknown }>;
   dependsOn?: number[];
-}
+};
 
-/**
- * LLM 返回的原始步骤格式（用户输入步骤）
- */
-export interface RawUserInputStep {
+export type RawUserInputStep = {
   stepId: number;
   type: 'user_input';
   description: string;
   schema: A2UISchema;
   outputName?: string;
-}
+};
 
-/**
- * LLM 返回的原始步骤（联合类型）
- */
 export type RawPlanStep = RawFunctionCallStep | RawUserInputStep;
 
-/**
- * LLM 响应的解析结果
- */
 export interface ParsedLLMResponse {
   steps: RawPlanStep[];
   missingFunctions?: Array<{
@@ -42,232 +39,152 @@ export interface ParsedLLMResponse {
   status: 'executable' | 'incomplete';
 }
 
-/**
- * 生成规划 prompt
- */
+// ============================================================
+// Prompt Templates
+// ============================================================
+
+const SYSTEM_PROMPT = `你是一个函数编排专家。根据用户需求，规划函数调用序列。
+
+## 步骤类型
+
+1. **function_call**: 调用已注册函数完成任务
+2. **user_input**: 向用户收集信息（用于需求中缺失的必填参数）
+
+## 任务
+
+1. 先分析需求，判断是否需要用户输入
+2. 再规划函数调用
+3. 如果缺少必要函数，列出缺失函数定义
+
+## 输出格式
+
+JSON 格式：
+\`\`\`json
+{ "steps": [...], "missingFunctions": [...], "status": "executable" | "incomplete" }
+\`\`\``;
+
+// 示例1：纯函数调用
+const EXAMPLE_1_FUNCTION_CALL = `// 场景：计算 (3 + 5) * 2
+{
+  "steps": [
+    { "stepId": 1, "type": "function_call", "functionName": "add", "description": "计算 3 + 5", "parameters": { "a": { "type": "literal", "value": 3 }, "b": { "type": "literal", "value": 5 } } },
+    { "stepId": 2, "type": "function_call", "functionName": "multiply", "description": "乘以 2", "parameters": { "a": { "type": "reference", "value": "step.1.result" }, "b": { "type": "literal", "value": 2 } }, "dependsOn": [1] }
+  ],
+  "status": "executable"
+}`;
+
+// 示例2：需要用户输入
+const EXAMPLE_2_USER_INPUT = `// 场景：查询某公司专利（公司名未知）
+{
+  "steps": [
+    { "stepId": 1, "type": "user_input", "description": "询问公司名称", "schema": { "version": "1.0", "fields": [ { "id": "companyName", "type": "text", "label": "公司名称", "required": true } ] }, "outputName": "companyInfo" },
+    { "stepId": 2, "type": "function_call", "functionName": "queryPatent", "description": "查询专利", "parameters": { "company": { "type": "reference", "value": "step.1.companyName" } }, "dependsOn": [1] }
+  ],
+  "status": "executable"
+}`;
+
+// 示例3：缺少函数
+const EXAMPLE_3_MISSING_FUNCTION = `// 场景：查询天气（getWeather 未注册）
+{
+  "steps": [ { "stepId": 1, "type": "user_input", "description": "询问城市和日期", "schema": { "version": "1.0", "fields": [ { "id": "city", "type": "text", "label": "城市", "required": true }, { "id": "date", "type": "text", "label": "日期", "required": true } ] } } ],
+  "missingFunctions": [ { "name": "getWeather", "description": "获取指定城市指定日期的天气", "suggestedParameters": [ { "name": "city", "type": "string", "description": "城市名称" }, { "name": "date", "type": "string", "description": "日期 (YYYY-MM-DD)" } ], "suggestedReturns": { "type": "object", "description": "天气信息" } } ],
+  "status": "incomplete"
+}`;
+
+// ============================================================
+// Main Function
+// ============================================================
+
 export function buildPlannerPrompt(
   userRequest: string,
   functionsDescription: string
 ): string {
-  return `你是一个函数编排专家。根据用户的需求，分析并规划出需要调用的函数序列。
+  return `${SYSTEM_PROMPT}
 
 ## 可用函数列表
-
 ${functionsDescription}
 
 ## 用户需求
-
 ${userRequest}
 
-## 步骤类型
+## 示例
+示例1 - 纯函数调用:
+${EXAMPLE_1_FUNCTION_CALL}
 
-执行计划支持两种类型的步骤：
+示例2 - 需要用户输入:
+${EXAMPLE_2_USER_INPUT}
 
-### 1. 函数调用步骤 (function_call)
+示例3 - 缺少函数:
+${EXAMPLE_3_MISSING_FUNCTION}
 
-调用已注册的函数完成任务。
-
-示例：
-\`\`\`json
-{
-  "stepId": 1,
-  "type": "function_call",
-  "functionName": "add",
-  "description": "计算 3 + 5",
-  "parameters": {
-    "a": { "type": "literal", "value": 3 },
-    "b": { "type": "literal", "value": 5 }
-  }
+请生成执行计划。`;
 }
-\`\`\`
 
-### 2. 用户输入步骤 (user_input)
+// ============================================================
+// Response Parsing
+// ============================================================
 
-当需要从用户获取信息时使用此类型。系统会在执行过程中暂停，向用户展示表��收集输入。
-
-**何时使用用户输入步骤：**
-- 用户需求中有明确的未知信息需要询问（如"查询某公司的专利"中的公司名称）
-- 需要用户确认或选择选项
-- 需要收集结构化的用户数据
-
-**不要使用用户输入步骤的情况��**
-- 信息已经在用户需求中明确给出
-- 可以通过函数计算得出的数据
-
-用户输入步骤使用 A2UI Schema 定义表单结构：
-
-\`\`\`json
-{
-  "stepId": 1,
-  "type": "user_input",
-  "description": "询问用户要查询的公司信息",
-  "schema": {
-    "version": "1.0",
-    "fields": [
-      {
-        "id": "companyName",
-        "type": "text",
-        "label": "公司名称",
-        "description": "请输入要查询的公司全称",
-        "required": true,
-        "validation": {
-          "length": { "min": 2, "max": 100 }
-        }
-      },
-      {
-        "id": "year",
-        "type": "number",
-        "label": "年份",
-        "description": "专利申请年份（可选）",
-        "required": false,
-        "validation": {
-          "range": { "min": 1900, "max": 2099 }
-        }
-      }
-    ]
-  },
-  "outputName": "companyInfo"
-}
-\`\`\`
-
-**A2UI 字段类型：**
-- \`text\`: 文本输入
-- \`number\`: 数字输入
-- \`boolean\`: 是/否选择
-- \`single_select\`: 单选（需要在 config.options 中提供选项）
-- \`multi_select\`: 多选（需要在 config.options 中提供选项）
-
-**字段验证规则（validation）：**
-- \`required\`: 是否必填（字段级别）
-- \`range\`: 数字范围 { min, max }
-- \`length\`: 文本长度 { min, max }
-- \`pattern\`: 正则表达式（字符串）
-
-**引用用户输入的值：**
-后续步骤可以通过 \`step.{stepId}.{fieldId}\` 引用用户输入的特定字段：
-
-\`\`\`json
-{
-  "stepId": 2,
-  "type": "function_call",
-  "functionName": "queryPatent",
-  "parameters": {
-    "company": { "type": "reference", "value": "step.1.companyName" },
-    "year": { "type": "reference", "value": "step.1.year" }
-  },
-  "dependsOn": [1]
-}
-\`\`\`
-
-## 任务
-
-请分析用户需求，生成一个执行计划。
-
-1. 如果需要向用户询问信息，先生成用户输入步骤
-2. 如果可以使用现有函数完成需求，生成函数调用步骤
-3. 如果需要的函数不存在，请识别出缺失的函数并给出建议的定义
-
-## 输出格式
-
-请以 JSON 格式输出，格式如下：
-
-\`\`\`json
-{
-  "steps": [
-    {
-      "stepId": 1,
-      "type": "user_input",
-      "description": "询问用户...",
-      "schema": { ... },
-      "outputName": "可选的输出变量名"
-    },
-    {
-      "stepId": 2,
-      "type": "function_call",
-      "functionName": "函数名",
-      "description": "这一步做什么",
-      "parameters": {
-        "参数名": {
-          "type": "reference",
-          "value": "step.1.fieldId"
-        }
-      },
-      "dependsOn": [1]
-    }
-  ],
-  "missingFunctions": [
-    {
-      "name": "缺失的函数名",
-      "description": "函数功能描述",
-      "suggestedParameters": [
-        {"name": "参数名", "type": "类型", "description": "描述"}
-      ],
-      "suggestedReturns": {"type": "类型", "description": "描述"}
-    }
-  ],
-  "status": "executable 或 incomplete"
-}
-\`\`\`
-
-注意：
-- 如果可以完成需求，status 为 "executable"，steps 包含所有步骤
-- 如果缺少必要函数，status 为 "incomplete"，missingFunctions 列出缺失的函数
-- 每个步骤必须有 "type" 字段，值为 "function_call" 或 "user_input"
-- 函数调用步骤的参数可以是 "literal"（字面量）或 "reference"（引用）
-- 引用格式为 "step.{stepId}.result"（函数结果）或 "step.{stepId}.{fieldId}"（用户输入字段）
-- 用户输入步骤的 schema.fields 数组至少要有一个字段
-- 请确保输出的 JSON 格式正确，可以被解析`;
+/**
+ * Extract JSON block from LLM response
+ */
+function extractJSON(response: string): string {
+  const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+  return jsonMatch ? jsonMatch[1] : response;
 }
 
 /**
- * 解析 LLM 响应
- *
- * 支持解析包含函数调用步骤和用户输入步骤的计划
+ * Validate a single step
  */
+function validateStep(step: unknown, stepId: number): void {
+  const s = step as Record<string, unknown>;
+
+  if (!s.type || ![STEP_TYPE_FUNCTION_CALL, STEP_TYPE_USER_INPUT].includes(s.type as StepType)) {
+    throw new Error(`Invalid step: missing "type" field (stepId: ${stepId})`);
+  }
+
+  if (s.type === STEP_TYPE_FUNCTION_CALL) {
+    if (!s.functionName) {
+      throw new Error(`Invalid function_call step: missing "functionName" (stepId: ${stepId})`);
+    }
+    if (!s.parameters || typeof s.parameters !== 'object') {
+      throw new Error(`Invalid function_call step: missing "parameters" (stepId: ${stepId})`);
+    }
+  }
+
+  if (s.type === STEP_TYPE_USER_INPUT) {
+    const schema = s.schema as Record<string, unknown> | undefined;
+    if (!schema || typeof schema !== 'object') {
+      throw new Error(`Invalid user_input step: missing "schema" (stepId: ${stepId})`);
+    }
+    const fields = schema.fields as unknown[];
+    if (!Array.isArray(fields) || fields.length === 0) {
+      throw new Error(`Invalid user_input step: schema.fields must be non-empty (stepId: ${stepId})`);
+    }
+  }
+}
+
+/**
+ * Validate parsed response structure
+ */
+function validateResponse(parsed: Record<string, unknown>): void {
+  if (!parsed.steps || !Array.isArray(parsed.steps)) {
+    throw new Error('Invalid LLM response: missing or invalid "steps" field');
+  }
+
+  if (!parsed.status || !['executable', 'incomplete'].includes(parsed.status as string)) {
+    throw new Error('Invalid LLM response: missing or invalid "status" field');
+  }
+
+  for (const step of parsed.steps) {
+    validateStep(step, (step as Record<string, number>).stepId);
+  }
+}
+
 export function parseLLMResponse(response: string): ParsedLLMResponse {
-  // 提取 JSON 块
-  const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-  const jsonStr = jsonMatch ? jsonMatch[1] : response;
-
   try {
+    const jsonStr = extractJSON(response);
     const parsed = JSON.parse(jsonStr);
-
-    // 验证基本结构
-    if (!parsed.steps || !Array.isArray(parsed.steps)) {
-      throw new Error('Invalid LLM response: missing or invalid "steps" field');
-    }
-
-    if (!parsed.status || !['executable', 'incomplete'].includes(parsed.status)) {
-      throw new Error('Invalid LLM response: missing or invalid "status" field');
-    }
-
-    // 验证每个步骤都有 type 字段
-    for (const step of parsed.steps) {
-      if (!step.type || !['function_call', 'user_input'].includes(step.type)) {
-        throw new Error(`Invalid step: missing or invalid "type" field (stepId: ${step.stepId})`);
-      }
-
-      // 验证函数调用步骤的必需字段
-      if (step.type === 'function_call') {
-        if (!step.functionName) {
-          throw new Error(`Invalid function_call step: missing "functionName" (stepId: ${step.stepId})`);
-        }
-        if (!step.parameters || typeof step.parameters !== 'object') {
-          throw new Error(`Invalid function_call step: missing or invalid "parameters" (stepId: ${step.stepId})`);
-        }
-      }
-
-      // 验证用户输入步骤的必需字段
-      if (step.type === 'user_input') {
-        if (!step.schema || typeof step.schema !== 'object') {
-          throw new Error(`Invalid user_input step: missing or invalid "schema" (stepId: ${step.stepId})`);
-        }
-        if (!step.schema.fields || !Array.isArray(step.schema.fields) || step.schema.fields.length === 0) {
-          throw new Error(`Invalid user_input step: schema.fields must be a non-empty array (stepId: ${step.stepId})`);
-        }
-      }
-    }
-
+    validateResponse(parsed);
     return parsed as ParsedLLMResponse;
   } catch (error) {
     if (error instanceof SyntaxError) {

@@ -25,7 +25,10 @@ export class LLMMockCodeGenerator implements IMockCodeGenerator {
    * Generate mock function code from specification
    */
   async generate(spec: MockFunctionSpec): Promise<string> {
-    const prompt = buildMockCodeGenerationPrompt(spec, this.importPath);
+    const prompt = buildMockCodeGenerationPrompt(spec, {
+      importPath: this.importPath,
+      generator: 'LLM',
+    });
     const rawCode = await this.llmClient.generateCode(prompt);
     const extractedCode = extractCodeFromLLMResponse(rawCode);
     return this.formatCode(extractedCode, spec);
