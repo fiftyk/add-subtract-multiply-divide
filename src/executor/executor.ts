@@ -73,7 +73,7 @@ export class ExecutorImpl implements Executor {
     // Validate plan before execution
     PlanValidator.validatePlan(plan);
 
-    this.logger.info('Starting plan execution', { planId: plan.id, stepsCount: plan.steps.length });
+    this.logger.debug('📝 执行计划', { planId: plan.id, stepsCount: plan.steps.length });
 
     const context = new ExecutionContext();
     const stepResults: StepResult[] = [];
@@ -129,7 +129,7 @@ export class ExecutorImpl implements Executor {
       completedAt: new Date().toISOString(),
     };
 
-    this.logger.info('Plan execution completed', {
+    this.logger.debug('📝 计划执行完成', {
       planId: plan.id,
       success: overallSuccess,
       stepsCompleted: stepResults.length,

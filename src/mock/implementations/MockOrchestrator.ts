@@ -83,7 +83,7 @@ export class MockOrchestrator implements IMockOrchestrator {
         // Determine version for this mock
         version = await this.getNextVersion(missing.name);
         this.logger.info(
-          `  生成 ${missing.name} (v${version})${version > 1 ? ' [升级]' : ''}...`
+          `  📝 生成 ${missing.name} (v${version})${version > 1 ? ' [升级]' : ''}...`
         );
 
         // 1. Generate code
@@ -105,7 +105,7 @@ export class MockOrchestrator implements IMockOrchestrator {
         // Build absolute file path for loading
         const mocksDir = this.storage.getPlanMocksDir(this.planId);
         filePath = path.join(mocksDir, `${missing.name}-v${version}.js`);
-        this.logger.info(`    ✓ 文件已保存: ${relativePath}`);
+        this.logger.info(`    📝 文件已保存: ${relativePath}`);
 
         // 3. Validate code (optional, if validator is provided)
         if (this.validator) {
@@ -119,7 +119,7 @@ export class MockOrchestrator implements IMockOrchestrator {
 
         // 4. Load function definitions from file
         const functions = await this.functionLoader.load(filePath);
-        this.logger.info(`    ✓ 加载了 ${functions.length} 个函数定义`);
+        this.logger.info(`    📝 加载了 ${functions.length} 个函数定义`);
 
         // 5. Test each function (optional, if validator is provided)
         if (this.validator) {
@@ -136,7 +136,7 @@ export class MockOrchestrator implements IMockOrchestrator {
         // 6. Register functions to registry
         this.functionLoader.register(this.registry, functions);
         this.logger.info(
-          `    ✓ 已注册到 registry: ${functions.map((f) => f.name).join(', ')}`
+          `    📝 已注册到 registry: ${functions.map((f) => f.name).join(', ')}`
         );
 
         // 7. Mark as mock and store metadata
@@ -151,14 +151,14 @@ export class MockOrchestrator implements IMockOrchestrator {
         results.push(metadata);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.warn(`    ✗ 生成失败: ${missing.name}`);
-        this.logger.warn(`       错误: ${errorMsg}`);
+        this.logger.warn(`    ⚠️  生成失败: ${missing.name}`);
+        this.logger.warn(`          错误: ${errorMsg}`);
 
         // Clean up: Delete the invalid file if it was created
         if (filePath) {
           try {
             await fs.unlink(filePath);
-            this.logger.info(`    🗑️  已删除无效文件: ${filePath}`);
+            this.logger.info(`    📝 已删除无效文件: ${filePath}`);
           } catch (deleteError) {
             // Ignore deletion errors (file might not exist)
             this.logger.warn(`    ⚠️  无法删除文件: ${filePath}`);
@@ -179,10 +179,10 @@ export class MockOrchestrator implements IMockOrchestrator {
 
     if (succeeded > 0 && failed > 0) {
       this.logger.info(
-        `\n📊 生成结果: 成功 ${succeeded}/${total} 个，失败 ${failed} 个`
+        `\n📝 生成结果: 成功 ${succeeded}/${total} 个，失败 ${failed} 个`
       );
       if (failed > 0) {
-        this.logger.warn(`\n❌ 失败的函数:`);
+        this.logger.warn(`\n⚠️  失败的函数:`);
         errors.forEach((err) => {
           this.logger.warn(`   • ${err.functionName}: ${err.error}`);
         });

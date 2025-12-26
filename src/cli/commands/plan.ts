@@ -82,7 +82,7 @@ export async function planCommand(
 
     if (config.mock.autoGenerate) {
       // 启用 mock 自动生成
-      logger.debug('Mock 自动生成已启用', {
+      logger.info('✨ Mock 自动生成已启用', {
         maxIterations: config.mock.maxIterations,
       });
 
@@ -100,7 +100,7 @@ export async function planCommand(
       );
     } else {
       // 直接使用基础规划器，不启用 mock 生成
-      logger.debug('Mock 自动生成已禁用');
+      logger.info('ℹ️  Mock 自动生成已禁用');
       planner = basePlanner;
     }
 
@@ -118,7 +118,7 @@ export async function planCommand(
     await storage.savePlan(result.plan);
 
     // 显示计划
-    console.log(chalk.green('✅ 计划生成成功！'));
+    console.log(chalk.cyan('✅ 计划生成成功！'));
     console.log();
     console.log(basePlanner.formatPlanForDisplay(result.plan));
     console.log();

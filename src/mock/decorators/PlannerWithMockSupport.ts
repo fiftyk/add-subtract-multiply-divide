@@ -39,9 +39,9 @@ export class PlannerWithMockSupport {
 
       // Only show iteration message after the first iteration
       if (iteration > 1) {
-        this.logger.info(`\n${'='.repeat(60)}`);
+        this.logger.info(`\n${'─'.repeat(40)}`);
         this.logger.info(`🔄 第 ${iteration} 轮迭代生成...`);
-        this.logger.info(`${'='.repeat(60)}`);
+        this.logger.info(`${'─'.repeat(40)}`);
       }
 
       // 1. Try planning
@@ -75,7 +75,7 @@ export class PlannerWithMockSupport {
         );
 
         // Explain WHAT: List the missing functions to be generated
-        this.logger.info('\n📋 缺少的函数:');
+        this.logger.info('\n📝 缺少的函数:');
         result.plan.missingFunctions.forEach((fn, index) => {
           this.logger.info(`  ${index + 1}. ${fn.name}`);
           if (fn.description) {
@@ -84,7 +84,7 @@ export class PlannerWithMockSupport {
         });
 
         // Now generate mocks
-        this.logger.info('\n🔧 正在生成 mock 实现...');
+        this.logger.info('\n📝 正在生成 mock 实现...');
 
         const mockResult =
           await this.mockOrchestrator.generateAndRegisterMocks(
@@ -110,7 +110,7 @@ export class PlannerWithMockSupport {
           }
 
           this.logger.info(
-            `\n📊 当前 registry 中共有 ${this.registry.getAll().length} 个函数`
+            `\n📝 当前 registry 中共有 ${this.registry.getAll().length} 个函数`
           );
 
           // Continue to next iteration to re-plan
@@ -143,11 +143,11 @@ export class PlannerWithMockSupport {
     }
 
     // Max iterations reached, do a final plan
-    this.logger.warn(`\n${'='.repeat(60)}`);
+    this.logger.warn(`\n${'─'.repeat(40)}`);
     this.logger.warn(
       `⚠️  已达到最大迭代次数 (${this.config.maxIterations})，生成最终计划...`
     );
-    this.logger.warn(`${'='.repeat(60)}\n`);
+    this.logger.warn(`${'─'.repeat(40)}\n`);
 
     const finalResult = await this.basePlanner.plan(userRequest);
 

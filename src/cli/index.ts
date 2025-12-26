@@ -6,14 +6,12 @@ import { listCommand } from './commands/list.js';
 import { refineCommand } from './commands/refine.js';
 import { ConfigManager } from '../config/index.js';
 import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
 // 读取 package.json 获取版本号
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// 使用 process.cwd() 确保无论从哪个目录运行都能正确找到项目根目录的 package.json
 const packageJson = JSON.parse(
-  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
+  readFileSync(join(process.cwd(), 'package.json'), 'utf-8')
 );
 
 const program = new Command();
