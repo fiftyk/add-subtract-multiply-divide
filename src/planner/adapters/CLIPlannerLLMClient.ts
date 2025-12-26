@@ -11,7 +11,7 @@ import { LoggerFactory } from '../../logger/index.js';
  * Supports any CLI tool that reads prompt from stdin and outputs plan JSON to stdout
  * Examples: claude-switcher, gemini, ollama, etc.
  */
-export class CLPlannerLLMClient implements PlannerLLMClient {
+export class CLIPlannerLLMClient implements PlannerLLMClient {
   private logger: ILogger;
   private command: string;
   private args: string[];

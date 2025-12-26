@@ -9,7 +9,7 @@ import { AllToolsSelector } from './tools/AllToolsSelector.js';
 import { StandardToolFormatter } from './tools/ToolFormatter.js';
 import { PlannerLLMClient } from './planner/interfaces/PlannerLLMClient.js';
 import { AnthropicPlannerLLMClient } from './planner/adapters/AnthropicPlannerLLMClient.js';
-import { CLPlannerLLMClient } from './planner/adapters/CLPlannerLLMClient.js';
+import { CLIPlannerLLMClient } from './planner/adapters/CLIPlannerLLMClient.js';
 import { PlannerImpl } from './planner/planner.js';
 import { AnthropicPlanRefinementLLMClient } from './services/adapters/AnthropicPlanRefinementLLMClient.js';
 import { ConfigManager } from './config/index.js';
@@ -53,7 +53,7 @@ container.bind(PlannerLLMClient).toDynamicValue(() => {
 
     if (command && args) {
         // 使用 CLI 命令（如 claude-switcher, gemini 等）
-        return new CLPlannerLLMClient(command, args);
+        return new CLIPlannerLLMClient(command, args);
     }
 
     // 默认使用 Anthropic API
