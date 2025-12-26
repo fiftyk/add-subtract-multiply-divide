@@ -24,6 +24,15 @@ export interface RemoteFunctionInfo {
     }>;
     required?: string[];
   };
+  /** 输出模式 (JSON Schema) - 用于描述返回值结构 */
+  outputSchema?: {
+    type: 'object';
+    properties?: Record<string, {
+      type: string;
+      description?: string;
+    }>;
+    required?: string[];
+  };
 }
 
 /**

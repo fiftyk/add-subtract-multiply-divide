@@ -69,6 +69,9 @@ export const listCommand = {
             }
           }
           console.log(chalk.gray(`  返回类型: ${tool.returns.type}`));
+          if (tool.returns.description) {
+            console.log(chalk.gray(`  返回描述: ${tool.returns.description}`));
+          }
           console.log();
         }
       }

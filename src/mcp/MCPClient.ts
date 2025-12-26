@@ -222,6 +222,11 @@ export class MCPClient implements RemoteFunctionRegistry {
             properties: this.convertParametersSchema(tool.inputSchema?.properties),
             required: tool.inputSchema?.required || [],
           },
+          outputSchema: tool.outputSchema ? {
+            type: 'object',
+            properties: this.convertOutputSchema(tool.outputSchema.properties),
+            required: tool.outputSchema.required || [],
+          } : undefined,
         });
       }
     } catch (error) {
@@ -229,6 +234,28 @@ export class MCPClient implements RemoteFunctionRegistry {
       this.logger.warn('Failed to fetch tools from MCP server', { error: errorMessage });
       throw error;
     }
+  }
+
+  /**
+   * 转换输出模式
+   */
+  private convertOutputSchema(
+    properties?: Record<string, { type?: string; description?: string }>
+  ): Record<string, { type: string; description?: string }> | undefined {
+    if (!properties) {
+      return undefined;
+    }
+
+    const result: Record<string, { type: string; description?: string }> = {};
+
+    for (const [name, prop] of Object.entries(properties)) {
+      result[name] = {
+        type: prop.type || 'string',
+        description: prop.description,
+      };
+    }
+
+    return result;
   }
 
   /**

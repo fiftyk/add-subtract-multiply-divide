@@ -68,6 +68,9 @@ export class RemoteToolProvider implements ToolProvider {
     // 转换 inputSchema 为 parameters 格式
     const parameters = this.convertInputSchema(fn.inputSchema);
 
+    // 从 outputSchema 构建返回值描述
+    const returnsDescription = this.formatOutputSchema(fn.outputSchema);
+
     return {
       id: fn.name,
       type: 'remote',
@@ -77,7 +80,7 @@ export class RemoteToolProvider implements ToolProvider {
       parameters,
       returns: {
         type: 'object' as const,
-        description: 'Function result',
+        description: returnsDescription,
       },
     };
   }
@@ -105,6 +108,25 @@ export class RemoteToolProvider implements ToolProvider {
     }
 
     return parameters;
+  }
+
+  /**
+   * 格式化输出模式为描述字符串
+   */
+  private formatOutputSchema(outputSchema?: RemoteFunctionInfo['outputSchema']): string {
+    if (!outputSchema || !outputSchema.properties) {
+      return 'object - Function result';
+    }
+
+    const props = Object.entries(outputSchema.properties)
+      .map(([name, prop]) => {
+        const type = prop.type || 'unknown';
+        const desc = prop.description ? ` - ${prop.description}` : '';
+        return `  - ${name} (${type})${desc}`;
+      })
+      .join('\n');
+
+    return `object - Function result with properties:\n${props}`;
   }
 
   /**
