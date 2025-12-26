@@ -24,4 +24,8 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
     command: 'claude-switcher',
     args: 'MINMAX -- -p',
   },
+  plannerGenerator: {
+    command: '',
+    args: '',
+  },
 };

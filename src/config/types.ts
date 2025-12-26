@@ -19,6 +19,16 @@ export interface MockCodeGeneratorConfig {
 }
 
 /**
+ * Planner Code Generator Configuration
+ */
+export interface PlannerGeneratorConfig {
+  /** Command to invoke for plan generation (e.g., 'claude-switcher', 'gemini') */
+  command: string;
+  /** Command arguments (e.g., 'MINMAX -- -p', '-p') */
+  args: string;
+}
+
+/**
  * LLM Configuration
  */
 export interface LLMConfig {
@@ -75,6 +85,7 @@ export interface AppConfig {
   storage: StorageConfig;
   mock: MockConfig;
   mockCodeGenerator: MockCodeGeneratorConfig;
+  plannerGenerator: PlannerGeneratorConfig;
 }
 
 /**
@@ -87,4 +98,5 @@ export type PartialAppConfig = {
   storage?: Partial<StorageConfig>;
   mock?: Partial<MockConfig>;
   mockCodeGenerator?: Partial<MockCodeGeneratorConfig>;
+  plannerGenerator?: Partial<PlannerGeneratorConfig>;
 };

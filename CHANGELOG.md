@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔄 **计划生成器 CLI 切换**: 支持通过环境变量配置任意 CLI 工具进行计划生成
+  - 新增 `PLANNER_GENERATOR_CMD` 环境变量：设置命令（如 `claude-switcher`, `gemini`）
+  - 新增 `PLANNER_GENERATOR_ARGS` 环境变量：设置参数（如 `MINMAX -- -p`, `-p`）
+  - 默认使用 Anthropic API（需要 API Key）
+  - 设置环境变量后可使用 CLI 工具
+  - 新增 `CLIPlannerLLMClient` 实现类
+  - 新增 8 个 `AnthropicPlannerLLMClient` 单元测试
 - 🔄 **Mock 代码生成器 CLI 切换**: 支持通过环境变量配置任意 CLI 工具进行 Mock 代码生成
   - 新增 `MOCK_GENERATOR_CMD` 环境变量：设置命令（如 `claude-switcher`, `gemini`, `ollama`）
   - 新增 `MOCK_GENERATOR_ARGS` 环境变量：设置参数（如 `MINMAX -- -p`, `-p`）

@@ -49,6 +49,14 @@ function loadFromEnv(): PartialAppConfig {
     };
   }
 
+  // Planner Generator Configuration
+  if (process.env.PLANNER_GENERATOR_CMD || process.env.PLANNER_GENERATOR_ARGS) {
+    config.plannerGenerator = {
+      command: process.env.PLANNER_GENERATOR_CMD || '',
+      args: process.env.PLANNER_GENERATOR_ARGS || '',
+    };
+  }
+
   // Executor Configuration
   if (process.env.EXECUTOR_STEP_TIMEOUT) {
     config.executor = {
@@ -117,6 +125,10 @@ function mergeConfig(
     mockCodeGenerator: {
       ...base.mockCodeGenerator,
       ...override.mockCodeGenerator,
+    },
+    plannerGenerator: {
+      ...base.plannerGenerator,
+      ...override.plannerGenerator,
     },
   };
 }

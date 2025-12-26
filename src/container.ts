@@ -9,6 +9,7 @@ import { AllToolsSelector } from './tools/AllToolsSelector.js';
 import { StandardToolFormatter } from './tools/ToolFormatter.js';
 import { PlannerLLMClient } from './planner/interfaces/IPlannerLLMClient.js';
 import { AnthropicPlannerLLMClient } from './planner/adapters/AnthropicPlannerLLMClient.js';
+import { CLIPlannerLLMClient } from './planner/adapters/CLIPlannerLLMClient.js';
 import { PlannerImpl } from './planner/planner.js';
 import { AnthropicPlanRefinementLLMClient } from './services/adapters/AnthropicPlanRefinementLLMClient.js';
 import { ConfigManager } from './config/index.js';
@@ -44,9 +45,18 @@ container.bind<ToolSelector>(ToolSelector).to(AllToolsSelector);
 // ToolFormatter - 单例
 container.bind<ToolFormatter>(ToolFormatter).to(StandardToolFormatter);
 
-// PlannerLLMClient - 动态创建（从 ConfigManager 获取配置）
+// PlannerLLMClient - 根据配置选择实现
+// 默认使用 Anthropic API，如果设置了 PLANNER_GENERATOR_CMD/ARGS 则使用 CLI
 container.bind(PlannerLLMClient).toDynamicValue(() => {
     const config = ConfigManager.get();
+    const { command, args } = config.plannerGenerator;
+
+    if (command && args) {
+        // 使用 CLI 命令（如 claude-switcher, gemini 等）
+        return new CLIPlannerLLMClient(command, args);
+    }
+
+    // 默认使用 Anthropic API
     return new AnthropicPlannerLLMClient({
         apiKey: config.api.apiKey,
         baseURL: config.api.baseURL,
