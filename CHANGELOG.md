@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔄 **LLM Adapter 环境变量切换**: 支持通过 `LLM_ADAPTER` 环境变量切换 Mock 代码生成的 LLM provider
+  - 新增 `LLM_ADAPTER` 环境变量（`anthropic` | `claude-code`）
+  - `anthropic`: 使用 Anthropic API（默认，需要 API Key）
+  - `claude-code`: 使用本地 Claude Code CLI（通过 `claude-switcher MINMAX -- -p`）
+  - 开发环境可免费使用 `claude-code`，生产环境建议使用 `anthropic`
 - 🔌 **LLMAdapter 接口抽象**: 重构代码生成器架构
   - 新增 `LLMAdapter` 接口，抽象 LLM 调用层
   - 新增 `ClaudeCodeLLMAdapter`: Claude Code CLI 实现（`claude -p`）
