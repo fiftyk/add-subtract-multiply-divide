@@ -129,8 +129,10 @@ describe('PlannerWithMockSupport', () => {
     expect(result.success).toBe(true);
     expect(result.plan?.status).toBe('executable');
     expect(basePlanner.plan).toHaveBeenCalledTimes(2); // Once before, once after mock generation
+    // Second argument is the referencedFields (empty object since no steps reference the missing function)
     expect(mockOrchestrator.generateAndRegisterMocks).toHaveBeenCalledWith(
-      incompletePlan.missingFunctions
+      incompletePlan.missingFunctions,
+      {}
     );
     expect(result.plan?.metadata?.usesMocks).toBe(true);
     // mockFunctions is now MockFunctionReference[] instead of string[]

@@ -133,6 +133,30 @@ export function buildMockCodeGenerationPrompt(
     .map((p) => `  - ${p.name} (${p.type}): ${p.description}`)
     .join('\n');
 
+  // Include referenced fields if provided
+  let returnFieldsDoc = '';
+  if (spec.returnFields && spec.returnFields.length > 0) {
+    returnFieldsDoc = `
+## 计划中引用的返回值字段 ⚠️ 关键要求
+
+**重要**: 以下字段是执行计划中实际引用到的，返回值对象必须包含这些**精确的字段名称**：
+
+${spec.returnFields.map((f) => `  - \`${f.path}\`: ${f.description}`).join('\n')}
+
+**严格要求**：
+1. 返回值对象的字段名称必须与上述列表完全一致
+2. 不要使用同义词或变体名称
+3. 如果上述列表包含 \`inventorName\`，必须在返回对象中使用 \`inventorName\`，而不是 \`inventor\`
+4. 确保每个引用的字段都存在于返回值对象中
+
+错误的示例：
+- 返回了 \`inventor\` 但计划引用的是 \`inventorName\`
+- 返回了 \`patentNum\` 但计划引用的是 \`patentNumber\`
+
+正确的示例：
+- 计划引用 \`inventorName\` → 返回对象包含 \`inventorName: "张三"\``;
+  }
+
   return `${getSystemPrompt(options)}
 
 函数规格:
@@ -141,6 +165,7 @@ export function buildMockCodeGenerationPrompt(
 - 参数:
 ${paramsDoc}
 - 返回值: ${spec.returns.type} - ${spec.returns.description}
+${returnFieldsDoc}
 
 示例:
 

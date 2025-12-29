@@ -6,7 +6,7 @@ import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.
 import type { IMockCodeValidator } from '../interfaces/IMockCodeValidator.js';
 import type { MissingFunction, MockFunctionReference } from '../../planner/types.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import type { MockGenerationResult, MockMetadata } from '../types.js';
+import type { MockGenerationResult, MockMetadata, ReturnFieldRef } from '../types.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import { Storage } from '../../storage/index.js';
@@ -68,12 +68,16 @@ export class MockOrchestrator implements IMockOrchestrator {
 
   /**
    * Generate and register mock functions for missing functions
+   * @param missingFunctions - List of missing functions to generate
+   * @param referencedFields - Map of function name to referenced return fields
    */
   async generateAndRegisterMocks(
-    missingFunctions: MissingFunction[]
+    missingFunctions: MissingFunction[],
+    referencedFields?: Record<string, ReturnFieldRef[]>
   ): Promise<MockGenerationResult> {
     const results: MockMetadata[] = [];
     const errors: Array<{ functionName: string; error: string }> = [];
+    const generatedDefinitions: MockGenerationResult['generatedDefinitions'] = [];
 
     for (const missing of missingFunctions) {
       let filePath: string | null = null;
@@ -86,12 +90,16 @@ export class MockOrchestrator implements IMockOrchestrator {
           `  📝 生成 ${missing.name} (v${version})${version > 1 ? ' [升级]' : ''}...`
         );
 
+        // Get referenced fields for this function (if provided)
+        const returnFields = referencedFields?.[missing.name];
+
         // 1. Generate code
         const code = await this.codeGenerator.generate({
           name: missing.name,
           description: missing.description,
           parameters: missing.suggestedParameters,
           returns: missing.suggestedReturns,
+          returnFields,
         });
 
         // 2. Save to plan's mocks directory using Storage
@@ -138,6 +146,22 @@ export class MockOrchestrator implements IMockOrchestrator {
         this.logger.info(
           `    📝 已注册到 registry: ${functions.map((f) => f.name).join(', ')}`
         );
+
+        // Collect function definitions for signature matching
+        for (const fn of functions) {
+          generatedDefinitions?.push({
+            name: fn.name,
+            parameters: fn.parameters.map(p => ({
+              name: p.name,
+              type: p.type,
+              description: p.description,
+            })),
+            returns: {
+              type: fn.returns.type,
+              description: fn.returns.description,
+            },
+          });
+        }
 
         // 7. Mark as mock and store metadata
         const metadata: MockMetadata = {
@@ -192,6 +216,7 @@ export class MockOrchestrator implements IMockOrchestrator {
     return {
       success: results.length > 0, // 只要有一个成功就算成功
       generatedFunctions: results,
+      generatedDefinitions,
       ...(errors.length > 0 && { errors }),
     };
   }
