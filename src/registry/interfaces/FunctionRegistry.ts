@@ -2,12 +2,13 @@ import type { FunctionDefinition } from '../types.js';
 
 /**
  * 函数注册中心 Symbol
+ * @deprecated 使用 FunctionProvider 替代
  */
 export const FunctionRegistry = Symbol('FunctionRegistry');
 
 /**
  * 函数注册中心接口
- * 抽象本地和远程函数的注册、查询、执行能力
+ * @deprecated 请使用 FunctionProvider 接口
  */
 export interface FunctionRegistry {
   /**

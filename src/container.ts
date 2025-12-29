@@ -1,7 +1,5 @@
 import 'reflect-metadata';
 import { Container } from 'inversify';
-import { FunctionRegistry } from './registry/interfaces/FunctionRegistry.js';
-import { LocalFunctionRegistry } from './registry/LocalFunctionRegistry.js';
 import { ToolProvider } from './tools/interfaces/ToolProvider.js';
 import { ToolSelector } from './tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from './tools/interfaces/ToolFormatter.js';
@@ -43,11 +41,6 @@ import { MCPClient } from './mcp/MCPClient.js';
 const container = new Container({
     defaultScope: 'Singleton',
 });
-
-// ============================================
-// FunctionRegistry - 向后兼容（绑定到本地实现类）
-// ============================================
-container.bind(FunctionRegistry).to(LocalFunctionRegistry);
 
 // ============================================
 // FunctionProvider - 统一的函数发现和执行接口
