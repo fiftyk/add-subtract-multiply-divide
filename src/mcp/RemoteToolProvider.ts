@@ -1,12 +1,12 @@
 /**
  * Remote Tool Provider
- * 将 MCP Server 的工具转换为 ToolDefinition 格式
+ * 将 MCP Server 的工具转换为 FunctionMetadata 格式
  */
 
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged } from 'inversify';
 import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
-import type { ToolDefinition } from '../tools/types.js';
+import type { FunctionMetadata } from '../function-provider/types.js';
 import type { ParameterDef } from '../registry/types.js';
 import type { RemoteFunctionInfo } from './index.js';
 import { RemoteFunctionRegistry } from './interfaces/RemoteFunctionRegistry.js';
@@ -14,7 +14,7 @@ import { LoggerFactory, type ILogger } from '../logger/index.js';
 
 /**
  * 远程工具提供者
- * 将 RemoteFunctionRegistry 中的远程函数转换为 ToolDefinition 格式
+ * 将 RemoteFunctionRegistry 中的远程函数转换为 FunctionMetadata 格式
  */
 @injectable()
 export class RemoteToolProvider implements ToolProvider {
@@ -30,7 +30,7 @@ export class RemoteToolProvider implements ToolProvider {
   /**
    * 查询所有可用工具（远程函数）
    */
-  async searchTools(): Promise<ToolDefinition[]> {
+  async searchTools(): Promise<FunctionMetadata[]> {
     if (!this.remoteRegistry) {
       this.logger.debug('No remote registry available');
       return [];
@@ -38,7 +38,7 @@ export class RemoteToolProvider implements ToolProvider {
 
     try {
       const functions = await this.remoteRegistry.list();
-      return functions.map((fn) => this.toToolDefinition(fn));
+      return functions.map((fn) => this.toFunctionMetadata(fn));
     } catch (error) {
       this.logger.error('Failed to search remote tools', error as Error);
       return [];
@@ -62,9 +62,9 @@ export class RemoteToolProvider implements ToolProvider {
   }
 
   /**
-   * 将 RemoteFunctionInfo 转换为 ToolDefinition
+   * 将 RemoteFunctionInfo 转换为 FunctionMetadata
    */
-  private toToolDefinition(fn: RemoteFunctionInfo): ToolDefinition {
+  private toFunctionMetadata(fn: RemoteFunctionInfo): FunctionMetadata {
     // 转换 inputSchema 为 parameters 格式
     const parameters = this.convertInputSchema(fn.inputSchema);
 
@@ -82,6 +82,7 @@ export class RemoteToolProvider implements ToolProvider {
         type: 'object' as const,
         description: returnsDescription,
       },
+      source: `mcp://${this.remoteRegistry?.getServerName() || 'unknown'}`,
     };
   }
 

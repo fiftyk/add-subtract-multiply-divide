@@ -7,6 +7,7 @@ export interface ParameterDef {
   description: string;
   required?: boolean;
   default?: unknown;
+  enum?: unknown[];
 }
 
 /**

@@ -1,0 +1,216 @@
+/**
+ * CompositeFunctionProvider 测试
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import type { FunctionMetadata, FunctionExecutionResult } from '../types.js';
+import type { FunctionProvider } from '../interfaces/FunctionProvider.js';
+
+// Mock FunctionProvider
+const createMockProvider = (
+  name: string,
+  providerType: 'local' | 'remote',
+  functions: FunctionMetadata[]
+): FunctionProvider => ({
+  getType: () => providerType,
+  getSource: () => name,
+  list: vi.fn().mockResolvedValue(functions),
+  has: vi.fn().mockImplementation(async (n: string) =>
+    functions.some(f => f.name === n)
+  ),
+  get: vi.fn().mockImplementation(async (n: string) =>
+    functions.find(f => f.name === n)
+  ),
+  execute: vi.fn().mockImplementation(async (n: string, params: Record<string, unknown>) => ({
+    success: true,
+    result: `${name}-${n}-result`,
+    metadata: { provider: name },
+  })),
+});
+
+describe('CompositeFunctionProvider', () => {
+  describe('getType', () => {
+    it('should return "composite" as provider type', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', []);
+      const provider = new CompositeFunctionProvider([localProvider]);
+
+      expect(provider.getType()).toBe('composite');
+    });
+  });
+
+  describe('getSource', () => {
+    it('should return "composite" as source', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', []);
+      const provider = new CompositeFunctionProvider([localProvider]);
+
+      expect(provider.getSource()).toBe('composite');
+    });
+  });
+
+  describe('list', () => {
+    it('should return empty array when no providers', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const provider = new CompositeFunctionProvider([]);
+
+      const functions = await provider.list();
+      expect(functions).toEqual([]);
+    });
+
+    it('should merge functions from all providers', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', [
+        { id: 'localFn1', name: 'localFn1', description: 'Local 1', scenario: 'Scenario 1', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+        { id: 'localFn2', name: 'localFn2', description: 'Local 2', scenario: 'Scenario 2', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+      ]);
+      const remoteProvider = createMockProvider('mcp://server', 'remote', [
+        { id: 'remoteFn1', name: 'remoteFn1', description: 'Remote 1', scenario: 'Scenario 3', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+      ]);
+      const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+      const functions = await provider.list();
+      expect(functions).toHaveLength(3);
+    });
+
+    it('should deduplicate functions with same name', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', [
+        { id: 'duplicate', name: 'duplicate', description: 'Local', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+      ]);
+      const remoteProvider = createMockProvider('mcp://server', 'remote', [
+        { id: 'duplicate', name: 'duplicate', description: 'Remote', scenario: 'Remote', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+      ]);
+      const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+      const functions = await provider.list();
+      // 默认策略：第一个优先，所以应该只有 local 的版本
+      expect(functions).toHaveLength(1);
+      expect(functions[0].source).toBe('local');
+    });
+  });
+
+  describe('has', () => {
+    it('should return false when no providers', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const provider = new CompositeFunctionProvider([]);
+
+      const result = await provider.has('test');
+      expect(result).toBe(false);
+    });
+
+    it('should check all providers in order', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', [
+        { id: 'localOnly', name: 'localOnly', description: 'Local', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+      ]);
+      const remoteProvider = createMockProvider('mcp://server', 'remote', [
+        { id: 'remoteOnly', name: 'remoteOnly', description: 'Remote', scenario: 'Remote', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+      ]);
+      const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+      expect(await provider.has('localOnly')).toBe(true);
+      expect(await provider.has('remoteOnly')).toBe(true);
+      expect(await provider.has('nonexistent')).toBe(false);
+    });
+
+    it('should return true when any provider has the function', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const provider1 = createMockProvider('p1', 'local', []);
+      const provider2 = createMockProvider('p2', 'remote', [
+        { id: 'found', name: 'found', description: 'Found', scenario: 'Found', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'p2' },
+      ]);
+      const provider = new CompositeFunctionProvider([provider1, provider2]);
+
+      const result = await provider.has('found');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('get', () => {
+    it('should return undefined when no providers', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const provider = new CompositeFunctionProvider([]);
+
+      const result = await provider.get('test');
+      expect(result).toBeUndefined();
+    });
+
+    it('should return first match from providers', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', [
+        { id: 'findMe', name: 'findMe', description: 'Local', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+      ]);
+      const remoteProvider = createMockProvider('mcp://server', 'remote', [
+        { id: 'findMe', name: 'findMe', description: 'Remote', scenario: 'Remote', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+      ]);
+      const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+      const result = await provider.get('findMe');
+      expect(result).toBeDefined();
+      expect(result!.source).toBe('local');
+    });
+  });
+
+  describe('execute', () => {
+    it('should return success=false when function not found', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const provider = new CompositeFunctionProvider([]);
+
+      const result = await provider.execute('nonexistent', {});
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Function not found');
+    });
+
+    it('should execute function from first provider that has it', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', [
+        { id: 'execMe', name: 'execMe', description: 'Local', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+      ]);
+      const remoteProvider = createMockProvider('mcp://server', 'remote', [
+        { id: 'execMe', name: 'execMe', description: 'Remote', scenario: 'Remote', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+      ]);
+      const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+      const result = await provider.execute('execMe', { x: 1 });
+      expect(result.success).toBe(true);
+      expect(result.result).toBe('local-execMe-result');
+    });
+
+    it('should route to correct provider', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const localProvider = createMockProvider('local', 'local', [
+        { id: 'localFn', name: 'localFn', description: 'Local', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+      ]);
+      const remoteProvider = createMockProvider('mcp://server', 'remote', [
+        { id: 'remoteFn', name: 'remoteFn', description: 'Remote', scenario: 'Remote', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+      ]);
+      const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+      const localResult = await provider.execute('localFn', {});
+      const remoteResult = await provider.execute('remoteFn', {});
+
+      expect(localResult.result).toBe('local-localFn-result');
+      expect(remoteResult.result).toBe('mcp://server-remoteFn-result');
+    });
+  });
+
+  describe('priority', () => {
+    it('should prioritize first provider when merging lists', async () => {
+      const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+      const provider1 = createMockProvider('p1', 'local', [
+        { id: 'shared', name: 'shared', description: 'P1', scenario: 'P1', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'p1' },
+      ]);
+      const provider2 = createMockProvider('p2', 'remote', [
+        { id: 'shared', name: 'shared', description: 'P2', scenario: 'P2', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'p2' },
+      ]);
+      const provider = new CompositeFunctionProvider([provider1, provider2]);
+
+      const functions = await provider.list();
+      const shared = functions.find(f => f.name === 'shared');
+
+      expect(shared).toBeDefined();
+      expect(shared!.source).toBe('p1');
+    });
+  });
+});

@@ -1,5 +1,5 @@
-import type { ToolDefinition } from '../types.js';
-import type { ToolProvider } from './ToolProvider.js';
+import type { FunctionMetadata } from '../../function-provider/types.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
 export const ToolSelector = Symbol('ToolSelector');
 
@@ -16,11 +16,11 @@ export interface ToolSelector {
   /**
    * 根据用户需求选择工具
    * @param userRequest - 用户需求描述
-   * @param toolProvider - ���具提供者
+   * @param functionProvider - 函数提供者
    * @returns 选择的工具列表
    */
   selectTools(
     userRequest: string,
-    toolProvider: ToolProvider
-  ): Promise<ToolDefinition[]>;
+    functionProvider: FunctionProvider
+  ): Promise<FunctionMetadata[]>;
 }

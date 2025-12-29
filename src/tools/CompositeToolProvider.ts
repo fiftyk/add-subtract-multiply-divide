@@ -6,7 +6,7 @@
 import 'reflect-metadata';
 import { injectable, inject, unmanaged } from 'inversify';
 import { ToolProvider } from './interfaces/ToolProvider.js';
-import type { ToolDefinition } from './types.js';
+import type { FunctionMetadata } from '../function-provider/types.js';
 import { LoggerFactory, type ILogger } from '../logger/index.js';
 import { LocalFunctionToolProvider } from './LocalFunctionToolProvider.js';
 import { RemoteToolProvider } from '../mcp/RemoteToolProvider.js';
@@ -32,7 +32,7 @@ export class CompositeToolProvider implements ToolProvider {
    * 搜索所有可用工具（本地 + 远程）
    * 远程工具会标记 type 为 'remote'
    */
-  async searchTools(): Promise<ToolDefinition[]> {
+  async searchTools(): Promise<FunctionMetadata[]> {
     const [localTools, remoteTools] = await Promise.all([
       this.localToolProvider.searchTools(),
       this.remoteToolProvider.searchTools(),

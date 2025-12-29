@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../types.js';
+import type { FunctionMetadata } from '../../function-provider/types.js';
 
 /**
  * 工具格式化器接口
@@ -11,7 +11,7 @@ export interface ToolFormatter {
    * @param tools - 要格式化的工具列表
    * @returns 格式化后的字符串
    */
-  formatForLLM(tools: ToolDefinition[]): string;
+  formatForLLM(tools: FunctionMetadata[]): string;
 
   /**
    * 格式化工具子集（可以基于条件过滤）
@@ -21,8 +21,8 @@ export interface ToolFormatter {
    * @returns 格式化后的字符串
    */
   formatFiltered(
-    tools: ToolDefinition[],
-    filter: (tool: ToolDefinition) => boolean
+    tools: FunctionMetadata[],
+    filter: (tool: FunctionMetadata) => boolean
   ): string;
 }
 

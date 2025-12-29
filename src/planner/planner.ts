@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
 import { injectable, inject } from 'inversify';
-import { ToolProvider } from '../tools/interfaces/ToolProvider.js';
+import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
@@ -13,13 +13,13 @@ import { buildPlannerPrompt, parseLLMResponse, type RawPlanStep } from './prompt
 
 /**
  * 函数编排规划器
- * Follows DIP: Depends on ToolProvider, ToolSelector, ToolFormatter and PlannerLLMClient abstractions
+ * Follows DIP: Depends on FunctionProvider, ToolSelector, ToolFormatter and PlannerLLMClient abstractions
  * Follows LSP: Implements Planner interface for substitutability
  */
 @injectable()
 export class PlannerImpl implements Planner {
   constructor(
-    @inject(ToolProvider) private toolProvider: ToolProvider,
+    @inject(FunctionProvider) private functionProvider: FunctionProvider,
     @inject(ToolSelector) private toolSelector: ToolSelector,
     @inject(ToolFormatter) private toolFormatter: ToolFormatter,
     @inject(PlannerLLMClient) private llmClient: PlannerLLMClient
@@ -33,7 +33,7 @@ export class PlannerImpl implements Planner {
       // 1. 选择工具
       const selectedTools = await this.toolSelector.selectTools(
         userRequest,
-        this.toolProvider
+        this.functionProvider
       );
 
       // 2. 构建函数描述
@@ -117,7 +117,7 @@ export class PlannerImpl implements Planner {
 
   /**
    * 验证计划中的所有函数是否已注册
-   * 查询 ToolProvider 以支持运行时动态注册的函数（如 mock 生成）
+   * 查询 FunctionProvider 以支持运行时动态注册的函数（如 mock 生成）
    * @param plan - 要验证的执行计划
    * @returns 验证是否通过
    */
@@ -125,7 +125,7 @@ export class PlannerImpl implements Planner {
     for (const step of plan.steps) {
       // 只验证函数调用步骤，用户输入步骤不需要验证
       if (isFunctionCallStep(step)) {
-        if (!(await this.toolProvider.hasTool(step.functionName))) {
+        if (!(await this.functionProvider.has(step.functionName))) {
           return false;
         }
       }

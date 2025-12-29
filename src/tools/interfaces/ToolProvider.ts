@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../types.js';
+import type { FunctionMetadata } from '../../function-provider/types.js';
 
 export const ToolProvider = Symbol('ToolProvider');
 
@@ -11,7 +11,7 @@ export interface ToolProvider {
    * 查询所有可用工具
    * 异步设计以支持远程工具提供者（网络请求、数据库查询等）
    */
-  searchTools(): Promise<ToolDefinition[]>;
+  searchTools(): Promise<FunctionMetadata[]>;
 
   /**
    * 验证工具是否存在

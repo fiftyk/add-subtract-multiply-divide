@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged } from 'inversify';
-import { FunctionRegistry } from '../registry/interfaces/FunctionRegistry.js';
 import type { ExecutionPlan, FunctionCallStep, UserInputStep } from '../planner/types.js';
 import { StepType } from '../planner/types.js';
 import { isFunctionCallStep, isUserInputStep } from '../planner/type-guards.js';
@@ -23,7 +22,7 @@ import { LoggerFactory } from '../logger/index.js';
 import { PlanValidator } from '../validation/index.js';
 import { ConfigManager } from '../config/index.js';
 import { UserInputProvider } from '../user-input/interfaces/UserInputProvider.js';
-import { RemoteFunctionRegistry } from '../mcp/interfaces/RemoteFunctionRegistry.js';
+import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 
 /**
  * Executor 配置选项
@@ -44,23 +43,21 @@ export interface ExecutorConfig {
 
 /**
  * 执行引擎 - 按照计划顺序执行 functions
+ * 使用统一的 FunctionProvider 接口，支持本地和远程函数
  */
 @injectable()
 export class ExecutorImpl implements Executor {
-  private registry: FunctionRegistry;
-  private remoteRegistry?: RemoteFunctionRegistry;
+  private functionProvider: FunctionProvider;
   private userInputProvider?: UserInputProvider;
   private config: Required<ExecutorConfig>;
   private logger: ILogger;
 
   constructor(
-    @inject(FunctionRegistry) registry: FunctionRegistry,
+    @inject(FunctionProvider) functionProvider: FunctionProvider,
     @unmanaged() config?: ExecutorConfig,
-    @inject(RemoteFunctionRegistry) @optional() remoteRegistry?: RemoteFunctionRegistry,
     @inject(UserInputProvider) @optional() userInputProvider?: UserInputProvider
   ) {
-    this.registry = registry;
-    this.remoteRegistry = remoteRegistry;
+    this.functionProvider = functionProvider;
     this.userInputProvider = userInputProvider;
     const appConfig = ConfigManager.get();
     this.config = {
@@ -149,7 +146,7 @@ export class ExecutorImpl implements Executor {
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
-    // 如果超时设置为 0，不限��超时
+    // 如果超时设置为 0，不限制超时
     if (this.config.stepTimeout === 0) {
       return this.executeStep(step, context);
     }
@@ -226,63 +223,39 @@ export class ExecutorImpl implements Executor {
 
   /**
    * 执行函数调用步骤
+   * 使用统一的 FunctionProvider 接口，无需判断本地/远程
    */
   private async executeFunctionCall(
     step: FunctionCallStep,
     context: ExecutionContext
   ): Promise<FunctionCallResult> {
     const executedAt = new Date().toISOString();
-    let resolvedParams: Record<string, unknown> = {};
 
     try {
       // 解析参数
-      resolvedParams = context.resolveParameters(step.parameters);
+      const resolvedParams = context.resolveParameters(step.parameters);
 
-      // 优先查找本地函数
-      if (this.registry.has(step.functionName)) {
-        const result = await this.registry.execute(step.functionName, resolvedParams);
+      // 使用统一的 FunctionProvider 执行函数
+      const result = await this.functionProvider.execute(step.functionName, resolvedParams);
+
+      if (result.success) {
         return {
           stepId: step.stepId,
           type: StepType.FUNCTION_CALL,
           functionName: step.functionName,
           parameters: resolvedParams,
-          result,
+          result: result.result,
           success: true,
           executedAt,
         };
+      } else {
+        throw new Error(result.error || 'Function execution failed');
       }
-
-      // 检查远程函数（MCP）
-      if (this.remoteRegistry && await this.remoteRegistry.has(step.functionName)) {
-        // 连接远程注册中心（如果尚未连接）
-        if (!this.remoteRegistry.isConnected()) {
-          await this.remoteRegistry.connect();
-        }
-
-        const remoteResult = await this.remoteRegistry.execute(step.functionName, resolvedParams);
-
-        if (remoteResult.success) {
-          return {
-            stepId: step.stepId,
-            type: StepType.FUNCTION_CALL,
-            functionName: step.functionName,
-            parameters: resolvedParams,
-            result: remoteResult.content,
-            success: true,
-            executedAt,
-          };
-        } else {
-          throw new Error(remoteResult.error || 'Remote function execution failed');
-        }
-      }
-
-      // 函数不存在
-      throw new Error(`Function not found: ${step.functionName}`);
     } catch (error) {
       // 包装为 FunctionExecutionError 以保留上下文
       const executionError = new FunctionExecutionError(
         step.functionName,
-        resolvedParams,
+        context.resolveParameters(step.parameters),
         error
       );
 
@@ -290,7 +263,7 @@ export class ExecutorImpl implements Executor {
         stepId: step.stepId,
         type: StepType.FUNCTION_CALL,
         functionName: step.functionName,
-        parameters: resolvedParams,
+        parameters: context.resolveParameters(step.parameters),
         result: undefined,
         success: false,
         error: getUserFriendlyMessage(executionError),
@@ -302,9 +275,10 @@ export class ExecutorImpl implements Executor {
   /**
    * 执行用户输入步骤
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async executeUserInput(
     step: UserInputStep,
-    context: ExecutionContext
+    _context: ExecutionContext
   ): Promise<UserInputResult> {
     const executedAt = new Date().toISOString();
 

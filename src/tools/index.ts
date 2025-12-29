@@ -1,5 +1,5 @@
 // Types
-export type { ToolDefinition } from './types.js';
+export type { FunctionMetadata } from '../function-provider/types.js';
 
 // Interfaces and Symbols
 export { ToolProvider } from './interfaces/ToolProvider.js';

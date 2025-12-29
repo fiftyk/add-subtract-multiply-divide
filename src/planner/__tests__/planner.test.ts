@@ -1,8 +1,9 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlannerImpl } from '../planner.js';
-import { FunctionRegistry, LocalFunctionRegistry, defineFunction } from '../../registry/index.js';
-import { LocalFunctionToolProvider, AllToolsSelector, StandardToolFormatter } from '../../tools/index.js';
+import { LocalFunctionRegistry, defineFunction } from '../../registry/index.js';
+import { AllToolsSelector, StandardToolFormatter } from '../../tools/index.js';
+import { LocalFunctionProvider } from '../../function-provider/index.js';
 import type { ExecutionPlan } from '../types.js';
 import type { PlannerLLMClient } from '../interfaces/PlannerLLMClient.js';
 
@@ -16,21 +17,19 @@ class MockLLMClient implements PlannerLLMClient {
 
 describe('Planner', () => {
   let planner: PlannerImpl;
-  let registry: FunctionRegistry;
+  let functionProvider: LocalFunctionProvider;
   let mockLLMClient: MockLLMClient;
-  let toolProvider: LocalFunctionToolProvider;
   let toolSelector: AllToolsSelector;
   let toolFormatter: StandardToolFormatter;
 
   beforeEach(() => {
-    registry = new LocalFunctionRegistry();
+    functionProvider = new LocalFunctionProvider();
     mockLLMClient = new MockLLMClient();
-    toolProvider = new LocalFunctionToolProvider(registry);
     toolSelector = new AllToolsSelector();
     toolFormatter = new StandardToolFormatter();
 
     // 注册测试用的数学函数
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'add',
         description: '将两个数字相加',
@@ -44,7 +43,7 @@ describe('Planner', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'multiply',
         description: '将两个数字相乘',
@@ -58,7 +57,7 @@ describe('Planner', () => {
       })
     );
 
-    planner = new PlannerImpl(toolProvider, toolSelector, toolFormatter, mockLLMClient);
+    planner = new PlannerImpl(functionProvider, toolSelector, toolFormatter, mockLLMClient);
   });
 
   describe('plan', () => {
@@ -189,7 +188,7 @@ describe('Planner', () => {
       expect(result1.error).toBe('计划中包含未注册的函数');
 
       // 模拟 mock 生成：动态注册 sqrt 函数
-      registry.register(
+      functionProvider.register(
         defineFunction({
           name: 'sqrt',
           description: '计算一个数的平方根',
@@ -211,7 +210,7 @@ describe('Planner', () => {
     });
 
     it('should validate against runtime registry state, not initial selectedTools', async () => {
-      // 这个测试确保验证逻辑查询的是运行时的 ToolProvider，而不是静态的 selectedTools 快照
+      // 这个测试确保验证逻辑查询的是运行时的 FunctionProvider，而不是静态的 selectedTools 快照
 
       const mockResponseWithPower: ExecutionPlan = {
         id: 'plan-005',
@@ -239,12 +238,12 @@ describe('Planner', () => {
       // 但这里我们测试的是 validatePlan 能正确查询运行时状态
 
       // 首先验证 power 不存在
-      expect(registry.has('power')).toBe(false);
+      expect(await functionProvider.has('power')).toBe(false);
       const result1 = await planner.plan('计算 2 的 3 次方');
       expect(result1.success).toBe(false);
 
       // 动态注册 power
-      registry.register(
+      functionProvider.register(
         defineFunction({
           name: 'power',
           description: '计算幂运算',
@@ -259,7 +258,7 @@ describe('Planner', () => {
       );
 
       // 验证 power 现在存在
-      expect(registry.has('power')).toBe(true);
+      expect(await functionProvider.has('power')).toBe(true);
 
       // 再次调用应该成功
       const result2 = await planner.plan('计算 2 的 3 次方');

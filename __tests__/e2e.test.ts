@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FunctionRegistry, LocalFunctionRegistry, defineFunction } from '../src/registry/index.js';
+import { LocalFunctionRegistry, defineFunction } from '../src/registry/index.js';
+import { LocalFunctionProvider } from '../src/function-provider/index.js';
 import { ExecutorImpl } from '../src/executor/executor.js';
 import type { Executor } from '../src/executor/interfaces/Executor.js';
 import type { ExecutionPlan } from '../src/planner/types.js';
@@ -9,14 +10,14 @@ import { ConfigManager } from '../src/config/index.js';
 ConfigManager.initialize({ apiKey: 'test-key' });
 
 describe('E2E: 加减乘除计算', () => {
-  let registry: FunctionRegistry;
+  let functionProvider: LocalFunctionProvider;
   let executor: Executor;
 
   beforeEach(() => {
-    registry = new LocalFunctionRegistry();
+    functionProvider = new LocalFunctionProvider();
 
     // 注册加减乘除函数
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'add',
         description: '将两个数字相加',
@@ -30,7 +31,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'subtract',
         description: '将两个数字相减',
@@ -44,7 +45,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'multiply',
         description: '将两个数字相乘',
@@ -58,7 +59,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'divide',
         description: '将两个数字相除',
@@ -75,7 +76,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    executor = new ExecutorImpl(registry);
+    executor = new ExecutorImpl(functionProvider);
   });
 
   it('计算 3 + 5 = 8', async () => {

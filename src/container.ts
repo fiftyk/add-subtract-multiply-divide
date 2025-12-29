@@ -31,107 +31,61 @@ import { AnthropicLLMAdapter } from './mock/adapters/AnthropicLLMAdapter.js';
 import { CLILLMAdapter } from './mock/adapters/CLILLMAdapter.js';
 import { MockServiceFactory } from './mock/factory/MockServiceFactory.js';
 import { MockServiceFactoryImpl } from './mock/factory/MockServiceFactoryImpl.js';
-import { RemoteFunctionRegistry, MCPClient, NoOpRemoteFunctionRegistry } from './mcp/index.js';
+import { RemoteFunctionRegistry, NoOpRemoteFunctionRegistry } from './mcp/index.js';
 import { RemoteToolProvider } from './mcp/RemoteToolProvider.js';
+import { FunctionProvider } from './function-provider/interfaces/FunctionProvider.js';
+import { LocalFunctionProvider } from './function-provider/LocalFunctionProvider.js';
+import { CompositeFunctionProvider } from './function-provider/CompositeFunctionProvider.js';
+import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol } from './function-provider/symbols.js';
+import { MCPFunctionProvider } from './function-provider/index.js';
+import { MCPClient } from './mcp/MCPClient.js';
 
 const container = new Container({
     defaultScope: 'Singleton',
 });
 
-// FunctionRegistry - 绑定到本地实现类
+// ============================================
+// FunctionRegistry - 向后兼容（绑定到本地实现类）
+// ============================================
 container.bind(FunctionRegistry).to(LocalFunctionRegistry);
 
-// ToolProvider - 默认使用 CompositeToolProvider（合并本地和远程工具）
-// LocalFunctionToolProvider 和 RemoteToolProvider 通过独立 Symbol 注入到 CompositeToolProvider
-// 绑定具体实现到独立 Symbol
-container.bind<LocalFunctionToolProvider>(LocalToolProviderSymbol).to(LocalFunctionToolProvider);
-container.bind<RemoteToolProvider>(RemoteToolProviderSymbol).to(RemoteToolProvider);
+// ============================================
+// FunctionProvider - 统一的函数发现和执行接口
+// ============================================
+// LocalFunctionProvider - 本地函数提供者（用于依赖注入）
+container.bind(LocalFunctionProviderSymbol).to(LocalFunctionProvider);
 
-// ToolProvider - 绑定到 CompositeToolProvider（合并所有工具）
-container.bind(ToolProvider).to(CompositeToolProvider);
-
-// ToolSelector - 单例（默认使用 AllToolsSelector 策略）
-container.bind<ToolSelector>(ToolSelector).to(AllToolsSelector);
-
-// ToolFormatter - 单例
-container.bind<ToolFormatter>(ToolFormatter).to(StandardToolFormatter);
-
-// PlannerLLMClient - 根据配置选择实现
-// 默认使用 Anthropic API，如果设置了 PLANNER_GENERATOR_CMD/ARGS 则使用 CLI
-container.bind(PlannerLLMClient).toDynamicValue(() => {
+// MCPFunctionProvider - 动态创建（根据 MCP 配置）
+container.bind(MCPFunctionProvider).toDynamicValue(() => {
     const config = ConfigManager.get();
-    const { command, args } = config.plannerGenerator;
 
-    if (command && args) {
-        // 使用 CLI 命令（如 claude-switcher, gemini 等）
-        return new CLIPlannerLLMClient(command, args);
-    }
+    // 没有配置服务器时使用 NoOpRemoteFunctionRegistry
+    const serverConfig = config.mcp.servers[0] ?? {
+        name: 'noop',
+        type: 'stdio' as const,
+        command: 'echo',
+        args: [],
+    };
 
-    // 默认使用 Anthropic API
-    return new AnthropicPlannerLLMClient({
-        apiKey: config.api.apiKey,
-        baseURL: config.api.baseURL,
-        model: config.llm.model,
-        maxTokens: config.llm.maxTokens,
-    });
+    const mcpConfig = {
+        name: serverConfig.name,
+        transportType: serverConfig.type,
+        transportConfig: serverConfig,
+    };
+
+    const client = new MCPClient(mcpConfig);
+    return new MCPFunctionProvider(client);
 });
 
-// Planner - PlannerImpl 实现（依赖注入，自动注入 ToolProvider, ToolSelector, ToolFormatter, PlannerLLMClient）
-container.bind(Planner).to(PlannerImpl);
+// RemoteFunctionProviderSymbol - 指向 MCPFunctionProvider
+container.bind(RemoteFunctionProviderSymbol).toService(MCPFunctionProvider);
 
-// PlanRefinementLLMClient - 动态创建（从 ConfigManager 获取配置）
-container.bind(PlanRefinementLLMClient).toDynamicValue(() => {
-    const config = ConfigManager.get();
-    return new AnthropicPlanRefinementLLMClient({
-        apiKey: config.api.apiKey,
-        baseURL: config.api.baseURL,
-        model: config.llm.model,
-        maxTokens: config.llm.maxTokens,
-    });
-});
-
-// Storage - StorageImpl 实现（从 ConfigManager 获取 dataDir）
-container.bind(Storage).toDynamicValue(() => {
-    const config = ConfigManager.get();
-    return new StorageImpl(config.storage.dataDir);
-});
-
-// SessionStorage - SessionStorageImpl 实现（从 ConfigManager 获取 dataDir）
-container.bind(SessionStorage).toDynamicValue(() => {
-    const config = ConfigManager.get();
-    return new SessionStorageImpl(config.storage.dataDir);
-});
-
-// UserInputProvider - CLIUserInputProvider 实现（单例）
-container.bind(UserInputProvider).to(CLIUserInputProvider);
-
-// Executor - ExecutorImpl 实现（依赖注入，自动注入 FunctionRegistry 和 UserInputProvider）
-container.bind(Executor).to(ExecutorImpl);
-
-// LLMAdapter - 根据配置选择实现
-// 默认使用 Anthropic API，如果设置了 MOCK_GENERATOR_CMD 则使用 CLI
-container.bind(LLMAdapter).toDynamicValue(() => {
-    const config = ConfigManager.get();
-    const { command, args } = config.mockCodeGenerator;
-
-    if (command && args) {
-        // 使用 CLI 命令（如 claude-switcher, gemini 等）
-        return new CLILLMAdapter(command, args);
-    }
-
-    // 默认使用 Anthropic API
-    return new AnthropicLLMAdapter(
-        config.api.apiKey,
-        config.api.baseURL
-    );
-});
-
-// MockServiceFactory - 单例（依赖注入 LLMAdapter, Storage, FunctionRegistry）
-container.bind(MockServiceFactory).to(MockServiceFactoryImpl);
+// CompositeFunctionProvider - 组合本地和远程函数提供者
+container.bind(FunctionProvider).to(CompositeFunctionProvider);
 
 // RemoteFunctionRegistry - 动态创建（根据 MCP 配置）
 // 没有配置服务器时使用 NoOp 实现
-container.bind<RemoteFunctionRegistry>(RemoteFunctionRegistry).toDynamicValue(() => {
+container.bind(RemoteFunctionRegistry).toDynamicValue(() => {
     const config = ConfigManager.get();
 
     // 没有配置服务器时使用 NoOp 实现
@@ -150,8 +104,118 @@ container.bind<RemoteFunctionRegistry>(RemoteFunctionRegistry).toDynamicValue(()
     return new MCPClient(mcpConfig);
 });
 
+// ============================================
+// ToolProvider - 旧接口（保持向后兼容）
+// ============================================
+// LocalFunctionToolProvider 和 RemoteToolProvider 通过独立 Symbol 注入到 CompositeToolProvider
+container.bind<LocalFunctionToolProvider>(LocalToolProviderSymbol).to(LocalFunctionToolProvider);
+container.bind<RemoteToolProvider>(RemoteToolProviderSymbol).to(RemoteToolProvider);
+
+// ToolProvider - 绑定到 CompositeToolProvider（合并所有工具）
+container.bind(ToolProvider).to(CompositeToolProvider);
+
+// ============================================
+// ToolSelector - 单例（默认使用 AllToolsSelector 策略）
+// ============================================
+container.bind<ToolSelector>(ToolSelector).to(AllToolsSelector);
+
+// ============================================
+// ToolFormatter - 单例
+// ============================================
+container.bind<ToolFormatter>(ToolFormatter).to(StandardToolFormatter);
+
+// ============================================
+// PlannerLLMClient - 根据配置选择实现
+// ============================================
+container.bind(PlannerLLMClient).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    const { command, args } = config.plannerGenerator;
+
+    if (command && args) {
+        // 使用 CLI 命令（如 claude-switcher, gemini 等）
+        return new CLIPlannerLLMClient(command, args);
+    }
+
+    // 默认使用 Anthropic API
+    return new AnthropicPlannerLLMClient({
+        apiKey: config.api.apiKey,
+        baseURL: config.api.baseURL,
+        model: config.llm.model,
+        maxTokens: config.llm.maxTokens,
+    });
+});
+
+// ============================================
+// Planner - PlannerImpl 实现
+// ============================================
+container.bind(Planner).to(PlannerImpl);
+
+// ============================================
+// PlanRefinementLLMClient - 动态创建
+// ============================================
+container.bind(PlanRefinementLLMClient).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new AnthropicPlanRefinementLLMClient({
+        apiKey: config.api.apiKey,
+        baseURL: config.api.baseURL,
+        model: config.llm.model,
+        maxTokens: config.llm.maxTokens,
+    });
+});
+
+// ============================================
+// Storage - StorageImpl 实现
+// ============================================
+container.bind(Storage).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new StorageImpl(config.storage.dataDir);
+});
+
+// ============================================
+// SessionStorage - SessionStorageImpl 实现
+// ============================================
+container.bind(SessionStorage).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new SessionStorageImpl(config.storage.dataDir);
+});
+
+// ============================================
+// UserInputProvider - CLIUserInputProvider 实现
+// ============================================
+container.bind(UserInputProvider).to(CLIUserInputProvider);
+
+// ============================================
+// Executor - ExecutorImpl 实现
+// ============================================
+container.bind(Executor).to(ExecutorImpl);
+
+// ============================================
+// LLMAdapter - 根据配置选择实现
+// ============================================
+container.bind(LLMAdapter).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    const { command, args } = config.mockCodeGenerator;
+
+    if (command && args) {
+        // 使用 CLI 命令（如 claude-switcher, gemini 等）
+        return new CLILLMAdapter(command, args);
+    }
+
+    // 默认使用 Anthropic API
+    return new AnthropicLLMAdapter(
+        config.api.apiKey,
+        config.api.baseURL
+    );
+});
+
+// ============================================
+// MockServiceFactory - 单例
+// ============================================
+container.bind(MockServiceFactory).to(MockServiceFactoryImpl);
+
+// ============================================
 // RemoteToolProvider - 可选绑定（向后兼容）
-// 使用 @optional() 装饰器的消费者在 MCP 未启用时会接收 undefined
+// ============================================
 container.bind<RemoteToolProvider>(RemoteToolProvider).to(RemoteToolProvider);
 
 export { container, MockServiceFactory };
