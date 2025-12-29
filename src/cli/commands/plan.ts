@@ -50,17 +50,25 @@ export async function planCommand(
       return;
     }
 
-    // 统计内置函数和 mock 函数
-    const builtinFunctionNames = ['add', 'subtract', 'multiply', 'divide'];
-    const builtinFunctions = allFunctions.filter(f => builtinFunctionNames.includes(f.name));
-    const mockFunctions = allFunctions.filter(f => !builtinFunctionNames.includes(f.name));
-
-    console.log(
-      chalk.gray(`已加载 ${allFunctions.length} 个函数: ${builtinFunctions.map((f) => f.name).join(', ')}`)
+    // 统计不同来源的函数
+    const builtinFunctions = allFunctions.filter(f => f.source === 'local');
+    const mcpFunctions = allFunctions.filter(f => f.source.includes('mcp') || f.source.includes('remote'));
+    const mockFunctions = allFunctions.filter(f =>
+      f.source !== 'local' &&
+      !f.source.includes('mcp') &&
+      !f.source.includes('remote')
     );
+
+    console.log(chalk.gray(`已加载 ${allFunctions.length} 个函数:`));
+    if (builtinFunctions.length > 0) {
+      console.log(chalk.gray(`  📚 本地函数: ${builtinFunctions.map((f) => f.name).join(', ')}`));
+    }
+    if (mcpFunctions.length > 0) {
+      console.log(chalk.cyan(`  🔗 MCP 工具: ${mcpFunctions.map((f) => f.name).join(', ')}`));
+    }
     if (mockFunctions.length > 0) {
       console.log(
-        chalk.yellow(`  + ${mockFunctions.length} 个 mock 函数: ${mockFunctions.map((f) => f.name).join(', ')}`)
+        chalk.yellow(`  🎭 Mock 函数: ${mockFunctions.map((f) => f.name).join(', ')}`)
       );
     }
     console.log();

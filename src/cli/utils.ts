@@ -17,6 +17,9 @@ export async function loadFunctions(
       ? functionsPath
       : path.resolve(process.cwd(), functionsPath);
 
+    // 检查文件是否存在
+    await fs.access(absolutePath);
+
     // 动态导入函数模块
     const module = await import(absolutePath);
 
@@ -31,7 +34,8 @@ export async function loadFunctions(
     // 如果文件不存在，静默处理
     if (
       error instanceof Error &&
-      error.message.includes('Cannot find module')
+      (error.message.includes('Cannot find module') ||
+       error.message.includes('ENOENT'))
     ) {
       return;
     }

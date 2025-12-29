@@ -6,6 +6,7 @@
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged } from 'inversify';
 import type { FunctionMetadata, FunctionExecutionResult } from './types.js';
+import type { FunctionDefinition } from '../registry/types.js';
 import { FunctionProvider } from './interfaces/FunctionProvider.js';
 import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol } from './symbols.js';
 import { LocalFunctionProvider } from './LocalFunctionProvider.js';
@@ -47,6 +48,7 @@ export interface CompositeFunctionProviderConfig {
 export class CompositeFunctionProvider implements FunctionProvider {
   private readonly providers: FunctionProvider[];
   private readonly config: Required<CompositeFunctionProviderConfig>;
+  private localProvider: LocalFunctionProvider | null = null;
 
   constructor(
     @inject(LocalFunctionProviderSymbol) @optional() localProvider?: LocalFunctionProvider | FunctionProvider[],
@@ -57,11 +59,15 @@ export class CompositeFunctionProvider implements FunctionProvider {
     if (Array.isArray(localProvider)) {
       // 测试场景：new CompositeFunctionProvider([providers], config?)
       this.providers = localProvider;
+      this.localProvider = null;
     } else {
       // 容器注入时：组合本地和远程 Provider
       this.providers = [];
       if (localProvider) {
         this.providers.push(localProvider);
+        this.localProvider = localProvider as LocalFunctionProvider;
+      } else {
+        this.localProvider = null;
       }
       if (remoteProvider) {
         this.providers.push(remoteProvider);
@@ -183,6 +189,24 @@ export class CompositeFunctionProvider implements FunctionProvider {
         }
       })
     );
+  }
+
+  /**
+   * 注册函数（委托给本地 Provider）
+   */
+  register(fn: FunctionDefinition): void {
+    if (this.localProvider) {
+      this.localProvider.register(fn);
+    }
+  }
+
+  /**
+   * 清空所有注册的函数（委托给本地 Provider）
+   */
+  clear(): void {
+    if (this.localProvider) {
+      this.localProvider.clear();
+    }
   }
 
   /**
