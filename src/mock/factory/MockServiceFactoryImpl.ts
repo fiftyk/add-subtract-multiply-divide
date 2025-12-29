@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { injectable, inject } from 'inversify';
 import { MockServiceFactory } from './MockServiceFactory.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { LLMAdapter } from '../interfaces/LLMAdapter.js';
 import { Storage } from '../../storage/index.js';
 import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js';
@@ -17,16 +17,16 @@ import { LoggerFactory } from '../../logger/index.js';
 export class MockServiceFactoryImpl implements MockServiceFactory {
   private llmAdapter: LLMAdapter;
   private storage: Storage;
-  private registry: FunctionRegistry;
+  private functionProvider: FunctionProvider;
 
   constructor(
     @inject(LLMAdapter) llmAdapter: LLMAdapter,
     @inject(Storage) storage: Storage,
-    @inject(FunctionRegistry) registry: FunctionRegistry
+    @inject(FunctionProvider) functionProvider: FunctionProvider
   ) {
     this.llmAdapter = llmAdapter;
     this.storage = storage;
-    this.registry = registry;
+    this.functionProvider = functionProvider;
   }
 
   createOrchestrator(planId: string): IMockOrchestrator {
@@ -47,7 +47,7 @@ export class MockServiceFactoryImpl implements MockServiceFactory {
       fileWriter,
       functionLoader,
       metadataProvider,
-      this.registry,
+      this.functionProvider,
       validator,
       logger
     );

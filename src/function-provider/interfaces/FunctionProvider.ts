@@ -4,6 +4,7 @@
  */
 
 import type { FunctionMetadata, FunctionExecutionResult, ProviderType } from '../types.js';
+import type { FunctionDefinition } from '../../registry/types.js';
 
 /**
  * 函数提供者统一接口
@@ -12,6 +13,7 @@ import type { FunctionMetadata, FunctionExecutionResult, ProviderType } from '..
  * 1. 函数发现（list, has, get）
  * 2. 函数执行（execute）
  * 3. 生命周期管理（initialize, dispose）
+ * 4. 函数注册（仅本地 Provider）
  *
  * 实现策略：
  * - LocalFunctionProvider: 本地函数（直接调用 implementation）
@@ -74,6 +76,19 @@ export interface FunctionProvider {
    * @throws {Error} 函数不存在或执行失败时抛出错误
    */
   execute(name: string, params: Record<string, unknown>): Promise<FunctionExecutionResult>;
+
+  /**
+   * 注册函数（仅本地 Provider 支持，可选）
+   *
+   * @param fn 函数定义
+   * @throws {Error} 重复注册时抛出
+   */
+  register?(fn: FunctionDefinition): void;
+
+  /**
+   * 清空所有注册的函数（仅本地 Provider 支持，可选）
+   */
+  clear?(): void;
 
   /**
    * 初始化 Provider（可选）

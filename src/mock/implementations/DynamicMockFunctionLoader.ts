@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'url';
 import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
 import type { FunctionDefinition } from '../../registry/types.js';
-import type { FunctionRegistry } from '../../registry/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
 /**
  * Dynamically loads and registers mock functions from TypeScript files
@@ -45,11 +45,11 @@ export class DynamicMockFunctionLoader implements IMockFunctionLoader {
   }
 
   /**
-   * Register loaded functions to the registry
+   * Register loaded functions to the function provider
    */
-  register(registry: FunctionRegistry, functions: FunctionDefinition[]): void {
+  register(provider: FunctionProvider, functions: FunctionDefinition[]): void {
     for (const fn of functions) {
-      registry.register(fn);
+      provider.register?.(fn);
     }
   }
 }

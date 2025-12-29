@@ -1,5 +1,5 @@
 import type { FunctionDefinition } from '../../registry/types.js';
-import type { FunctionRegistry } from '../../registry/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
 /**
  * Interface for loading and registering mock functions
@@ -14,9 +14,9 @@ export interface IMockFunctionLoader {
   load(filePath: string): Promise<FunctionDefinition[]>;
 
   /**
-   * Register loaded functions to the registry
-   * @param registry - Function registry instance
+   * Register loaded functions to the function provider
+   * @param provider - Function provider instance
    * @param functions - Functions to register
    */
-  register(registry: FunctionRegistry, functions: FunctionDefinition[]): void;
+  register(provider: FunctionProvider, functions: FunctionDefinition[]): void;
 }

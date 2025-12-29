@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import container, { MockServiceFactory } from '../../container.js';
-import { FunctionRegistry } from '../../registry/interfaces/FunctionRegistry.js';
+import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/index.js';
@@ -36,12 +36,12 @@ export async function planCommand(
     // Get centralized configuration (initialized by CLI hook)
     const config = ConfigManager.get();
 
-    // 从容器获取注册表
-    const registry = container.get<FunctionRegistry>(FunctionRegistry);
-    await loadFunctions(registry, options.functions);
+    // 从容器获取函数提供者
+    const functionProvider = container.get<FunctionProvider>(FunctionProvider);
+    await loadFunctions(functionProvider, options.functions);
 
     // 检查是否有可用函数
-    const allFunctions = registry.getAll();
+    const allFunctions = await functionProvider.list();
     if (allFunctions.length === 0) {
       console.log(chalk.yellow('⚠️ 没有找到已注册的函数'));
       console.log(
@@ -94,7 +94,7 @@ export async function planCommand(
       planner = new PlannerWithMockSupport(
         basePlanner,
         mockOrchestrator,
-        registry,
+        functionProvider,
         { maxIterations: config.mock.maxIterations },
         logger
       );
@@ -148,7 +148,7 @@ export async function planCommand(
     if (result.plan.status === 'executable') {
       // 检查是否为交互模式
       if (options.interactive) {
-        await interactivePlanFlow(result.plan, config, registry, storage);
+        await interactivePlanFlow(result.plan, config, functionProvider, storage);
       } else {
         console.log(
           chalk.cyan(
@@ -193,13 +193,13 @@ export async function planCommand(
  *
  * @param plan - 刚创建的计划
  * @param config - 配置对象
- * @param registry - 函数注册表
+ * @param functionProvider - 函数提供者
  * @param storage - 存储实例
  */
 async function interactivePlanFlow(
   plan: ExecutionPlan,
   config: AppConfig,
-  registry: FunctionRegistry,
+  functionProvider: FunctionProvider,
   storage: Storage
 ): Promise<void> {
   let currentPlan = plan;
@@ -222,7 +222,7 @@ async function interactivePlanFlow(
     storage,
     sessionStorage,
     refinementLLMClient,
-    registry
+    functionProvider
   );
 
   let sessionId: string | undefined;

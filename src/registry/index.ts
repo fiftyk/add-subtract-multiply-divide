@@ -1,6 +1,7 @@
-// Export interface and Symbol (for DI container)
-export { FunctionRegistry } from './interfaces/FunctionRegistry.js';
-export { LocalFunctionRegistry, defineFunction } from './LocalFunctionRegistry.js';
+// Export defineFunction helper
+export { defineFunction } from './defineFunction.js';
+
+// Export types
 export type {
   FunctionDefinition,
   FunctionDefinitionInput,

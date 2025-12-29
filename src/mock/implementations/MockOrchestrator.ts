@@ -5,7 +5,7 @@ import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
 import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
 import type { IMockCodeValidator } from '../interfaces/IMockCodeValidator.js';
 import type { MissingFunction, MockFunctionReference } from '../../planner/types.js';
-import type { FunctionRegistry } from '../../registry/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import type { MockGenerationResult, MockMetadata } from '../types.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
@@ -28,7 +28,7 @@ export class MockOrchestrator implements IMockOrchestrator {
     private fileWriter: IMockFileWriter,
     private functionLoader: IMockFunctionLoader,
     private metadataProvider: IMockMetadataProvider,
-    private registry: FunctionRegistry,
+    private functionProvider: FunctionProvider,
     private validator?: IMockCodeValidator,
     logger?: ILogger
   ) {
@@ -133,8 +133,8 @@ export class MockOrchestrator implements IMockOrchestrator {
           }
         }
 
-        // 6. Register functions to registry
-        this.functionLoader.register(this.registry, functions);
+        // 6. Register functions to functionProvider
+        this.functionLoader.register(this.functionProvider, functions);
         this.logger.info(
           `    📝 已注册到 registry: ${functions.map((f) => f.name).join(', ')}`
         );

@@ -1,6 +1,6 @@
 import type { Planner } from '../../planner/interfaces/IPlanner.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
-import type { FunctionRegistry } from '../../registry/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import type { PlanResult, MockFunctionReference } from '../../planner/types.js';
 import type { ILogger } from '../../logger/index.js';
 import type { MockGenerationConfig } from '../types.js';
@@ -18,7 +18,7 @@ export class PlannerWithMockSupport {
   constructor(
     private basePlanner: Planner,
     private mockOrchestrator: IMockOrchestrator,
-    private registry: FunctionRegistry,
+    private functionProvider: FunctionProvider,
     config: MockGenerationConfig,
     logger?: ILogger
   ) {
@@ -110,7 +110,7 @@ export class PlannerWithMockSupport {
           }
 
           this.logger.info(
-            `\n📝 当前 registry 中共有 ${this.registry.getAll().length} 个函数`
+            `\n📝 当前 registry 中共有 ${(await this.functionProvider.list()).length} 个函数`
           );
 
           // Continue to next iteration to re-plan

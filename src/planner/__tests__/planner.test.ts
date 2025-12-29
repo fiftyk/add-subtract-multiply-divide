@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlannerImpl } from '../planner.js';
-import { LocalFunctionRegistry, defineFunction } from '../../registry/index.js';
+import { defineFunction } from '../../registry/index.js';
 import { AllToolsSelector, StandardToolFormatter } from '../../tools/index.js';
 import { LocalFunctionProvider } from '../../function-provider/index.js';
 import type { ExecutionPlan } from '../types.js';

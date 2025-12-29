@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { LocalFunctionRegistry, defineFunction } from '../src/registry/index.js';
+import { defineFunction } from '../src/registry/index.js';
 import { LocalFunctionProvider } from '../src/function-provider/index.js';
 import { ExecutorImpl } from '../src/executor/executor.js';
 import type { Executor } from '../src/executor/interfaces/Executor.js';
@@ -290,10 +290,10 @@ describe('E2E: 加减乘除计算', () => {
 
 describe('E2E: 缺口识别', () => {
   it('识别缺失的函数', () => {
-    const registry = new LocalFunctionRegistry();
+    const provider = new LocalFunctionProvider();
 
     // 只注册加法
-    registry.register(
+    provider.register(
       defineFunction({
         name: 'add',
         description: '加法',
@@ -305,8 +305,8 @@ describe('E2E: 缺口识别', () => {
     );
 
     // 验证 sqrt 不存在
-    expect(registry.has('sqrt')).toBe(false);
-    expect(registry.has('add')).toBe(true);
+    expect(provider.has('sqrt')).resolves.toBe(false);
+    expect(provider.has('add')).resolves.toBe(true);
 
     // 模拟缺口识别结果
     const incompletePlan: ExecutionPlan = {

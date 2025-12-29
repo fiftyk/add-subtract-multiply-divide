@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Planner } from '../../planner/planner.js';
 import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
-import type { FunctionRegistry } from '../../registry/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import type { PlanResult, ExecutionPlan } from '../../planner/types.js';
 import { PlannerWithMockSupport } from '../decorators/PlannerWithMockSupport.js';
 
 describe('PlannerWithMockSupport', () => {
   let basePlanner: Planner;
   let mockOrchestrator: IMockOrchestrator;
-  let registry: FunctionRegistry;
+  let functionProvider: FunctionProvider;
   let plannerWithMockSupport: PlannerWithMockSupport;
 
   beforeEach(() => {
@@ -20,14 +20,19 @@ describe('PlannerWithMockSupport', () => {
       generateAndRegisterMocks: vi.fn(),
     };
 
-    registry = {
-      getAll: vi.fn().mockReturnValue([]),
-    } as unknown as FunctionRegistry;
+    functionProvider = {
+      getType: () => 'local' as const,
+      getSource: () => 'local',
+      list: vi.fn().mockResolvedValue([]),
+      has: vi.fn().mockResolvedValue(false),
+      get: vi.fn().mockResolvedValue(undefined),
+      execute: vi.fn(),
+    } as unknown as FunctionProvider;
 
     plannerWithMockSupport = new PlannerWithMockSupport(
       basePlanner,
       mockOrchestrator,
-      registry,
+      functionProvider,
       { maxIterations: 3 } // Add required config parameter
     );
   });

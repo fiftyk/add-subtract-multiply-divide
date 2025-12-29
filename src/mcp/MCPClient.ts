@@ -1,6 +1,9 @@
 /**
  * MCP Client 实现
  * 使用官方 @modelcontextprotocol/sdk
+ *
+ * 注意：此模块不再实现 RemoteFunctionRegistry 接口
+ * MCPFunctionProvider 负责封装此客户端并提供统一的 FunctionProvider 接口
  */
 
 import 'reflect-metadata';
@@ -11,14 +14,53 @@ import {
   CallToolResultSchema,
   type ListToolsResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type {
-  RemoteFunctionRegistry,
-  RemoteFunctionInfo,
-  RemoteFunctionResult,
-} from './interfaces/RemoteFunctionRegistry.js';
 import type { ILogger } from '../logger/index.js';
 import { LoggerFactory } from '../logger/index.js';
 import type { MCPServerConfig, MCPStdioServerConfig, MCPHttpServerConfig } from '../config/types.js';
+
+/**
+ * 远程函数信息
+ * 从 MCP Server 的 tools/list 响应映射而来
+ */
+export interface RemoteFunctionInfo {
+  /** 函数唯一标识符 (MCP tool name) */
+  name: string;
+  /** 函数描述 */
+  description: string;
+  /** 输入模式 (JSON Schema) */
+  inputSchema: {
+    type: 'object';
+    properties?: Record<string, {
+      type: string;
+      description?: string;
+      enum?: unknown[];
+    }>;
+    required?: string[];
+  };
+  /** 输出模式 (JSON Schema) - 用于描述返回值结构 */
+  outputSchema?: {
+    type: 'object';
+    properties?: Record<string, {
+      type: string;
+      description?: string;
+    }>;
+    required?: string[];
+  };
+}
+
+/**
+ * 远程函数调用结果
+ */
+export interface RemoteFunctionResult {
+  /** 调用是否成功 */
+  success: boolean;
+  /** 返回值内容 */
+  content?: unknown;
+  /** 错误信息（如果失败） */
+  error?: string;
+  /** 是否为结构化内容 */
+  isStructure?: boolean;
+}
 
 /**
  * MCP 客户端配置
@@ -35,9 +77,12 @@ export interface MCPClientConfig {
 /**
  * MCP 客户端实现
  * 管理与 MCP Server 的连接，提供工具发现和调用能力
+ *
+ * 注意：此类不再实现 RemoteFunctionRegistry 接口
+ * MCPFunctionProvider 负责封装此客户端并提供统一的 FunctionProvider 接口
  */
 @injectable()
-export class MCPClient implements RemoteFunctionRegistry {
+export class MCPClient {
   private client: Client;
   private transport: StdioClientTransport | null = null;
   private readonly serverName: string;
