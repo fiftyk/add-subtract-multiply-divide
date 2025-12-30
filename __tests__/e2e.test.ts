@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { defineFunction } from '../src/registry/index.js';
 import { LocalFunctionProvider } from '../src/function-provider/index.js';
 import { ExecutorImpl } from '../src/executor/executor.js';
@@ -6,8 +6,13 @@ import type { Executor } from '../src/executor/interfaces/Executor.js';
 import type { ExecutionPlan } from '../src/planner/types.js';
 import { ConfigManager } from '../src/config/index.js';
 
-// 初始化 ConfigManager（用于 ExecutorImpl）
-ConfigManager.initialize({ apiKey: 'test-key' });
+// 初始化 ConfigManager（每个测试套件前重置并初始化）
+beforeAll(() => {
+  ConfigManager.reset();
+  // 设置测试用 API key 环境变量
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  ConfigManager.initialize();
+});
 
 describe('E2E: 加减乘除计算', () => {
   let functionProvider: LocalFunctionProvider;

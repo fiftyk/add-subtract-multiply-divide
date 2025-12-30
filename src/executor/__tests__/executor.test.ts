@@ -9,8 +9,13 @@ import { StepType } from '../../planner/types.js';
 import { isFunctionCallStep } from '../../planner/type-guards.js';
 import { ConfigManager } from '../../config/index.js';
 
-// 初始化 ConfigManager（用于 ExecutorImpl）
-ConfigManager.initialize({ apiKey: 'test-key' });
+// 初始化 ConfigManager（每个测试前重置并初始化）
+beforeEach(() => {
+  ConfigManager.reset();
+  // 设置测试用 API key 环境变量
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  ConfigManager.initialize();
+});
 
 describe('ExecutionContext', () => {
   let context: ExecutionContext;

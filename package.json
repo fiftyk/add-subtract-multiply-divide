@@ -20,7 +20,15 @@
     "orchestration",
     "claude"
   ],
-  "author": "",
+  "author": "fiftyk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fiftyk/add-subtract-multiply-divide.git"
+  },
+  "homepage": "https://github.com/fiftyk/add-subtract-multiply-divide#readme",
+  "bugs": {
+    "url": "https://github.com/fiftyk/add-subtract-multiply-divide/issues"
+  },
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
