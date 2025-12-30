@@ -2,12 +2,12 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import container, { MockServiceFactory } from '../../container.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/index.js';
 import { loadFunctions } from '../utils.js';
-import { PlannerWithMockSupport } from '../../mock/index.js';
+import { PlannerWithMockSupport } from '../../function-completion/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import {
@@ -36,12 +36,12 @@ export async function planCommand(
     // Get centralized configuration (initialized by CLI hook)
     const config = ConfigManager.get();
 
-    // 从容器获取注册表
-    const registry = container.get(FunctionRegistry);
-    await loadFunctions(registry, options.functions);
+    // 从容器获取函数提供者
+    const functionProvider = container.get<FunctionProvider>(FunctionProvider);
+    await loadFunctions(functionProvider, options.functions);
 
     // 检查是否有可用函数
-    const allFunctions = registry.getAll();
+    const allFunctions = await functionProvider.list();
     if (allFunctions.length === 0) {
       console.log(chalk.yellow('⚠️ 没有找到已注册的函数'));
       console.log(
@@ -50,17 +50,25 @@ export async function planCommand(
       return;
     }
 
-    // 统计内置函数和 mock 函数
-    const builtinFunctionNames = ['add', 'subtract', 'multiply', 'divide'];
-    const builtinFunctions = allFunctions.filter(f => builtinFunctionNames.includes(f.name));
-    const mockFunctions = allFunctions.filter(f => !builtinFunctionNames.includes(f.name));
-
-    console.log(
-      chalk.gray(`已加载 ${allFunctions.length} 个函数: ${builtinFunctions.map((f) => f.name).join(', ')}`)
+    // 统计不同来源的函数
+    const builtinFunctions = allFunctions.filter(f => f.source === 'local');
+    const mcpFunctions = allFunctions.filter(f => f.source.includes('mcp') || f.source.includes('remote'));
+    const mockFunctions = allFunctions.filter(f =>
+      f.source !== 'local' &&
+      !f.source.includes('mcp') &&
+      !f.source.includes('remote')
     );
+
+    console.log(chalk.gray(`已加载 ${allFunctions.length} 个函数:`));
+    if (builtinFunctions.length > 0) {
+      console.log(chalk.gray(`  📚 本地函数: ${builtinFunctions.map((f) => f.name).join(', ')}`));
+    }
+    if (mcpFunctions.length > 0) {
+      console.log(chalk.cyan(`  🔗 MCP 工具: ${mcpFunctions.map((f) => f.name).join(', ')}`));
+    }
     if (mockFunctions.length > 0) {
       console.log(
-        chalk.yellow(`  + ${mockFunctions.length} 个 mock 函数: ${mockFunctions.map((f) => f.name).join(', ')}`)
+        chalk.yellow(`  🎭 Mock 函数: ${mockFunctions.map((f) => f.name).join(', ')}`)
       );
     }
     console.log();
@@ -80,10 +88,10 @@ export async function planCommand(
     // 创建 Storage 实例
     const storage = container.get<Storage>(Storage);
 
-    if (config.mock.autoGenerate) {
-      // 启用 mock 自动生成
-      logger.debug('Mock 自动生成已启用', {
-        maxIterations: config.mock.maxIterations,
+    if (config.functionCompletion.enabled) {
+      // 启用函数自动补全
+      logger.info('✨ 函数自动补全已启用', {
+        maxRetries: config.functionCompletion.maxRetries,
       });
 
       // 从容器获取 MockServiceFactory，创建 mock 服务编排器
@@ -94,13 +102,13 @@ export async function planCommand(
       planner = new PlannerWithMockSupport(
         basePlanner,
         mockOrchestrator,
-        registry,
-        { maxIterations: config.mock.maxIterations },
+        functionProvider,
+        { maxIterations: config.functionCompletion.maxRetries },
         logger
       );
     } else {
-      // 直接使用基础规划器，不启用 mock 生成
-      logger.debug('Mock 自动生成已禁用');
+      // 直接使用基础规划器，不启用函数补全
+      logger.info('ℹ️  函数自动补全已禁用');
       planner = basePlanner;
     }
 
@@ -118,7 +126,7 @@ export async function planCommand(
     await storage.savePlan(result.plan);
 
     // 显示计划
-    console.log(chalk.green('✅ 计划生成成功！'));
+    console.log(chalk.cyan('✅ 计划生成成功！'));
     console.log();
     console.log(basePlanner.formatPlanForDisplay(result.plan));
     console.log();
@@ -148,7 +156,7 @@ export async function planCommand(
     if (result.plan.status === 'executable') {
       // 检查是否为交互模式
       if (options.interactive) {
-        await interactivePlanFlow(result.plan, config, registry, storage);
+        await interactivePlanFlow(result.plan, config, functionProvider, storage);
       } else {
         console.log(
           chalk.cyan(
@@ -164,17 +172,17 @@ export async function planCommand(
         )
       );
 
-      // 如果 mock 生成被禁用，提供友好提示
-      if (!config.mock.autoGenerate && result.plan?.missingFunctions?.length) {
+      // 如果函数补全被禁用，提供友好提示
+      if (!config.functionCompletion.enabled && result.plan?.missingFunctions?.length) {
         console.log();
         console.log(
           chalk.cyan(`💡 提示: 缺少 ${result.plan.missingFunctions.length} 个函数`)
         );
         console.log(
-          chalk.gray('   使用 --auto-mock 标志可以自动生成缺失函数的 mock 实现')
+          chalk.gray('   使用 --auto-complete 标志可以自动生成缺失函数的实现')
         );
         console.log(
-          chalk.gray('   或在环境变量中设置 AUTO_GENERATE_MOCK=true')
+          chalk.gray('   或在环境变量中设置 AUTO_COMPLETE_FUNCTIONS=true')
         );
         console.log();
       }
@@ -193,13 +201,13 @@ export async function planCommand(
  *
  * @param plan - 刚创建的计划
  * @param config - 配置对象
- * @param registry - 函数注册表
+ * @param functionProvider - 函数提供者
  * @param storage - 存储实例
  */
 async function interactivePlanFlow(
   plan: ExecutionPlan,
   config: AppConfig,
-  registry: FunctionRegistry,
+  functionProvider: FunctionProvider,
   storage: Storage
 ): Promise<void> {
   let currentPlan = plan;
@@ -222,7 +230,7 @@ async function interactivePlanFlow(
     storage,
     sessionStorage,
     refinementLLMClient,
-    registry
+    functionProvider
   );
 
   let sessionId: string | undefined;

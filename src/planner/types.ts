@@ -73,6 +73,11 @@ export interface MissingFunction {
     type: string;
     description: string;
   };
+  /** 计划中引用了这个函数的哪些返回值字段，用于生成匹配的 mock 数据 */
+  referencedFields?: Array<{
+    path: string;  // 如 "inventor" 或 "patents.0.patentNumber"
+    description: string;
+  }>;
 }
 
 /**

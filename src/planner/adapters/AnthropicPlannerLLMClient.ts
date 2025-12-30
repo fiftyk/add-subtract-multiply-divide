@@ -1,16 +1,16 @@
 import 'reflect-metadata';
 import Anthropic from '@anthropic-ai/sdk';
 import { injectable } from 'inversify';
-import type { IPlannerLLMClient } from '../interfaces/IPlannerLLMClient.js';
+import type { PlannerLLMClient } from '../interfaces/PlannerLLMClient.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 
 /**
  * Anthropic Claude adapter for planning
- * Implements IPlannerLLMClient using Anthropic SDK
+ * Implements PlannerLLMClient using Anthropic SDK
  */
 @injectable()
-export class AnthropicPlannerLLMClient implements IPlannerLLMClient {
+export class AnthropicPlannerLLMClient implements PlannerLLMClient {
   private client: Anthropic;
   private model: string;
   private maxTokens: number;

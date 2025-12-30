@@ -2,14 +2,20 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ExecutorImpl } from '../executor.js';
 import type { Executor } from '../interfaces/Executor.js';
 import { ExecutionContext } from '../context.js';
-import { FunctionRegistry, defineFunction } from '../../registry/index.js';
+import { defineFunction } from '../../registry/index.js';
+import { LocalFunctionProvider } from '../../function-provider/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import { StepType } from '../../planner/types.js';
 import { isFunctionCallStep } from '../../planner/type-guards.js';
 import { ConfigManager } from '../../config/index.js';
 
-// 初始化 ConfigManager（用于 ExecutorImpl）
-ConfigManager.initialize({ apiKey: 'test-key' });
+// 初始化 ConfigManager（每个测试前重置并初始化）
+beforeEach(() => {
+  ConfigManager.reset();
+  // 设置测试用 API key 环境变量
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  ConfigManager.initialize();
+});
 
 describe('ExecutionContext', () => {
   let context: ExecutionContext;
@@ -56,12 +62,12 @@ describe('ExecutionContext', () => {
 
 describe('Executor', () => {
   let executor: Executor;
-  let registry: FunctionRegistry;
+  let functionProvider: LocalFunctionProvider;
 
   beforeEach(() => {
-    registry = new FunctionRegistry();
+    functionProvider = new LocalFunctionProvider();
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'add',
         description: '加法',
@@ -75,7 +81,7 @@ describe('Executor', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'subtract',
         description: '减法',
@@ -89,7 +95,7 @@ describe('Executor', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'multiply',
         description: '乘法',
@@ -103,7 +109,7 @@ describe('Executor', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'divide',
         description: '除法',
@@ -121,7 +127,7 @@ describe('Executor', () => {
     );
 
     // 添加异步函数用于测试
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'asyncAdd',
         description: '异步加法',
@@ -139,7 +145,7 @@ describe('Executor', () => {
       })
     );
 
-    executor = new ExecutorImpl(registry);
+    executor = new ExecutorImpl(functionProvider);
   });
 
   describe('execute', () => {
@@ -359,7 +365,7 @@ describe('Executor', () => {
 
     it('should timeout if step takes too long', async () => {
       // 注册一个慢速函数
-      registry.register(
+      functionProvider.register(
         defineFunction({
           name: 'slowFunction',
           description: '慢速函数',
@@ -376,7 +382,7 @@ describe('Executor', () => {
       );
 
       // 创建一个超时时间为 100ms 的 executor
-      const executorWithTimeout = new ExecutorImpl(registry, { stepTimeout: 100 });
+      const executorWithTimeout = new ExecutorImpl(functionProvider, { stepTimeout: 100 });
 
       const plan: ExecutionPlan = {
         id: 'plan-timeout',
@@ -405,7 +411,7 @@ describe('Executor', () => {
 
     it('should not timeout with stepTimeout set to 0', async () => {
       // 注册一个慢速函数
-      registry.register(
+      functionProvider.register(
         defineFunction({
           name: 'slowFunction2',
           description: '慢速函数2',
@@ -422,7 +428,7 @@ describe('Executor', () => {
       );
 
       // 创建一个不限制超时的 executor
-      const executorNoTimeout = new ExecutorImpl(registry, { stepTimeout: 0 });
+      const executorNoTimeout = new ExecutorImpl(functionProvider, { stepTimeout: 0 });
 
       const plan: ExecutionPlan = {
         id: 'plan-no-timeout',
@@ -449,7 +455,7 @@ describe('Executor', () => {
     });
 
     it('should use default timeout of 30 seconds', () => {
-      const defaultExecutor = new ExecutorImpl(registry);
+      const defaultExecutor = new ExecutorImpl(functionProvider);
       // 通过访问 private 属性来验证默认值（仅用于测试）
       expect((defaultExecutor as any).config.stepTimeout).toBe(30000);
     });

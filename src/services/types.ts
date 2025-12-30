@@ -1,5 +1,5 @@
 import type { ExecutionPlan } from '../planner/types.js';
-import type { FunctionDefinition } from '../registry/types.js';
+import type { FunctionMetadata } from '../function-provider/types.js';
 
 /**
  * 会话消息
@@ -68,7 +68,7 @@ export interface PlanRefinementRequest {
   currentPlan: ExecutionPlan;
   refinementInstruction: string;  // 用户的修改指令
   conversationHistory: SessionMessage[];  // 对话历史上下文
-  availableFunctions: FunctionDefinition[];  // 可用函数列表
+  availableFunctions: FunctionMetadata[];  // 可用函数列表
 }
 
 /**

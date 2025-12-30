@@ -426,4 +426,97 @@ describe('Storage', () => {
       });
     });
   });
+
+  describe('Mock Functions Management', () => {
+    describe('getPlanMocksDir', () => {
+      it('should return correct mocks directory path for unversioned plan', () => {
+        const mocksDir = storage.getPlanMocksDir('plan-abc123');
+        expect(mocksDir).toBe(path.join(testDataDir, 'plans', 'plan-abc123', 'mocks'));
+      });
+
+      it('should return correct mocks directory path for versioned plan', () => {
+        const mocksDir = storage.getPlanMocksDir('plan-abc123-v2');
+        expect(mocksDir).toBe(path.join(testDataDir, 'plans', 'plan-abc123', 'mocks'));
+      });
+    });
+
+    describe('savePlanMock', () => {
+      it('should save mock function to mocks directory', async () => {
+        const code = 'export const testFn = () => "test";';
+        const relativePath = await storage.savePlanMock('plan-mock-test', 'testFn', 1, code);
+
+        expect(relativePath).toBe('mocks/testFn-v1.js');
+        const filePath = path.join(testDataDir, 'plans', 'plan-mock-test', 'mocks', 'testFn-v1.js');
+        expect(fs.existsSync(filePath)).toBe(true);
+
+        const savedContent = fs.readFileSync(filePath, 'utf-8');
+        expect(savedContent).toBe(code);
+      });
+
+      it('should handle multiple versions of same mock', async () => {
+        const codeV1 = 'export const power = (x) => x * x;';
+        const codeV2 = 'export const power = (x) => x * x * x;';
+
+        await storage.savePlanMock('plan-multi-mock', 'power', 1, codeV1);
+        await storage.savePlanMock('plan-multi-mock', 'power', 2, codeV2);
+
+        const dir = path.join(testDataDir, 'plans', 'plan-multi-mock', 'mocks');
+        const files = fs.readdirSync(dir);
+        expect(files).toHaveLength(2);
+      });
+    });
+
+    describe('loadPlanMocks', () => {
+      it('should return empty array when mocks directory does not exist', async () => {
+        const mocks = await storage.loadPlanMocks('plan-no-mocks');
+        expect(mocks).toEqual([]);
+      });
+
+      it('should load mock functions from directory', async () => {
+        // Save a mock function first
+        const mockCode = `export const testMock = { name: 'testMock', description: 'A test mock', parameters: [], returns: { type: 'void' }, implementation: () => 'mock result' };`;
+        await storage.savePlanMock('plan-load-mocks', 'testMock', 1, mockCode);
+
+        const mocks = await storage.loadPlanMocks('plan-load-mocks');
+
+        expect(mocks.length).toBeGreaterThan(0);
+        const mock = mocks[0] as any;
+        expect(mock.name).toBe('testMock');
+      });
+    });
+
+    describe('deletePlanWithMocks', () => {
+      it('should delete plan and its mocks directory', async () => {
+        // Create a plan with mocks
+        const plan: ExecutionPlan = {
+          id: 'plan-delete-with-mocks',
+          userRequest: 'test',
+          steps: [],
+          createdAt: new Date().toISOString(),
+          status: 'executable',
+        };
+
+        await storage.savePlanVersion(plan, 'plan-delete-with-mocks', 1);
+        await storage.savePlanMock('plan-delete-with-mocks', 'mockFn', 1, 'export const mockFn = {};');
+
+        // Verify exists
+        expect(await storage.listPlanVersions('plan-delete-with-mocks')).toHaveLength(1);
+        const mocksDir = storage.getPlanMocksDir('plan-delete-with-mocks-v1');
+        expect(fs.existsSync(mocksDir)).toBe(true);
+
+        // Delete
+        await storage.deletePlanWithMocks('plan-delete-with-mocks-v1');
+
+        // Verify deleted
+        expect(await storage.listPlanVersions('plan-delete-with-mocks')).toHaveLength(0);
+        expect(fs.existsSync(mocksDir)).toBe(false);
+      });
+
+      it('should not throw error for non-existent plan', async () => {
+        await expect(
+          storage.deletePlanWithMocks('plan-nonexistent-v1')
+        ).resolves.not.toThrow();
+      });
+    });
+  });
 });

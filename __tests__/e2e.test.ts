@@ -1,22 +1,28 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { FunctionRegistry, defineFunction } from '../src/registry/index.js';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { defineFunction } from '../src/registry/index.js';
+import { LocalFunctionProvider } from '../src/function-provider/index.js';
 import { ExecutorImpl } from '../src/executor/executor.js';
 import type { Executor } from '../src/executor/interfaces/Executor.js';
 import type { ExecutionPlan } from '../src/planner/types.js';
 import { ConfigManager } from '../src/config/index.js';
 
-// 初始化 ConfigManager（用于 ExecutorImpl）
-ConfigManager.initialize({ apiKey: 'test-key' });
+// 初始化 ConfigManager（每个测试套件前重置并初始化）
+beforeAll(() => {
+  ConfigManager.reset();
+  // 设置测试用 API key 环境变量
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  ConfigManager.initialize();
+});
 
 describe('E2E: 加减乘除计算', () => {
-  let registry: FunctionRegistry;
+  let functionProvider: LocalFunctionProvider;
   let executor: Executor;
 
   beforeEach(() => {
-    registry = new FunctionRegistry();
+    functionProvider = new LocalFunctionProvider();
 
     // 注册加减乘除函数
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'add',
         description: '将两个数字相加',
@@ -30,7 +36,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'subtract',
         description: '将两个数字相减',
@@ -44,7 +50,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'multiply',
         description: '将两个数字相乘',
@@ -58,7 +64,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    registry.register(
+    functionProvider.register(
       defineFunction({
         name: 'divide',
         description: '将两个数字相除',
@@ -75,7 +81,7 @@ describe('E2E: 加减乘除计算', () => {
       })
     );
 
-    executor = new ExecutorImpl(registry);
+    executor = new ExecutorImpl(functionProvider);
   });
 
   it('计算 3 + 5 = 8', async () => {
@@ -289,10 +295,10 @@ describe('E2E: 加减乘除计算', () => {
 
 describe('E2E: 缺口识别', () => {
   it('识别缺失的函数', () => {
-    const registry = new FunctionRegistry();
+    const provider = new LocalFunctionProvider();
 
     // 只注册加法
-    registry.register(
+    provider.register(
       defineFunction({
         name: 'add',
         description: '加法',
@@ -304,8 +310,8 @@ describe('E2E: 缺口识别', () => {
     );
 
     // 验证 sqrt 不存在
-    expect(registry.has('sqrt')).toBe(false);
-    expect(registry.has('add')).toBe(true);
+    expect(provider.has('sqrt')).resolves.toBe(false);
+    expect(provider.has('add')).resolves.toBe(true);
 
     // 模拟缺口识别结果
     const incompletePlan: ExecutionPlan = {

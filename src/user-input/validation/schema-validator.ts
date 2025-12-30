@@ -17,7 +17,7 @@ import type {
  */
 const FieldSchema = z.object({
   id: z.string().min(1, 'Field id is required'),
-  type: z.enum(['text', 'number', 'boolean', 'single_select', 'multi_select'], {
+  type: z.enum(['text', 'number', 'boolean', 'date', 'single_select', 'multi_select'], {
     message: 'Invalid field type',
   }),
   label: z.string().min(1, 'Field label is required'),
@@ -111,6 +111,9 @@ export function validateUserInput(
 
     case 'boolean':
       return validateBoolean(field, value);
+
+    case 'date':
+      return validateDate(field, value);
 
     case 'single_select':
       return validateSingleSelect(field, value);
@@ -223,6 +226,40 @@ function validateBoolean(field: A2UIField, value: unknown): { valid: boolean; er
   }
 
   return { valid: true };
+}
+
+/**
+ * 验证日期类型
+ */
+function validateDate(field: A2UIField, value: unknown): { valid: boolean; error?: string } {
+  // 支持字符串格式 (ISO 8601) 或时间戳
+  if (typeof value === 'string') {
+    // 验证 ISO 8601 日期格式
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+      return {
+        valid: false,
+        error: `${field.label} must be a valid date (ISO 8601 format)`,
+      };
+    }
+    return { valid: true };
+  }
+
+  if (typeof value === 'number') {
+    // 时间戳验证
+    if (isNaN(value)) {
+      return {
+        valid: false,
+        error: `${field.label} must be a valid timestamp`,
+      };
+    }
+    return { valid: true };
+  }
+
+  return {
+    valid: false,
+    error: `${field.label} must be a date string or timestamp`,
+  };
 }
 
 /**

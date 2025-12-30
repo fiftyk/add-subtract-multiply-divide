@@ -61,13 +61,32 @@ export class ExecutionContext {
       return result;
     }
 
-    // 否则，从结果对象中提取字段（用于用户输入步骤）
+    // 处理 "result.xxx" 格式的路径（如 step.1.result.inventor）
+    // 提取真正的字段名
+    const fieldPath = path.startsWith('result.')
+      ? path.slice(7)  // 去掉 "result." 前缀
+      : path;
+
+    // 否则，从结果对象中提取字段（用于用户输入步骤或函数调用结果）
     if (typeof result === 'object' && result !== null) {
-      const value = (result as Record<string, unknown>)[path];
+      // 支持嵌套字段访问，如 "patents.0.patentNumber"
+      const parts = fieldPath.split('.');
+      let value: unknown = result;
+
+      for (const part of parts) {
+        if (value === null || typeof value !== 'object') {
+          throw new ParameterResolutionError(
+            refStr,
+            `Cannot access field "${part}" in path "${fieldPath}" of step ${stepId} result`
+          );
+        }
+        value = (value as Record<string, unknown>)[part];
+      }
+
       if (value === undefined) {
         throw new ParameterResolutionError(
           refStr,
-          `Field "${path}" not found in step ${stepId} result`
+          `Field "${fieldPath}" not found in step ${stepId} result`
         );
       }
       return value;

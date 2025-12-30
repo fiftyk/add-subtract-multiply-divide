@@ -30,7 +30,7 @@ npm run dev -- plan "计算 3 + 5"
 ```bash
 # 生成执行计划
 npx fn-orchestrator plan "计算 (3 + 5) * 2"
-npx fn-orchestrator plan "需求描述" --auto-mock  # 启用 mock 自动生成
+npx fn-orchestrator plan "需求描述" --auto-complete  # 启用函数自动补全
 
 # 执行计划
 npx fn-orchestrator execute plan-abc123
@@ -64,28 +64,28 @@ npx fn-orchestrator show-plan plan-abc123
 
 **Planner**
 - 调用 Claude API 将自然语言转换为 `ExecutionPlan`
-- 通过 `IPlannerLLMClient` 接口与 LLM 交互（依赖注入）
+- 通过 `PlannerLLMClient` 接口与 LLM 交互（依赖注入）
 - 识别缺失函数并返回 `missingFunctions` 列表
 
 **PlannerWithMockSupport (装饰器模式)**
-- 装饰 `Planner`，添加自动 Mock 生成功能
-- 检测到缺失函数时，调用 `MockOrchestrator` 生成 mock 实现
+- 装饰 `Planner`，添加自动 函数补全功能
+- 检测到缺失函数时，调用 `CompletionOrchestratorImpl` 生成 函数实现
 - 支持迭代生成（默认最多 3 次），直到计划完整或达到上限
 - 遵循 OCP 原则：扩展功能但不修改原始 Planner 代码
 
-**MockOrchestrator**
-- 协调 4 个组件完成 mock 生成工作流：
-  - `IMockCodeGenerator`: 使用 LLM 生成 TypeScript 代码
-  - `IMockFileWriter`: 保存到 `.data/plans/{planId}/mocks/` 目录
-  - `IMockFunctionLoader`: 动态加载并注册函数到 registry
-  - `IMockMetadataProvider`: 管理 mock 元数据（标记为 mock）
+**CompletionOrchestratorImpl**
+- 协调 4 个组件完成 函数补全工作流：
+  - `FunctionCodeGenerator`: 使用 LLM 生成 TypeScript 代码
+  - `FunctionFileWriter`: 保存到 `.data/plans/{planId}/mocks/` 目录
+  - `FunctionLoader`: 动态加载并注册函数到 registry
+  - `CompletionMetadataProvider`: 管理 补全元数据（标记为补全函数）
 
 **LLMAdapter (代码生成器接口)**
 - 抽象 LLM 调用层，支持切换不同 provider
 - 接口方法：`generateCode(prompt: string): Promise<string>`
 - 实现类：
   - `AnthropicLLMAdapter`: Anthropic API 调用
-  - `ClaudeCodeLLMAdapter`: Claude Code CLI 调用
+  - `CLILLMAdapter`: CLI 命令调用（如 claude-switcher, gemini 等）
 
 **MockServiceFactory (工厂模式)**
 - 接口 + 实现类分离（符合 InversifyJS 规范）
@@ -108,19 +108,19 @@ npx fn-orchestrator show-plan plan-abc123
 
 **单一职责 (SRP)**
 - 每个模块只负责一件事：Registry 管理函数，Planner 规划，Executor 执行
-- Mock 系统拆分为 5 个独立类，各司其职
+- Function Completion 系统拆分为 5 个独立类，各司其职
 
 **开闭原则 (OCP)**
 - 使用装饰器模式扩展 Planner，不修改原有代码
-- 通过依赖注入添加新功能（如 mock 生成）
+- 通过依赖注入添加新功能（如 函数补全）
 
 **里氏替换 (LSP)**
-- Mock 函数与真实函数使用相同的 `FunctionDefinition` 类型
-- Executor 无需知道函数是否为 mock
+- 补全函数与真实函数使用相同的 `FunctionDefinition` 类型
+- Executor 无需知道函数是否为补全函数
 
 **接口隔离 (ISP)**
-- 小而专注的接口，如 `IPlannerLLMClient`、`IMockCodeGenerator`
-- Mock 系统有 6 个独立接口，每个 1-3 个方法
+- 小而专注的接口，如 `PlannerLLMClient`、`FunctionCodeGenerator`
+- Function Completion 系统有 6 个独立接口，每个 1-3 个方法
 
 **依赖倒置 (DIP)**
 - 所有类依赖抽象接口，不依赖具体实现
@@ -251,37 +251,37 @@ export const myFunction = defineFunction({
 });
 ```
 
-### Mock 生成工作流
-1. 用户执行 `plan "需求" --auto-mock`
-2. CLI hook 初始化 ConfigManager，设置 `autoMock: true`
-3. `planCommand` 从容器获取 `MockServiceFactory`，创建 `MockOrchestrator`
-4. 检测到缺失函数时，`MockOrchestrator` 协调生成：
-   - `LLMMockCodeGenerator` 使用 `LLMAdapter` 生成代码
+### 函数补全工作流
+1. 用户执行 `plan "需求" --auto-complete`
+2. CLI hook 初始化 ConfigManager，设置 `autoComplete: true`
+3. `planCommand` 从容器获取 `MockServiceFactory`，创建 `CompletionOrchestratorImpl`
+4. 检测到缺失函数时，`CompletionOrchestratorImpl` 协调生成：
+   - `LLMFunctionCodeGeneratorImpl` 使用 `LLMAdapter` 生成代码
    - 保存到 `.data/plans/{planId}/mocks/` 目录
    - 加载注册 → 标记元数据
 5. 重新规划，直到成功或达到最大迭代次数
 
-### Mock 代码生成架构
+### 函数代码生成架构
 ```
 ┌─────────────────────┐
 │     LLMAdapter      │  ← 底层接口：抽象 LLM 调用
-│ generateCode(prompt)│    AnthropicLLMAdapter / ClaudeCodeLLMAdapter
+│ generateCode(prompt)│    AnthropicLLMAdapter / CLILLMAdapter
 └─────────┬───────────┘
           ↑
           │ 组合
           ↓
 ┌─────────────────────┐
-│ IMockCodeGenerator  │  ← 高层接口：prompt 构建 + 格式化
-│   generate(spec)    │    LLMMockCodeGenerator
+│ FunctionCodeGenerator  │  ← 高层接口：prompt 构建 + 格式化
+│   generate(spec)    │    LLMFunctionCodeGeneratorImpl
 └─────────────────────┘
 ```
 
 ### MockServiceFactory 容器绑定
 ```typescript
 // src/container.ts
-import { LLMAdapter } from './mock/interfaces/LLMAdapter.js';
-import { AnthropicLLMAdapter } from './mock/adapters/AnthropicLLMAdapter.js';
-import { MockServiceFactory, MockServiceFactoryImpl } from './mock/factory/MockServiceFactory.js';
+import { LLMAdapter } from './function-completion/interfaces/LLMAdapter.js';
+import { AnthropicLLMAdapter } from './function-completion/adapters/AnthropicLLMAdapter.js';
+import { MockServiceFactory, MockServiceFactoryImpl } from './function-completion/factory/MockServiceFactory.js';
 
 // LLMAdapter - AnthropicLLMAdapter 实现（从 ConfigManager 获取配置）
 container.bind(LLMAdapter).toDynamicValue(() => {
@@ -326,14 +326,14 @@ src/
 │   ├── executor.ts
 │   └── context.ts         # 执行上下文（解析引用）
 ├── storage/               # 持久化存储
-├── mock/                  # Mock 自动生成系统
+├── function-completion/                  # 函数自动补全系统
 │   ├── interfaces/        # 6 个小接口 (ISP)
 │   │   └── LLMAdapter.ts  # LLM 调用抽象接口
 │   ├── implementations/   # 具体实现类
 │   ├── decorators/        # PlannerWithMockSupport (OCP)
 │   ├── adapters/          # LLM 适配器
 │   │   ├── AnthropicLLMAdapter.ts
-│   │   └── ClaudeCodeLLMAdapter.ts
+│   │   └── CLILLMAdapter.ts
 │   └── factory/           # 工厂类
 │       ├── MockServiceFactory.ts      # 接口
 │       └── MockServiceFactoryImpl.ts  # 实现类
@@ -343,7 +343,7 @@ src/
 
 functions/                 # 函数定义
 ├── math.ts               # 基础数学函数
-└── generated/            # 自动生成的 mock 函数
+└── generated/            # 自动生成的补全函数
 
 .data/                    # 运行时数据（git ignored）
 ├── plans/                # 计划 JSON 文件
@@ -353,8 +353,8 @@ functions/                 # 函数定义
 ## 配置系统
 
 ### 配置文件优先级
-1. **CLI 参数**（最高）：`--auto-mock`、`--mock-max-iterations`
-2. **环境变量**：`process.env.AUTO_GENERATE_MOCK`、`MOCK_MAX_ITERATIONS`
+1. **CLI 参数**（最高）：`--auto-complete`、`--max-retries`
+2. **环境变量**：`process.env.AUTO_COMPLETE_FUNCTIONS`、`FUNCTION_COMPLETION_MAX_RETRIES`
 3. **.env 文件**：项目根目录的 `.env`（使用 dotenv 加载）
 4. **默认值**（最低）：`src/config/defaults.ts`
 
@@ -368,10 +368,10 @@ ANTHROPIC_AUTH_TOKEN=sk-ant-...  # Claude Code 兼容
 LLM_MODEL=claude-sonnet-4-20250514
 LLM_MAX_TOKENS=1024
 
-# Mock 生成
-AUTO_GENERATE_MOCK=false  # 默认禁用
-MOCK_MAX_ITERATIONS=3
-MOCK_OUTPUT_DIR=functions/generated
+# 函数补全
+AUTO_COMPLETE_FUNCTIONS=false  # 默认禁用
+FUNCTION_COMPLETION_MAX_RETRIES=3
+FUNCTION_COMPLETION_OUTPUT_DIR=functions/generated
 
 # 其他
 EXECUTOR_STEP_TIMEOUT=30000  # 毫秒
@@ -381,7 +381,7 @@ LOG_LEVEL=info  # debug, info, warn, error
 
 ## 参考文档
 
-- **架构设计**：`docs/mock-generation-design.md` - Mock 系统的 SOLID 设计详解
+- **架构设计**：`docs/function-completion-design.md` - Function Completion 系统的 SOLID 设计详解
 - **配置指南**：`docs/configuration.md` - 完整的配置选项说明
 - **快速开始**：`docs/quickstart.md` - 5 分钟快速上手
 
@@ -395,9 +395,9 @@ LOG_LEVEL=info  # debug, info, warn, error
 - 已修复（commit a0cb241）：所有命令现在会调用 `process.exit()`
 - 如果出现新问题，检查命令是否在所有代码路径都调用了 `process.exit()`
 
-**Mock 生成失败**
-- 检查 `AUTO_GENERATE_MOCK` 是否启用
+**函数补全失败**
+- 检查 `AUTO_COMPLETE_FUNCTIONS` 是否启用
 - 查看日志中 LLM API 调用是否成功
 - 验证生成的代码文件是否保存到 `.data/plans/{planId}/mocks/`
-- 确认 `LLMAdapter` 绑定正确（AnthropicLLMAdapter 或 ClaudeCodeLLMAdapter）
-- Claude Code CLI 模式需要确保 `claude` 命令在 PATH 中可用
+- 确认 `LLMAdapter` 绑定正确（AnthropicLLMAdapter 或 CLILLMAdapter）
+- CLI 模式需要确保对应命令在 PATH 中可用

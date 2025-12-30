@@ -6,14 +6,12 @@ import { listCommand } from './commands/list.js';
 import { refineCommand } from './commands/refine.js';
 import { ConfigManager } from '../config/index.js';
 import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
 // 读取 package.json 获取版本号
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// 使用 process.cwd() 确保无论从哪个目录运行都能正确找到项目根目录的 package.json
 const packageJson = JSON.parse(
-  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
+  readFileSync(join(process.cwd(), 'package.json'), 'utf-8')
 );
 
 const program = new Command();
@@ -35,8 +33,8 @@ program.hook('preAction', (thisCommand, actionCommand) => {
     // Commands without these options will have undefined values,
     // causing ConfigManager to fall back to env vars or defaults
     ConfigManager.initialize({
-      autoMock: opts.autoMock,
-      mockMaxIterations: opts.mockMaxIterations,
+      autoComplete: opts.autoComplete,
+      maxRetries: opts.maxRetries,
     });
   }
 });
@@ -46,12 +44,12 @@ program
   .command('plan <request>')
   .description('根据自然语言需求生成执行计划')
   .option('-f, --functions <path>', '函数定义文件路径', './dist/functions/index.js')
-  .option('--auto-mock', '自动生成缺失的函数 (mock 实现)')
-  .option('--no-auto-mock', '禁用自动 mock 生成')
-  .option('--mock-max-iterations <number>', 'Mock 生成的最大迭代次数', (val) => {
+  .option('--auto-complete', '自动生成缺失的函数')
+  .option('--no-auto-complete', '禁用自动函数补全')
+  .option('--max-retries <number>', '函数补全的最大重试次数', (val) => {
     const parsed = parseInt(val, 10);
     if (isNaN(parsed) || parsed <= 0) {
-      throw new Error(`--mock-max-iterations 必须是正整数，当前值: ${val}`);
+      throw new Error(`--max-retries 必须是正整数，当前值: ${val}`);
     }
     return parsed;
   })

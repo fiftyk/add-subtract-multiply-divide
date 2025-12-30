@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged } from 'inversify';
-import { FunctionRegistry } from '../registry/index.js';
 import type { ExecutionPlan, FunctionCallStep, UserInputStep } from '../planner/types.js';
 import { StepType } from '../planner/types.js';
 import { isFunctionCallStep, isUserInputStep } from '../planner/type-guards.js';
@@ -23,6 +22,7 @@ import { LoggerFactory } from '../logger/index.js';
 import { PlanValidator } from '../validation/index.js';
 import { ConfigManager } from '../config/index.js';
 import { UserInputProvider } from '../user-input/interfaces/UserInputProvider.js';
+import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 
 /**
  * Executor 配置选项
@@ -43,20 +43,21 @@ export interface ExecutorConfig {
 
 /**
  * 执行引擎 - 按照计划顺序执行 functions
+ * 使用统一的 FunctionProvider 接口，支持本地和远程函数
  */
 @injectable()
 export class ExecutorImpl implements Executor {
-  private registry: FunctionRegistry;
+  private functionProvider: FunctionProvider;
   private userInputProvider?: UserInputProvider;
   private config: Required<ExecutorConfig>;
   private logger: ILogger;
 
   constructor(
-    @inject(FunctionRegistry) registry: FunctionRegistry,
+    @inject(FunctionProvider) functionProvider: FunctionProvider,
     @unmanaged() config?: ExecutorConfig,
     @inject(UserInputProvider) @optional() userInputProvider?: UserInputProvider
   ) {
-    this.registry = registry;
+    this.functionProvider = functionProvider;
     this.userInputProvider = userInputProvider;
     const appConfig = ConfigManager.get();
     this.config = {
@@ -73,7 +74,7 @@ export class ExecutorImpl implements Executor {
     // Validate plan before execution
     PlanValidator.validatePlan(plan);
 
-    this.logger.info('Starting plan execution', { planId: plan.id, stepsCount: plan.steps.length });
+    this.logger.debug('📝 执行计划', { planId: plan.id, stepsCount: plan.steps.length });
 
     const context = new ExecutionContext();
     const stepResults: StepResult[] = [];
@@ -129,7 +130,7 @@ export class ExecutorImpl implements Executor {
       completedAt: new Date().toISOString(),
     };
 
-    this.logger.info('Plan execution completed', {
+    this.logger.debug('📝 计划执行完成', {
       planId: plan.id,
       success: overallSuccess,
       stepsCompleted: stepResults.length,
@@ -145,7 +146,7 @@ export class ExecutorImpl implements Executor {
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
-    // 如果超时设置为 0，不限��超时
+    // 如果超时设置为 0，不限制超时
     if (this.config.stepTimeout === 0) {
       return this.executeStep(step, context);
     }
@@ -222,35 +223,39 @@ export class ExecutorImpl implements Executor {
 
   /**
    * 执行函数调用步骤
+   * 使用统一的 FunctionProvider 接口，无需判断本地/远程
    */
   private async executeFunctionCall(
     step: FunctionCallStep,
     context: ExecutionContext
   ): Promise<FunctionCallResult> {
     const executedAt = new Date().toISOString();
-    let resolvedParams: Record<string, unknown> = {};
 
     try {
       // 解析参数
-      resolvedParams = context.resolveParameters(step.parameters);
+      const resolvedParams = context.resolveParameters(step.parameters);
 
-      // 执行函数（支持异步）
-      const result = await this.registry.execute(step.functionName, resolvedParams);
+      // 使用统一的 FunctionProvider 执行函数
+      const result = await this.functionProvider.execute(step.functionName, resolvedParams);
 
-      return {
-        stepId: step.stepId,
-        type: StepType.FUNCTION_CALL,
-        functionName: step.functionName,
-        parameters: resolvedParams,
-        result,
-        success: true,
-        executedAt,
-      };
+      if (result.success) {
+        return {
+          stepId: step.stepId,
+          type: StepType.FUNCTION_CALL,
+          functionName: step.functionName,
+          parameters: resolvedParams,
+          result: result.result,
+          success: true,
+          executedAt,
+        };
+      } else {
+        throw new Error(result.error || 'Function execution failed');
+      }
     } catch (error) {
       // 包装为 FunctionExecutionError 以保留上下文
       const executionError = new FunctionExecutionError(
         step.functionName,
-        resolvedParams,
+        context.resolveParameters(step.parameters),
         error
       );
 
@@ -258,7 +263,7 @@ export class ExecutorImpl implements Executor {
         stepId: step.stepId,
         type: StepType.FUNCTION_CALL,
         functionName: step.functionName,
-        parameters: resolvedParams,
+        parameters: context.resolveParameters(step.parameters),
         result: undefined,
         success: false,
         error: getUserFriendlyMessage(executionError),
@@ -270,9 +275,10 @@ export class ExecutorImpl implements Executor {
   /**
    * 执行用户输入步骤
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async executeUserInput(
     step: UserInputStep,
-    context: ExecutionContext
+    _context: ExecutionContext
   ): Promise<UserInputResult> {
     const executedAt = new Date().toISOString();
 

@@ -1,0 +1,78 @@
+/**
+ * Return field reference - describes a field that the plan references from a function's return value
+ */
+export interface ReturnFieldRef {
+  path: string;  // 如 "inventor" 或 "patents.0.patentNumber"
+  description: string;
+}
+
+/**
+ * Function completion specification used for code generation
+ */
+export interface FunctionCompletionSpec {
+  name: string;
+  description: string;
+  parameters: Array<{
+    name: string;
+    type: string;
+    description: string;
+  }>;
+  returns: {
+    type: string;
+    description: string;
+  };
+  /** 计划中引用的返回值字段，用于生成匹配的 mock 数据 */
+  returnFields?: ReturnFieldRef[];
+}
+
+/**
+ * Metadata for a generated function (via auto-completion)
+ */
+export interface CompletionMetadata {
+  functionName: string;
+  filePath: string;
+  generatedAt: string;
+  isMock: true;
+}
+
+/**
+ * Result of function generation operation
+ */
+export interface FunctionGenerationResult {
+  success: boolean;
+  generatedFunctions: CompletionMetadata[];
+  /** Generated function definitions for signature matching */
+  generatedDefinitions?: Array<{
+    name: string;
+    parameters: Array<{
+      name: string;
+      type: string;
+      description: string;
+    }>;
+    returns: {
+      type: string;
+      description: string;
+    };
+  }>;
+  errors?: Array<{
+    functionName: string;
+    error: string;
+  }>;
+}
+
+/**
+ * Extended plan metadata to track mock usage
+ */
+export interface PlanMetadata {
+  usesMocks?: boolean;
+  mockFunctions?: string[];
+}
+
+/**
+ * Configuration for function completion behavior
+ * Separates configuration from orchestration logic (SRP)
+ */
+export interface FunctionCompletionConfig {
+  /** Maximum iterations for regenerating plan with new functions */
+  maxIterations: number;
+}

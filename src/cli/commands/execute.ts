@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import container from '../../container.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Executor } from '../../executor/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
@@ -28,8 +28,8 @@ export async function executeCommand(
     }
 
     // 加载函数（先加载，以便显示已加载的函数列表）
-    const registry = container.get(FunctionRegistry);
-    await loadFunctions(registry, options.functions);
+    const functionProvider = container.get<FunctionProvider>(FunctionProvider);
+    await loadFunctions(functionProvider, options.functions);
 
     // 加载 Plan 的 mock 函数（新架构：从 plan-specific 目录加载）
     if (plan.metadata?.usesMocks) {
@@ -37,7 +37,7 @@ export async function executeCommand(
         const planMocks = await storage.loadPlanMocks(planId);
         planMocks.forEach((fn) => {
           // Type assertion: the loaded modules conform to FunctionDefinition at runtime
-          registry.register(fn as any);
+          functionProvider.register?.(fn as any);
         });
         console.log(
           chalk.gray(`已加载 ${planMocks.length} 个 plan-specific mock 函数`)
@@ -52,7 +52,7 @@ export async function executeCommand(
     }
 
     // 打印所有加载的函数
-    const allFunctions = registry.getAll();
+    const allFunctions = await functionProvider.list();
     console.log(chalk.blue('📦 已加载的函数:'));
     console.log(chalk.gray(`总共 ${allFunctions.length} 个函数`));
     console.log();

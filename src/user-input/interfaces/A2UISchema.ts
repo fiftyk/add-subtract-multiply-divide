@@ -69,6 +69,7 @@ export type A2UIFieldType =
   | 'text'           // 单行文本
   | 'number'         // 数字
   | 'boolean'        // 是/否
+  | 'date'           // 日期
   | 'single_select'  // 单选
   | 'multi_select';  // 多选
 

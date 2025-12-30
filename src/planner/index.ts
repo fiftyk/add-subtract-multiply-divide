@@ -7,6 +7,6 @@ export type {
   ParameterValue,
   MissingFunction,
 } from './types.js';
-export type { IPlannerLLMClient } from './interfaces/IPlannerLLMClient.js';
+export type { PlannerLLMClient } from './interfaces/PlannerLLMClient.js';
 export { Planner } from './interfaces/IPlanner.js';
 export { AnthropicPlannerLLMClient } from './adapters/AnthropicPlannerLLMClient.js';

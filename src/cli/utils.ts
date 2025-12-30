@@ -1,13 +1,14 @@
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { pathToFileURL } from 'url';
-import type { FunctionRegistry, FunctionDefinition } from '../registry/index.js';
+import type { FunctionDefinition } from '../registry/types.js';
+import type { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 
 /**
  * 加载函数定义文件
  */
 export async function loadFunctions(
-  registry: FunctionRegistry,
+  provider: FunctionProvider,
   functionsPath: string
 ): Promise<void> {
   try {
@@ -16,6 +17,9 @@ export async function loadFunctions(
       ? functionsPath
       : path.resolve(process.cwd(), functionsPath);
 
+    // 检查文件是否存在
+    await fs.access(absolutePath);
+
     // 动态导入函数模块
     const module = await import(absolutePath);
 
@@ -23,14 +27,15 @@ export async function loadFunctions(
     for (const key of Object.keys(module)) {
       const fn = module[key];
       if (isFunctionDefinition(fn)) {
-        registry.register(fn);
+        provider.register?.(fn);
       }
     }
   } catch (error) {
     // 如果文件不存在，静默处理
     if (
       error instanceof Error &&
-      error.message.includes('Cannot find module')
+      (error.message.includes('Cannot find module') ||
+       error.message.includes('ENOENT'))
     ) {
       return;
     }
@@ -61,7 +66,7 @@ function isFunctionDefinition(obj: unknown): obj is FunctionDefinition {
  * 加载目录下所有 .js 文件中的函数定义
  */
 export async function loadFunctionsFromDirectory(
-  registry: FunctionRegistry,
+  provider: FunctionProvider,
   dirPath: string
 ): Promise<void> {
   try {
@@ -98,9 +103,10 @@ export async function loadFunctionsFromDirectory(
           const fn = module[key];
           if (isFunctionDefinition(fn)) {
             // 检查是否已存在，避免重复注册错误
-            if (!registry.has(fn.name)) {
-              registry.register(fn);
+            if (await provider.has(fn.name)) {
+              continue;
             }
+            provider.register?.(fn);
           }
         }
       } catch (error) {

@@ -4,6 +4,152 @@ import * as path from 'path';
 import { config as dotenvConfig } from 'dotenv';
 
 /**
+ * Parse boolean string to boolean value
+ * Accepts: "true", "1", "yes", "on" (case-insensitive) → true
+ *          "false", "0", "no", "off" (case-insensitive) → false
+ */
+function parseBoolean(value: string | undefined): boolean {
+  if (value === undefined) return false;
+  return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
+}
+
+/**
+ * Load API configuration from environment variables
+ * Priority: ANTHROPIC_API_KEY > ANTHROPIC_AUTH_TOKEN (Claude Code compatibility)
+ */
+function loadAPIConfig(): PartialAppConfig['api'] {
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+  if (!apiKey) return undefined;
+
+  return {
+    apiKey,
+    ...(process.env.ANTHROPIC_BASE_URL && { baseURL: process.env.ANTHROPIC_BASE_URL }),
+  };
+}
+
+/**
+ * Load LLM configuration from environment variables
+ */
+function loadLLMConfig(): PartialAppConfig['llm'] {
+  const model = process.env.LLM_MODEL;
+  const maxTokensStr = process.env.LLM_MAX_TOKENS;
+
+  if (!model && !maxTokensStr) return undefined;
+
+  const llm: PartialAppConfig['llm'] = {};
+  if (model) llm.model = model;
+  if (maxTokensStr) llm.maxTokens = parseInt(maxTokensStr, 10);
+  return llm;
+}
+
+/**
+ * Load generator configuration (for function code generator or planner) from environment variables
+ */
+function loadGeneratorConfig(
+  cmdKey: string,
+  argsKey: string
+): PartialAppConfig['functionCodeGenerator'] | PartialAppConfig['plannerGenerator'] {
+  const cmd = process.env[cmdKey];
+  const args = process.env[argsKey];
+
+  if (!cmd && !args) return undefined;
+  return { command: cmd || '', args: args || '' };
+}
+
+/**
+ * Load executor configuration from environment variables
+ */
+function loadExecutorConfig(): PartialAppConfig['executor'] {
+  const timeout = process.env.EXECUTOR_STEP_TIMEOUT;
+  if (!timeout) return undefined;
+  return { stepTimeout: parseInt(timeout, 10) };
+}
+
+/**
+ * Load storage configuration from environment variables
+ */
+function loadStorageConfig(): PartialAppConfig['storage'] {
+  const dataDir = process.env.STORAGE_DATA_DIR;
+  if (!dataDir) return undefined;
+  return { dataDir: path.resolve(dataDir) };
+}
+
+/**
+ * Load function completion configuration from environment variables
+ */
+function loadFunctionCompletionConfig(): PartialAppConfig['functionCompletion'] {
+  const outputDir = process.env.FUNCTION_COMPLETION_OUTPUT_DIR;
+  const enabled = process.env.AUTO_COMPLETE_FUNCTIONS;
+  const maxRetries = process.env.FUNCTION_COMPLETION_MAX_RETRIES;
+
+  if (!outputDir && enabled === undefined && !maxRetries) return undefined;
+
+  const functionCompletion: PartialAppConfig['functionCompletion'] = {};
+
+  if (outputDir) functionCompletion.outputDir = path.resolve(outputDir);
+  if (enabled !== undefined) functionCompletion.enabled = parseBoolean(enabled);
+  if (maxRetries) {
+    const parsed = parseInt(maxRetries, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      functionCompletion.maxRetries = parsed;
+    } else {
+      console.warn(
+        `Warning: Invalid FUNCTION_COMPLETION_MAX_RETRIES value "${maxRetries}". Using default value.`
+      );
+    }
+  }
+
+  return functionCompletion;
+}
+
+/**
+ * Load MCP configuration from environment variables
+ * Supports stdio and http transport configurations
+ */
+function loadMCPConfig(): PartialAppConfig['mcp'] {
+  const enabled = process.env.MCP_ENABLED;
+  const stdioCommand = process.env.MCP_STDIO_COMMAND;
+  const stdioArgs = process.env.MCP_STDIO_ARGS;
+  const httpUrl = process.env.MCP_HTTP_URL;
+  const httpToken = process.env.MCP_HTTP_ACCESS_TOKEN;
+
+  // If no MCP env vars are set, return undefined to use defaults
+  if (!enabled && !stdioCommand && !httpUrl) {
+    return undefined;
+  }
+
+  const mcp: PartialAppConfig['mcp'] = {
+    enabled: enabled ? parseBoolean(enabled) : true,
+    servers: [],
+  };
+
+  // Add stdio server if configured
+  if (stdioCommand) {
+    const stdioArgsList = stdioArgs
+      ? stdioArgs.split(',').map((arg) => arg.trim())
+      : [];
+    mcp.servers!.push({
+      name: 'stdio-server',
+      type: 'stdio',
+      command: stdioCommand,
+      args: stdioArgsList.length > 0 ? stdioArgsList : undefined,
+    });
+  }
+
+  // Add http server if configured
+  if (httpUrl) {
+    mcp.servers!.push({
+      name: 'http-server',
+      type: 'http',
+      url: httpUrl,
+      ...(httpToken && { accessToken: httpToken }),
+    });
+  }
+
+  return mcp;
+}
+
+/**
  * Load configuration from environment variables
  * Automatically loads .env file from project root
  */
@@ -15,89 +161,25 @@ function loadFromEnv(): PartialAppConfig {
 
   const config: PartialAppConfig = {};
 
-  // API Configuration
-  // Priority: ANTHROPIC_API_KEY > ANTHROPIC_AUTH_TOKEN (Claude Code compatibility)
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
-  if (apiKey) {
-    config.api = {
-      apiKey,
-    };
-  }
-  if (process.env.ANTHROPIC_BASE_URL) {
-    config.api = {
-      ...config.api,
-      baseURL: process.env.ANTHROPIC_BASE_URL,
-    };
-  }
+  // Load each configuration section
+  const apiConfig = loadAPIConfig();
+  const llmConfig = loadLLMConfig();
+  const executorConfig = loadExecutorConfig();
+  const storageConfig = loadStorageConfig();
+  const functionCompletionConfig = loadFunctionCompletionConfig();
+  const functionCodeGeneratorConfig = loadGeneratorConfig('FUNCTION_GENERATOR_CMD', 'FUNCTION_GENERATOR_ARGS');
+  const plannerGeneratorConfig = loadGeneratorConfig('PLANNER_GENERATOR_CMD', 'PLANNER_GENERATOR_ARGS');
+  const mcpConfig = loadMCPConfig();
 
-  // LLM Configuration
-  if (process.env.LLM_MODEL) {
-    config.llm = { model: process.env.LLM_MODEL };
-  }
-  if (process.env.LLM_MAX_TOKENS) {
-    config.llm = {
-      ...config.llm,
-      maxTokens: parseInt(process.env.LLM_MAX_TOKENS, 10),
-    };
-  }
-  // LLM Adapter Type (anthropic | claude-code)
-  if (process.env.LLM_ADAPTER) {
-    const adapter = process.env.LLM_ADAPTER.toLowerCase();
-    if (adapter === 'claude-code' || adapter === 'anthropic') {
-      config.llm = {
-        ...config.llm,
-        adapter: adapter as 'anthropic' | 'claude-code',
-      };
-    }
-  }
-
-  // Executor Configuration
-  if (process.env.EXECUTOR_STEP_TIMEOUT) {
-    config.executor = {
-      stepTimeout: parseInt(process.env.EXECUTOR_STEP_TIMEOUT, 10),
-    };
-  }
-
-  // Storage Configuration
-  if (process.env.STORAGE_DATA_DIR) {
-    config.storage = {
-      dataDir: path.resolve(process.env.STORAGE_DATA_DIR),
-    };
-  }
-
-  // Mock Configuration
-  if (
-    process.env.MOCK_OUTPUT_DIR ||
-    process.env.AUTO_GENERATE_MOCK !== undefined ||
-    process.env.MOCK_MAX_ITERATIONS !== undefined
-  ) {
-    config.mock = {};
-
-    if (process.env.MOCK_OUTPUT_DIR) {
-      config.mock.outputDir = path.resolve(process.env.MOCK_OUTPUT_DIR);
-    }
-
-    // AUTO_GENERATE_MOCK: 支持多种布尔格式
-    // Accepts: "true", "1", "yes", "on" (case-insensitive) → true
-    //          "false", "0", "no", "off" (case-insensitive) → false
-    if (process.env.AUTO_GENERATE_MOCK !== undefined) {
-      const value = process.env.AUTO_GENERATE_MOCK.toLowerCase();
-      config.mock.autoGenerate = ['true', '1', 'yes', 'on'].includes(value);
-    }
-
-    if (process.env.MOCK_MAX_ITERATIONS !== undefined) {
-      const parsed = parseInt(process.env.MOCK_MAX_ITERATIONS, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        config.mock.maxIterations = parsed;
-      } else {
-        // Log warning but don't throw - graceful degradation
-        console.warn(
-          `Warning: Invalid MOCK_MAX_ITERATIONS value "${process.env.MOCK_MAX_ITERATIONS}". ` +
-          `Using default value.`
-        );
-      }
-    }
-  }
+  // Assign to config object (only if defined)
+  if (apiConfig) config.api = apiConfig;
+  if (llmConfig) config.llm = llmConfig;
+  if (executorConfig) config.executor = executorConfig;
+  if (storageConfig) config.storage = storageConfig;
+  if (functionCompletionConfig) config.functionCompletion = functionCompletionConfig;
+  if (functionCodeGeneratorConfig) config.functionCodeGenerator = functionCodeGeneratorConfig;
+  if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
+  if (mcpConfig) config.mcp = mcpConfig;
 
   return config;
 }
@@ -115,7 +197,19 @@ function mergeConfig(
     llm: { ...base.llm, ...override.llm },
     executor: { ...base.executor, ...override.executor },
     storage: { ...base.storage, ...override.storage },
-    mock: { ...base.mock, ...override.mock },
+    functionCompletion: { ...base.functionCompletion, ...override.functionCompletion },
+    functionCodeGenerator: {
+      ...base.functionCodeGenerator,
+      ...override.functionCodeGenerator,
+    },
+    plannerGenerator: {
+      ...base.plannerGenerator,
+      ...override.plannerGenerator,
+    },
+    mcp: {
+      ...base.mcp,
+      ...override.mcp,
+    },
   };
 }
 
@@ -152,9 +246,9 @@ export function loadConfig(overrides?: PartialAppConfig): AppConfig {
 
   // CRITICAL: Handle explicit CLI boolean overrides
   // When CLI explicitly sets a boolean (true/false), it must override env/default
-  // This fixes the --no-auto-mock being overridden by AUTO_GENERATE_MOCK=true
-  if (overrides?.mock?.autoGenerate !== undefined) {
-    finalBaseConfig.mock.autoGenerate = overrides.mock.autoGenerate;
+  // This fixes the --no-auto-complete being overridden by AUTO_COMPLETE_FUNCTIONS=true
+  if (overrides?.functionCompletion?.enabled !== undefined) {
+    finalBaseConfig.functionCompletion.enabled = overrides.functionCompletion.enabled;
   }
 
   // Handle API config separately (required)

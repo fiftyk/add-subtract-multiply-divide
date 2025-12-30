@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import container from '../../container.js';
-import { FunctionRegistry } from '../../registry/index.js';
+import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { loadFunctions } from '../utils.js';
@@ -12,11 +12,14 @@ interface ListFunctionsOptions {
 export const listCommand = {
   async functions(options: ListFunctionsOptions): Promise<void> {
     try {
-      const registry = container.get(FunctionRegistry);
+      // 使用统一的 FunctionProvider（CompositeFunctionProvider）
+      // 它会自动组合本地和远程函数
+      const functionProvider = container.get<FunctionProvider>(FunctionProvider);
 
       // 加载内置函数
-      await loadFunctions(registry, options.functions);
-      const allFunctions = registry.getAll();
+      await loadFunctions(functionProvider, options.functions);
+
+      const allFunctions = await functionProvider.list();
 
       if (allFunctions.length === 0) {
         console.log(chalk.yellow('没有找到已注册的函数'));
@@ -24,22 +27,56 @@ export const listCommand = {
         process.exit(1);
       }
 
-      // 显示函数列表
-      console.log(chalk.blue(`📚 已注册的函数 (${allFunctions.length} 个):`));
-      console.log();
+      // 按来源分组显示函数
+      const localFunctions = allFunctions.filter(f => f.source === 'local');
+      const remoteFunctions = allFunctions.filter(f => f.source !== 'local');
 
-      for (const func of allFunctions) {
-        console.log(chalk.white(`- ${func.name}: ${func.description}`));
-        if (func.scenario) {
-          console.log(chalk.gray(`  使用场景: ${func.scenario}`));
-        }
-        console.log(chalk.gray('  参数:'));
-        for (const param of func.parameters) {
-          console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
-        }
-        console.log(chalk.gray(`  返回值: ${func.returns.type} - ${func.returns.description}`));
+      // 显示本地函数列表
+      if (localFunctions.length > 0) {
+        console.log(chalk.blue(`📚 本地函数 (${localFunctions.length} 个):`));
         console.log();
+
+        for (const func of localFunctions) {
+          console.log(chalk.white(`- ${func.name}: ${func.description}`));
+          if (func.scenario) {
+            console.log(chalk.gray(`  使用场景: ${func.scenario}`));
+          }
+          console.log(chalk.gray('  参数:'));
+          for (const param of func.parameters) {
+            console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
+          }
+          console.log(chalk.gray(`  返回值: ${func.returns.type} - ${func.returns.description}`));
+          console.log();
+        }
       }
+
+      // 显示远程函数列表
+      if (remoteFunctions.length > 0) {
+        console.log(chalk.blue(`🔗 远程函数 (${remoteFunctions.length} 个):`));
+        console.log();
+
+        for (const func of remoteFunctions) {
+          console.log(chalk.cyan(`- ${func.name}`));
+          console.log(chalk.gray(`  来源: ${func.source}`));
+          console.log(chalk.gray(`  描述: ${func.description}`));
+          console.log(chalk.gray('  参数:'));
+          if (func.parameters.length === 0) {
+            console.log(chalk.gray('    (无参数)'));
+          } else {
+            for (const param of func.parameters) {
+              console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
+            }
+          }
+          console.log(chalk.gray(`  返回类型: ${func.returns.type}`));
+          if (func.returns.description) {
+            console.log(chalk.gray(`  返回描述: ${func.returns.description}`));
+          }
+          console.log();
+        }
+      }
+
+      // 汇总统计
+      console.log(chalk.blue(`📊 总计: ${localFunctions.length} 个本地函数, ${remoteFunctions.length} 个远程函数`));
 
       process.exit(0);
     } catch (error) {

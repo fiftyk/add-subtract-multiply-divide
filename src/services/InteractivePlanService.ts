@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Planner } from '../planner/interfaces/IPlanner.js';
 import type { Storage } from '../storage/index.js';
-import type { FunctionRegistry } from '../registry/index.js';
+import type { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 import { SessionStorage } from './storage/interfaces/SessionStorage.js';
 import type { PlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';
 import type {
@@ -32,7 +32,7 @@ export class InteractivePlanService {
     private storage: Storage,
     private sessionStorage: SessionStorage,
     private refinementLLMClient: PlanRefinementLLMClient,
-    private registry: FunctionRegistry
+    private functionProvider: FunctionProvider
   ) {}
 
   /**
@@ -179,7 +179,7 @@ export class InteractivePlanService {
       currentPlan,
       refinementInstruction,
       conversationHistory: session.messages,
-      availableFunctions: this.registry.getAll(),
+      availableFunctions: await this.functionProvider.list(),
     });
 
     // 生成新版本号

@@ -8,14 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- 🔄 **LLM Adapter 环境变量切换**: 支持通过 `LLM_ADAPTER` 环境变量切换 Mock 代码生成的 LLM provider
-  - 新增 `LLM_ADAPTER` 环境变量（`anthropic` | `claude-code`）
-  - `anthropic`: 使用 Anthropic API（默认，需要 API Key）
-  - `claude-code`: 使用本地 Claude Code CLI（通过 `claude-switcher MINMAX -- -p`）
-  - 开发环境可免费使用 `claude-code`，生产环境建议使用 `anthropic`
+- 🔄 **计划生成器 CLI 切换**: 支持通过环境变量配置任意 CLI 工具进行计划生成
+  - 新增 `PLANNER_GENERATOR_CMD` 环境变量：设置命令（如 `claude-switcher`, `gemini`）
+  - 新增 `PLANNER_GENERATOR_ARGS` 环境变量：设置参数（如 `MINMAX -- -p`, `-p`）
+  - 默认使用 Anthropic API（需要 API Key）
+  - 设置环境变量后可使用 CLI 工具
+  - 新增 `CLIPlannerLLMClient` 实现类
+  - 新增 8 个 `AnthropicPlannerLLMClient` 单元测试
+- 🔄 **Mock 代码生成器 CLI 切换**: 支持通过环境变量配置任意 CLI 工具进行 Mock 代码生成
+  - 新增 `MOCK_GENERATOR_CMD` 环境变量：设置命令（如 `claude-switcher`, `gemini`, `ollama`）
+  - 新增 `MOCK_GENERATOR_ARGS` 环境变量：设置参数（如 `MINMAX -- -p`, `-p`）
+  - 默认使用 `claude-switcher MINMAX -- -p`
+  - 支持任意支持 stdin/stdout 的 CLI 工具
 - 🔌 **LLMAdapter 接口抽象**: 重构代码生成器架构
   - 新增 `LLMAdapter` 接口，抽象 LLM 调用层
-  - 新增 `ClaudeCodeLLMAdapter`: Claude Code CLI 实现（`claude -p`）
+  - 新增 `CLILLMAdapter`: CLI 命令实现（支持任意 CLI 工具）
   - 重命名 `AnthropicLLMClient` → `AnthropicLLMAdapter`
   - 支持切换不同 LLM provider（API/CLI）
 - 🏭 **MockServiceFactory 工厂类改造**: 符合 InversifyJS 容器规范

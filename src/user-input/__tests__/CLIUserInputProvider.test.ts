@@ -28,12 +28,12 @@ describe('CLIUserInputProvider', () => {
       expect(provider.supportsFieldType('text')).toBe(true);
       expect(provider.supportsFieldType('number')).toBe(true);
       expect(provider.supportsFieldType('boolean')).toBe(true);
+      expect(provider.supportsFieldType('date')).toBe(true);
       expect(provider.supportsFieldType('single_select')).toBe(true);
       expect(provider.supportsFieldType('multi_select')).toBe(true);
     });
 
     it('should not support unsupported field types', () => {
-      expect(provider.supportsFieldType('date')).toBe(false);
       expect(provider.supportsFieldType('file')).toBe(false);
       expect(provider.supportsFieldType('unknown')).toBe(false);
     });

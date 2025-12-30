@@ -7,16 +7,16 @@
 配置系统遵循以下优先级顺序（从高到低）：
 
 ```
-1. 命令行参数 (--auto-mock, --mock-max-iterations)
+1. 命令行参数 (--auto-complete, --max-retries)
    ↓
-2. 环境变量 (AUTO_GENERATE_MOCK, MOCK_MAX_ITERATIONS)
+2. 环境变量 (AUTO_COMPLETE_FUNCTIONS, FUNCTION_COMPLETION_MAX_RETRIES)
    ↓
 3. .env 文件 (通过 dotenv 加载)
    ↓
 4. 默认值 (src/config/defaults.ts)
 ```
 
-**示例**：如果你在 CLI 中使用 `--auto-mock`，即使 `.env` 文件中设置了 `AUTO_GENERATE_MOCK=false`，最终也会启用 mock 生成。
+**示例**：如果你在 CLI 中使用 `--auto-complete`，即使 `.env` 文件中设置了 `AUTO_COMPLETE_FUNCTIONS=false`，最终也会启用 函数补全。
 
 ---
 
@@ -166,7 +166,7 @@ LLM 响应的最大 token 数。
 
 ### Mock 生成配置 (可选)
 
-#### `AUTO_GENERATE_MOCK`
+#### `AUTO_COMPLETE_FUNCTIONS`
 
 启用/禁用 Mock 函数自动生成。
 
@@ -181,13 +181,13 @@ LLM 响应的最大 token 数。
 - **示例**:
   ```bash
   # 启用
-  AUTO_GENERATE_MOCK=true
+  AUTO_COMPLETE_FUNCTIONS=true
 
   # 禁用（默认）
-  AUTO_GENERATE_MOCK=false
+  AUTO_COMPLETE_FUNCTIONS=false
   ```
 
-#### `MOCK_MAX_ITERATIONS`
+#### `FUNCTION_COMPLETION_MAX_RETRIES`
 
 Mock 生成的最大迭代次数，防止无限循环。
 
@@ -197,13 +197,13 @@ Mock 生成的最大迭代次数，防止无限循环。
 - **示例**:
   ```bash
   # 快速验证（1 次）
-  MOCK_MAX_ITERATIONS=1
+  FUNCTION_COMPLETION_MAX_RETRIES=1
 
   # 标准配置（3 次）
-  MOCK_MAX_ITERATIONS=3
+  FUNCTION_COMPLETION_MAX_RETRIES=3
 
   # 复杂场景（5 次）
-  MOCK_MAX_ITERATIONS=5
+  FUNCTION_COMPLETION_MAX_RETRIES=5
   ```
 
 #### `MOCK_OUTPUT_DIR`
@@ -246,12 +246,12 @@ Mock 函数的输出目录。
 
 ### Mock 相关参数
 
-#### `--auto-mock`
+#### `--auto-complete`
 
 启用 Mock 自动生成（覆盖环境变量）。
 
 ```bash
-npx fn-orchestrator plan "查询专利CN123" --auto-mock
+npx fn-orchestrator plan "查询专利CN123" --auto-complete
 ```
 
 #### `--no-auto-mock`
@@ -262,15 +262,15 @@ npx fn-orchestrator plan "查询专利CN123" --auto-mock
 npx fn-orchestrator plan "查询专利CN123" --no-auto-mock
 ```
 
-#### `--mock-max-iterations <number>`
+#### `--max-retries <number>`
 
 设置 Mock 生成的最大迭代次数。
 
 ```bash
-npx fn-orchestrator plan "复杂需求" --auto-mock --mock-max-iterations 5
+npx fn-orchestrator plan "复杂需求" --auto-complete --max-retries 5
 ```
 
-**注意**: `--mock-max-iterations` 需要配合 `--auto-mock` 使用，否则会收到警告。
+**注意**: `--max-retries` 需要配合 `--auto-complete` 使用，否则会收到警告。
 
 ---
 
@@ -282,8 +282,8 @@ npx fn-orchestrator plan "复杂需求" --auto-mock --mock-max-iterations 5
 # .env
 ANTHROPIC_API_KEY=sk-ant-xxxxx
 LOG_LEVEL=debug
-AUTO_GENERATE_MOCK=true
-MOCK_MAX_ITERATIONS=3
+AUTO_COMPLETE_FUNCTIONS=true
+FUNCTION_COMPLETION_MAX_RETRIES=3
 ```
 
 **特点**:
@@ -297,7 +297,7 @@ MOCK_MAX_ITERATIONS=3
 # .env
 ANTHROPIC_API_KEY=sk-ant-xxxxx
 LOG_LEVEL=warn
-AUTO_GENERATE_MOCK=false
+AUTO_COMPLETE_FUNCTIONS=false
 EXECUTOR_STEP_TIMEOUT=60000
 ```
 
@@ -312,8 +312,8 @@ EXECUTOR_STEP_TIMEOUT=60000
 # .env
 ANTHROPIC_API_KEY=sk-ant-xxxxx
 LOG_LEVEL=error
-AUTO_GENERATE_MOCK=true
-MOCK_MAX_ITERATIONS=1
+AUTO_COMPLETE_FUNCTIONS=true
+FUNCTION_COMPLETION_MAX_RETRIES=1
 EXECUTOR_STEP_TIMEOUT=10000
 ```
 
@@ -345,7 +345,7 @@ LLM_MAX_TOKENS=2048
 使用 debug 日志查看最终配置：
 
 ```bash
-LOG_LEVEL=debug npx fn-orchestrator plan "测试" --auto-mock
+LOG_LEVEL=debug npx fn-orchestrator plan "测试" --auto-complete
 ```
 
 输出会包含：
@@ -360,10 +360,10 @@ LOG_LEVEL=debug npx fn-orchestrator plan "测试" --auto-mock
 **检查**:
 ```bash
 # 确认配置
-echo $AUTO_GENERATE_MOCK
+echo $AUTO_COMPLETE_FUNCTIONS
 
 # 或者使用 CLI 参数强制启用
-npx fn-orchestrator plan "..." --auto-mock
+npx fn-orchestrator plan "..." --auto-complete
 ```
 
 #### 2. API Key 错误
@@ -384,7 +384,7 @@ echo $ANTHROPIC_API_KEY
 **调试方法**:
 ```bash
 # 使用 CLI 参数覆盖所有配置
-npx fn-orchestrator plan "..." --auto-mock --mock-max-iterations 1
+npx fn-orchestrator plan "..." --auto-complete --max-retries 1
 ```
 
 ---
@@ -401,21 +401,21 @@ npx fn-orchestrator plan "..." --auto-mock --mock-max-iterations 1
 
 ```bash
 # .env
-AUTO_GENERATE_MOCK=true
+AUTO_COMPLETE_FUNCTIONS=true
 ```
 
 #### 方式 2: CLI 参数
 
 ```bash
-# 每次命令添加 --auto-mock
-npx fn-orchestrator plan "需求" --auto-mock
+# 每次命令添加 --auto-complete
+npx fn-orchestrator plan "需求" --auto-complete
 ```
 
 #### 方式 3: Shell 别名
 
 ```bash
 # 添加到 ~/.bashrc 或 ~/.zshrc
-alias fno-plan='npx fn-orchestrator plan --auto-mock'
+alias fno-plan='npx fn-orchestrator plan --auto-complete'
 
 # 使用
 fno-plan "你的需求"

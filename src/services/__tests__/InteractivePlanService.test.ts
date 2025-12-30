@@ -4,10 +4,10 @@ import { SessionStorageImpl } from '../storage/SessionStorage.js';
 import type { SessionStorage } from '../storage/interfaces/SessionStorage.js';
 import type { Planner } from '../../planner/planner.js';
 import type { Storage } from '../../storage/index.js';
-import type { FunctionRegistry } from '../../registry/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import type { IPlanRefinementLLMClient } from '../interfaces/IPlanRefinementLLMClient.js';
 import type { ExecutionPlan } from '../../planner/types.js';
-import type { FunctionDefinition } from '../../registry/types.js';
+import type { FunctionMetadata } from '../../function-provider/types.js';
 import * as fs from 'node:fs/promises';
 
 describe('InteractivePlanService', () => {
@@ -17,7 +17,7 @@ describe('InteractivePlanService', () => {
   let mockStorage: Storage;
   let sessionStorage: SessionStorage;
   let mockRefinementLLMClient: IPlanRefinementLLMClient;
-  let mockRegistry: FunctionRegistry;
+  let mockFunctionProvider: FunctionProvider;
 
   beforeEach(async () => {
     // 创建测试目录
@@ -55,10 +55,13 @@ describe('InteractivePlanService', () => {
       refinePlan: vi.fn(),
     } as any;
 
-    // Mock Registry
-    mockRegistry = {
-      getAll: vi.fn().mockReturnValue([
+    // Mock FunctionProvider
+    mockFunctionProvider = {
+      getType: () => 'local' as const,
+      getSource: () => 'local',
+      list: vi.fn().mockResolvedValue([
         {
+          id: 'add',
           name: 'add',
           description: '加法',
           parameters: [
@@ -66,8 +69,11 @@ describe('InteractivePlanService', () => {
             { name: 'b', type: 'number', description: '第二个数' },
           ],
           returns: { type: 'number', description: '和' },
+          type: 'local' as const,
+          source: 'local',
         },
         {
+          id: 'multiply',
           name: 'multiply',
           description: '乘法',
           parameters: [
@@ -75,8 +81,13 @@ describe('InteractivePlanService', () => {
             { name: 'b', type: 'number', description: '第二个数' },
           ],
           returns: { type: 'number', description: '积' },
+          type: 'local' as const,
+          source: 'local',
         },
-      ] as FunctionDefinition[]),
+      ] as FunctionMetadata[]),
+      has: vi.fn(),
+      get: vi.fn(),
+      execute: vi.fn(),
     } as any;
 
     service = new InteractivePlanService(
@@ -84,7 +95,7 @@ describe('InteractivePlanService', () => {
       mockStorage,
       sessionStorage,
       mockRefinementLLMClient,
-      mockRegistry
+      mockFunctionProvider
     );
   });
 

@@ -1,4 +1,7 @@
-export { FunctionRegistry, defineFunction } from './registry.js';
+// Export defineFunction helper
+export { defineFunction } from './defineFunction.js';
+
+// Export types
 export type {
   FunctionDefinition,
   FunctionDefinitionInput,

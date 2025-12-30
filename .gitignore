@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .data/
+.claude/
 .data-test/
 *.log
 .env
@@ -9,3 +10,4 @@ dist/
 # Auto-generated mock functions
 functions/generated/*.js
 !functions/generated/.gitkeep
+coverage/

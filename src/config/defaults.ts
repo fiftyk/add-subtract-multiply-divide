@@ -8,7 +8,6 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
   llm: {
     model: 'claude-sonnet-4-20250514',
     maxTokens: 1024,
-    adapter: 'anthropic', // 默认使用 Anthropic API
   },
   executor: {
     stepTimeout: 30000, // 30 seconds
@@ -16,9 +15,21 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
   storage: {
     dataDir: path.join(process.cwd(), '.data'),
   },
-  mock: {
+  functionCompletion: {
     outputDir: path.join(process.cwd(), 'functions/generated'),
-    autoGenerate: false, // Breaking change: 默认禁用
-    maxIterations: 3,    // 显式默认值，之前硬编码
+    enabled: false,
+    maxRetries: 3,
+  },
+  functionCodeGenerator: {
+    command: 'claude-switcher',
+    args: 'MINMAX -- -p',
+  },
+  plannerGenerator: {
+    command: '',
+    args: '',
+  },
+  mcp: {
+    enabled: false,
+    servers: [],
   },
 };

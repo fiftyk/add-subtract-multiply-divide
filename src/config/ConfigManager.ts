@@ -6,11 +6,11 @@ import { loadConfig } from './loader.js';
  * These will be mapped to config overrides with highest priority
  */
 export interface CLIOptions {
-  /** Enable automatic mock generation (from --auto-mock / --no-auto-mock) */
-  autoMock?: boolean;
+  /** Enable automatic function completion (from --auto-complete / --no-auto-complete) */
+  autoComplete?: boolean;
 
-  /** Maximum iterations for mock generation (from --mock-max-iterations) */
-  mockMaxIterations?: number;
+  /** Maximum retries for function completion (from --max-retries) */
+  maxRetries?: number;
 
   // Future extensibility for other CLI options
   [key: string]: unknown;
@@ -53,15 +53,15 @@ export class ConfigManager {
     // Build override config from CLI options
     const overrides: PartialAppConfig = {};
 
-    if (cliOptions?.autoMock !== undefined || cliOptions?.mockMaxIterations !== undefined) {
-      overrides.mock = {};
+    if (cliOptions?.autoComplete !== undefined || cliOptions?.maxRetries !== undefined) {
+      overrides.functionCompletion = {};
 
-      if (cliOptions.autoMock !== undefined) {
-        overrides.mock.autoGenerate = cliOptions.autoMock;
+      if (cliOptions.autoComplete !== undefined) {
+        overrides.functionCompletion.enabled = cliOptions.autoComplete;
       }
 
-      if (cliOptions.mockMaxIterations !== undefined) {
-        overrides.mock.maxIterations = cliOptions.mockMaxIterations;
+      if (cliOptions.maxRetries !== undefined) {
+        overrides.functionCompletion.maxRetries = cliOptions.maxRetries;
       }
     }
 
@@ -109,15 +109,15 @@ export class ConfigManager {
    * All edge case detection and user feedback happens here
    */
   private validateConfig(cliOptions?: CLIOptions): void {
-    // Warning: --mock-max-iterations without --auto-mock
+    // Warning: --max-retries without --auto-complete
     if (
-      cliOptions?.mockMaxIterations !== undefined &&
-      cliOptions?.autoMock !== true &&
-      !this.config?.mock.autoGenerate
+      cliOptions?.maxRetries !== undefined &&
+      cliOptions?.autoComplete !== true &&
+      !this.config?.functionCompletion.enabled
     ) {
       console.warn(
-        'Warning: --mock-max-iterations specified but mock generation is disabled. ' +
-        'Use --auto-mock to enable mock generation.'
+        'Warning: --max-retries specified but function completion is disabled. ' +
+        'Use --auto-complete to enable function completion.'
       );
     }
 

@@ -9,9 +9,24 @@ export interface APIConfig {
 }
 
 /**
- * LLM Adapter Type
+ * Function Code Generator Configuration
  */
-export type LLMAdapterType = 'anthropic' | 'claude-code';
+export interface FunctionCodeGeneratorConfig {
+  /** Command to invoke for code generation (e.g., 'claude-switcher', 'gemini') */
+  command: string;
+  /** Command arguments (e.g., 'MINMAX -- -p', '-p') */
+  args: string;
+}
+
+/**
+ * Planner Code Generator Configuration
+ */
+export interface PlannerGeneratorConfig {
+  /** Command to invoke for plan generation (e.g., 'claude-switcher', 'gemini') */
+  command: string;
+  /** Command arguments (e.g., 'MINMAX -- -p', '-p') */
+  args: string;
+}
 
 /**
  * LLM Configuration
@@ -21,8 +36,6 @@ export interface LLMConfig {
   model: string;
   /** Maximum tokens for completion */
   maxTokens: number;
-  /** LLM adapter type for mock code generation */
-  adapter: LLMAdapterType;
 }
 
 /**
@@ -42,24 +55,24 @@ export interface StorageConfig {
 }
 
 /**
- * Mock Configuration
+ * Function Auto-Completion Configuration
  */
-export interface MockConfig {
-  /** Output directory for generated mock functions */
+export interface FunctionCompletionConfig {
+  /** Output directory for generated functions */
   outputDir: string;
 
   /**
-   * Enable/disable automatic mock generation
-   * @default false - Breaking change from previous implicit "always on" behavior
+   * Enable/disable automatic function completion
+   * @default false
    */
-  autoGenerate: boolean;
+  enabled: boolean;
 
   /**
-   * Maximum iterations for mock generation cycle
+   * Maximum retries for function completion cycle
    * Prevents infinite loops when LLM keeps generating incomplete plans
    * @default 3
    */
-  maxIterations: number;
+  maxRetries: number;
 }
 
 /**
@@ -70,7 +83,10 @@ export interface AppConfig {
   llm: LLMConfig;
   executor: ExecutorConfig;
   storage: StorageConfig;
-  mock: MockConfig;
+  functionCompletion: FunctionCompletionConfig;
+  functionCodeGenerator: FunctionCodeGeneratorConfig;
+  plannerGenerator: PlannerGeneratorConfig;
+  mcp: MCPConfig;
 }
 
 /**
@@ -81,5 +97,55 @@ export type PartialAppConfig = {
   llm?: Partial<LLMConfig>;
   executor?: Partial<ExecutorConfig>;
   storage?: Partial<StorageConfig>;
-  mock?: Partial<MockConfig>;
+  functionCompletion?: Partial<FunctionCompletionConfig>;
+  functionCodeGenerator?: Partial<FunctionCodeGeneratorConfig>;
+  plannerGenerator?: Partial<PlannerGeneratorConfig>;
+  mcp?: Partial<MCPConfig>;
 };
+
+/**
+ * MCP Server Configuration - Stdio Transport
+ */
+export interface MCPStdioServerConfig {
+  /** Server name */
+  name: string;
+  /** Transport type */
+  type: 'stdio';
+  /** Command to execute */
+  command: string;
+  /** Command arguments */
+  args?: string[];
+  /** Environment variables */
+  env?: Record<string, string>;
+  /** Working directory */
+  cwd?: string;
+}
+
+/**
+ * MCP Server Configuration - HTTP Transport
+ */
+export interface MCPHttpServerConfig {
+  /** Server name */
+  name: string;
+  /** Transport type */
+  type: 'http';
+  /** MCP Server URL */
+  url: string;
+  /** Access token for authentication */
+  accessToken?: string;
+}
+
+/**
+ * Union type for MCP server configurations
+ */
+export type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig;
+
+/**
+ * MCP Configuration
+ */
+export interface MCPConfig {
+  /** Enable/disable MCP support */
+  enabled: boolean;
+  /** List of MCP servers */
+  servers: MCPServerConfig[];
+}

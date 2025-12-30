@@ -6,7 +6,7 @@ import type {
 import type { PlanRefinementLLMClient } from '../interfaces/IPlanRefinementLLMClient.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import { isFunctionCallStep } from '../../planner/type-guards.js';
-import type { FunctionDefinition } from '../../registry/types.js';
+import type { FunctionMetadata } from '../../function-provider/types.js';
 
 /**
  * 使用 Claude API 实现 Plan 改进
@@ -153,7 +153,7 @@ ${historyDesc ? `## 对话历史\n\n${historyDesc}\n` : ''}
   /**
    * 格式化函数列表
    */
-  private formatFunctions(functions: FunctionDefinition[]): string {
+  private formatFunctions(functions: FunctionMetadata[]): string {
     return functions
       .map((fn) => {
         const params = fn.parameters

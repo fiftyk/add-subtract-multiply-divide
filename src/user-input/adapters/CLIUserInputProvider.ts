@@ -30,7 +30,7 @@ export class CLIUserInputProvider implements UserInputProvider {
    * 所有字段类型都通过 JSON 输入支持
    */
   supportsFieldType(type: string): boolean {
-    return ['text', 'number', 'boolean', 'single_select', 'multi_select'].includes(type);
+    return ['text', 'number', 'boolean', 'date', 'single_select', 'multi_select'].includes(type);
   }
 
   /**
@@ -154,6 +154,9 @@ export class CLIUserInputProvider implements UserInputProvider {
 
       case 'boolean':
         return true;
+
+      case 'date':
+        return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
       case 'single_select': {
         const config = field.config as SelectFieldConfig | undefined;

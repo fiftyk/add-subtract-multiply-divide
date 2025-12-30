@@ -135,7 +135,7 @@ class InteractivePlanService {
     options: {
       sessionId?: string;        // 可选：使用现有 session
       enablePreQuestions?: boolean;  // 是否启用 plan 前询问
-      autoMock?: boolean;
+      autoComplete?: boolean;
     }
   ): Promise<{
     plan: VersionedPlan;
