@@ -29,8 +29,8 @@ import { FunctionProvider } from './function-provider/interfaces/FunctionProvide
 import { LocalFunctionProvider } from './function-provider/LocalFunctionProvider.js';
 import { CompositeFunctionProvider } from './function-provider/CompositeFunctionProvider.js';
 import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol } from './function-provider/symbols.js';
-import { MCPFunctionProvider } from './function-provider/index.js';
-import { MCPClient } from './mcp/MCPClient.js';
+import { MCPFunctionProvider } from './function-provider/implementations/MCPFunctionProvider.js';
+import { MCPClient } from './function-provider/transports/MCPClient.js';
 
 const container = new Container({
     defaultScope: 'Singleton',

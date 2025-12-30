@@ -11,7 +11,7 @@ import type { ParameterDef } from '../../registry/types.js';
 import {
   MCPFunctionInfo,
   MCPClientInterface,
-} from './interfaces.js';
+} from './MCPClientInterface.js';
 
 /**
  * 将 MCP 函数信息转换为 FunctionMetadata

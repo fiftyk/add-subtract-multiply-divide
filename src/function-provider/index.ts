@@ -15,9 +15,12 @@ export { FunctionProvider } from './interfaces/FunctionProvider.js';
 export { LocalFunctionProviderSymbol as FunctionProviderSymbol } from './symbols.js';
 
 // 远程函数提供者接口
-export { MCPClientInterface } from './remote/interfaces.js';
+export { MCPClientInterface } from './implementations/MCPClientInterface.js';
 
 // 实现类
 export { LocalFunctionProvider } from './LocalFunctionProvider.js';
 export { CompositeFunctionProvider } from './CompositeFunctionProvider.js';
-export { MCPFunctionProvider } from './remote/MCPFunctionProvider.js';
+export { MCPFunctionProvider } from './implementations/MCPFunctionProvider.js';
+
+// Transport exports
+export { MCPClient } from './transports/index.js';

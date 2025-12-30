@@ -10,7 +10,7 @@ import type { FunctionDefinition } from '../registry/types.js';
 import { FunctionProvider } from './interfaces/FunctionProvider.js';
 import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol } from './symbols.js';
 import { LocalFunctionProvider } from './LocalFunctionProvider.js';
-import { MCPFunctionProvider } from './remote/MCPFunctionProvider.js';
+import { MCPFunctionProvider } from './implementations/MCPFunctionProvider.js';
 
 /**
  * 冲突解决策略

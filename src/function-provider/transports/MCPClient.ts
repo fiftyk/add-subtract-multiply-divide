@@ -14,9 +14,9 @@ import {
   CallToolResultSchema,
   type ListToolsResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { ILogger } from '../logger/index.js';
-import { LoggerFactory } from '../logger/index.js';
-import type { MCPServerConfig, MCPStdioServerConfig, MCPHttpServerConfig } from '../config/types.js';
+import type { ILogger } from '../../logger/index.js';
+import { LoggerFactory } from '../../logger/index.js';
+import type { MCPServerConfig, MCPStdioServerConfig, MCPHttpServerConfig } from '../../config/types.js';
 
 /**
  * 远程函数信息

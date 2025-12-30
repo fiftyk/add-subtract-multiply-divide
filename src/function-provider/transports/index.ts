@@ -1,5 +1,5 @@
 /**
- * MCP 模块导出
+ * MCP Transport 模块导出
  * 使用官方 @modelcontextprotocol/sdk
  */
 

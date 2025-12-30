@@ -109,7 +109,7 @@ describe('Planner', () => {
           {
             stepId: 2,
             functionName: 'multiply',
-            description: '将上一��结果乘以 2',
+            description: '将上一步结果乘以 2',
             parameters: {
               a: { type: 'reference', value: 'step.1.result' },
               b: { type: 'literal', value: 2 },
@@ -293,6 +293,120 @@ describe('Planner', () => {
       expect(display).toContain('add');
       expect(display).toContain('3');
       expect(display).toContain('5');
+    });
+
+    it('should format plan with missing functions', () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-missing',
+        userRequest: '计算平方根',
+        steps: [],
+        missingFunctions: [
+          {
+            name: 'sqrt',
+            description: '计算一个数的平方根',
+            suggestedParameters: [
+              { name: 'x', type: 'number', description: '要计算平方根的数' },
+            ],
+            suggestedReturns: { type: 'number', description: '平方根结果' },
+          },
+          {
+            name: 'power',
+            description: '计算幂运算',
+            suggestedParameters: [
+              { name: 'base', type: 'number', description: '底数' },
+              { name: 'exponent', type: 'number', description: '指数' },
+            ],
+            suggestedReturns: { type: 'number', description: '幂运算结果' },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'incomplete',
+      };
+
+      const display = planner.formatPlanForDisplay(plan);
+
+      expect(display).toContain('缺少以下函数');
+      expect(display).toContain('sqrt');
+      expect(display).toContain('power');
+      expect(display).toContain('x: number');
+      expect(display).toContain('base: number');
+      expect(display).toContain('exponent: number');
+    });
+
+    it('should format plan with user input steps', () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-user-input',
+        userRequest: '获取用户输入并计算',
+        steps: [
+          {
+            stepId: 1,
+            type: 'user_input',
+            description: '请输入两个数字',
+            schema: {
+              version: '1.0',
+              fields: [
+                { id: 'a', type: 'number', label: '第一个数字', required: true },
+                { id: 'b', type: 'number', label: '第二个数字', required: true },
+              ],
+            },
+            outputName: 'userInput',
+          },
+          {
+            stepId: 2,
+            functionName: 'add',
+            description: '将用户输入的数字相加',
+            parameters: {
+              a: { type: 'reference', value: 'step.1.result.a' },
+              b: { type: 'reference', value: 'step.1.result.b' },
+            },
+            dependsOn: [1],
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const display = planner.formatPlanForDisplay(plan);
+
+      expect(display).toContain('[User Input]');
+      expect(display).toContain('step.1.result.a');
+      expect(display).toContain('step.1.result.b');
+    });
+
+    it('should format plan with empty steps', () => {
+      const plan: ExecutionPlan = {
+        id: 'plan-empty',
+        userRequest: '空计划测试',
+        steps: [],
+        createdAt: new Date().toISOString(),
+        status: 'executable',
+      };
+
+      const display = planner.formatPlanForDisplay(plan);
+
+      expect(display).toContain('📋 执行计划 #plan-empty');
+      expect(display).toContain('用户需求: 空计划测试');
+      expect(display).toContain('状态: ✅ 可执行');
+    });
+  });
+
+  describe('plan error handling', () => {
+    it('should handle LLM errors gracefully', async () => {
+      vi.spyOn(planner, 'callLLM').mockRejectedValue(new Error('LLM API error'));
+
+      const result = await planner.plan('计算 3 + 5');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('LLM API error');
+    });
+
+    it('should handle unknown errors', async () => {
+      vi.spyOn(planner, 'callLLM').mockRejectedValue('Unknown error');
+
+      const result = await planner.plan('计算 3 + 5');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('规划失败');
     });
   });
 });

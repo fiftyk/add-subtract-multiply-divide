@@ -104,7 +104,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('getType', () => {
     it('should return "remote" as provider type', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
       expect(provider.getType()).toBe('remote');
@@ -113,7 +113,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('getSource', () => {
     it('should return mcp://server-name as source', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient({ getServerName: () => 'my-server' });
       const provider = new MCPFunctionProvider(mockClient as any);
       expect(provider.getSource()).toBe('mcp://my-server');
@@ -122,7 +122,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('list', () => {
     it('should return empty array when no tools available', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient({ list: vi.fn().mockResolvedValue([]) });
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -131,7 +131,7 @@ describe('MCPFunctionProvider', () => {
     });
 
     it('should return FunctionMetadata for all MCP tools', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -146,7 +146,7 @@ describe('MCPFunctionProvider', () => {
     });
 
     it('should convert inputSchema to parameters', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -163,7 +163,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('has', () => {
     it('should return false for nonexistent tool', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient({ has: vi.fn().mockResolvedValue(false) });
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -172,7 +172,7 @@ describe('MCPFunctionProvider', () => {
     });
 
     it('should return true for existing tool', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -183,7 +183,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('get', () => {
     it('should return undefined for nonexistent tool', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient({ get: vi.fn().mockResolvedValue(undefined) });
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -192,7 +192,7 @@ describe('MCPFunctionProvider', () => {
     });
 
     it('should return FunctionMetadata for existing tool', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -206,7 +206,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('execute', () => {
     it('should return success=false when tool execution fails', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient({
         execute: vi.fn().mockResolvedValue({
           success: false,
@@ -221,7 +221,7 @@ describe('MCPFunctionProvider', () => {
     });
 
     it('should return success=true when tool execution succeeds', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -231,7 +231,7 @@ describe('MCPFunctionProvider', () => {
     });
 
     it('should include metadata in result', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -243,7 +243,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('initialize', () => {
     it('should call connect on client', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
@@ -255,7 +255,7 @@ describe('MCPFunctionProvider', () => {
 
   describe('dispose', () => {
     it('should call disconnect on client', async () => {
-      const { MCPFunctionProvider } = await import('../remote/MCPFunctionProvider.js');
+      const { MCPFunctionProvider } = await import('../implementations/MCPFunctionProvider.js');
       const mockClient = createMockClient();
       const provider = new MCPFunctionProvider(mockClient as any);
 
