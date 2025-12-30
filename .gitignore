@@ -10,3 +10,4 @@ dist/
 # Auto-generated mock functions
 functions/generated/*.js
 !functions/generated/.gitkeep
+coverage/
