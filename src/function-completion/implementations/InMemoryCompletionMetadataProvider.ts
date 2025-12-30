@@ -1,17 +1,17 @@
-import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
-import type { MockMetadata } from '../types.js';
+import type { CompletionMetadataProvider } from '../interfaces/CompletionMetadataProvider.js';
+import type { CompletionMetadata } from '../types.js';
 
 /**
  * In-memory storage for mock function metadata
  * Follows SRP: Only responsible for managing metadata
  */
-export class InMemoryMockMetadataProvider implements IMockMetadataProvider {
-  private metadata: Map<string, MockMetadata> = new Map();
+export class InMemoryCompletionMetadataProviderImpl implements CompletionMetadataProvider {
+  private metadata: Map<string, CompletionMetadata> = new Map();
 
   /**
    * Mark a function as mock with metadata
    */
-  markAsMock(functionName: string, metadata: MockMetadata): void {
+  markAsMock(functionName: string, metadata: CompletionMetadata): void {
     this.metadata.set(functionName, metadata);
   }
 
@@ -25,7 +25,7 @@ export class InMemoryMockMetadataProvider implements IMockMetadataProvider {
   /**
    * Get metadata for a mock function
    */
-  getMetadata(functionName: string): MockMetadata | undefined {
+  getMetadata(functionName: string): CompletionMetadata | undefined {
     return this.metadata.get(functionName);
   }
 }

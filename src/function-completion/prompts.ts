@@ -1,4 +1,4 @@
-import type { MockFunctionSpec } from './types.js';
+import type { FunctionCompletionSpec } from './types.js';
 
 // ============================================================
 // Prompt Template Options
@@ -126,7 +126,7 @@ function getOutputRequirements({ generator }: PromptTemplateOptions): string {
  * @param options - Template options
  */
 export function buildMockCodeGenerationPrompt(
-  spec: MockFunctionSpec,
+  spec: FunctionCompletionSpec,
   options: PromptTemplateOptions
 ): string {
   const paramsDoc = spec.parameters

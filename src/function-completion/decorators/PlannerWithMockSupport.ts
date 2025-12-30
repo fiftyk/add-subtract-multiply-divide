@@ -1,9 +1,9 @@
 import type { Planner } from '../../planner/interfaces/IPlanner.js';
-import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
+import type { CompletionOrchestrator } from '../interfaces/CompletionOrchestrator.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import type { PlanResult, MockFunctionReference, PlanStep, FunctionCallStep, MissingFunction } from '../../planner/types.js';
 import type { ILogger } from '../../logger/index.js';
-import type { MockGenerationConfig, ReturnFieldRef } from '../types.js';
+import type { FunctionCompletionConfig, ReturnFieldRef } from '../types.js';
 import type { FunctionDefinition } from '../../registry/types.js';
 import { LoggerFactory } from '../../logger/index.js';
 
@@ -153,13 +153,13 @@ function extractReferencedFields(
  */
 export class PlannerWithMockSupport {
   private logger: ILogger;
-  private config: MockGenerationConfig;
+  private config: FunctionCompletionConfig;
 
   constructor(
     private basePlanner: Planner,
-    private mockOrchestrator: IMockOrchestrator,
+    private mockOrchestrator: CompletionOrchestrator,
     private functionProvider: FunctionProvider,
-    config: MockGenerationConfig,
+    config: FunctionCompletionConfig,
     logger?: ILogger
   ) {
     this.logger = logger ?? LoggerFactory.create();

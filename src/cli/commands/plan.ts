@@ -7,7 +7,7 @@ import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
 import { Executor } from '../../executor/index.js';
 import { loadFunctions } from '../utils.js';
-import { PlannerWithMockSupport } from '../../mock/index.js';
+import { PlannerWithMockSupport } from '../../function-completion/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import {

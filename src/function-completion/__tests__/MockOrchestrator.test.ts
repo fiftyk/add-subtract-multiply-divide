@@ -1,21 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IMockCodeGenerator } from '../interfaces/IMockCodeGenerator.js';
-import type { IMockFileWriter } from '../interfaces/IMockFileWriter.js';
-import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
-import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
+import type { FunctionCodeGenerator } from '../interfaces/FunctionCodeGenerator.js';
+import type { FunctionFileWriter } from '../interfaces/FunctionFileWriter.js';
+import type { FunctionLoader } from '../interfaces/FunctionLoader.js';
+import type { CompletionMetadataProvider } from '../interfaces/CompletionMetadataProvider.js';
 import type { MissingFunction } from '../../planner/types.js';
 import type { FunctionRegistry } from '../../registry/index.js';
 import type { Storage } from '../../storage/index.js';
-import { MockOrchestrator } from '../implementations/MockOrchestrator.js';
+import { CompletionOrchestratorImpl } from '../implementations/CompletionOrchestrator.js';
 
-describe('MockOrchestrator', () => {
-  let mockCodeGenerator: IMockCodeGenerator;
-  let mockFileWriter: IMockFileWriter;
-  let mockFunctionLoader: IMockFunctionLoader;
-  let mockMetadataProvider: IMockMetadataProvider;
+describe('CompletionOrchestrator', () => {
+  let mockCodeGenerator: FunctionCodeGenerator;
+  let mockFileWriter: FunctionFileWriter;
+  let mockFunctionLoader: FunctionLoader;
+  let mockMetadataProvider: CompletionMetadataProvider;
   let mockRegistry: FunctionRegistry;
   let mockStorage: Storage;
-  let orchestrator: MockOrchestrator;
+  let orchestrator: CompletionOrchestrator;
 
   const testPlanId = 'plan-test123';
 
@@ -38,13 +38,13 @@ describe('MockOrchestrator', () => {
     };
     mockRegistry = {} as FunctionRegistry;
 
-    // Mock Storage methods used by MockOrchestrator
+    // Mock Storage methods used by CompletionOrchestrator
     mockStorage = {
       getPlanMocksDir: vi.fn().mockReturnValue(`/data/plans/${testPlanId}/mocks`),
       savePlanMock: vi.fn().mockResolvedValue(`mocks/queryPatent-v1.js`),
     } as unknown as Storage;
 
-    orchestrator = new MockOrchestrator(
+    orchestrator = new CompletionOrchestratorImpl(
       testPlanId,
       mockStorage,
       mockCodeGenerator,

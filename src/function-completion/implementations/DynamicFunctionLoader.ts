@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'url';
-import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
+import type { FunctionLoader } from '../interfaces/FunctionLoader.js';
 import type { FunctionDefinition } from '../../registry/types.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
@@ -7,7 +7,7 @@ import type { FunctionProvider } from '../../function-provider/interfaces/Functi
  * Dynamically loads and registers mock functions from TypeScript files
  * Follows SRP: Only responsible for loading and registration
  */
-export class DynamicMockFunctionLoader implements IMockFunctionLoader {
+export class DynamicFunctionLoaderImpl implements FunctionLoader {
   /**
    * Dynamically import and extract function definitions from a file
    */

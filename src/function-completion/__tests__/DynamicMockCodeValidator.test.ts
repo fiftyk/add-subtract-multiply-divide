@@ -2,18 +2,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { DynamicMockCodeValidator } from '../implementations/DynamicMockCodeValidator.js';
+import { DynamicFunctionCodeValidatorImpl } from '../implementations/DynamicFunctionCodeValidator.js';
 import type { FunctionDefinition } from '../../registry/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-describe('DynamicMockCodeValidator', () => {
-  let validator: DynamicMockCodeValidator;
+describe('DynamicFunctionCodeValidator', () => {
+  let validator: DynamicFunctionCodeValidator;
   const testDir = path.join(__dirname, '../../../.test-temp');
 
   beforeEach(async () => {
-    validator = new DynamicMockCodeValidator();
+    validator = new DynamicFunctionCodeValidatorImpl();
     await fs.mkdir(testDir, { recursive: true });
   });
 

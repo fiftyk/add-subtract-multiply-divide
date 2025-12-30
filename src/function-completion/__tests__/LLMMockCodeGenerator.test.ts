@@ -1,21 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { LLMAdapter } from '../interfaces/LLMAdapter.js';
-import type { MockFunctionSpec } from '../types.js';
-import { LLMMockCodeGenerator } from '../implementations/LLMMockCodeGenerator.js';
+import type { FunctionCompletionSpec } from '../types.js';
+import { LLMFunctionCodeGeneratorImpl } from '../implementations/LLMFunctionCodeGenerator.js';
 
-describe('LLMMockCodeGenerator', () => {
+describe('LLMFunctionCodeGenerator', () => {
   let mockLLMClient: LLMAdapter;
-  let generator: LLMMockCodeGenerator;
+  let generator: LLMFunctionCodeGenerator;
 
   beforeEach(() => {
     mockLLMClient = {
       generateCode: vi.fn(),
     };
-    generator = new LLMMockCodeGenerator(mockLLMClient);
+    generator = new LLMFunctionCodeGeneratorImpl(mockLLMClient);
   });
 
   it('should generate valid TypeScript code with defineFunction', async () => {
-    const spec: MockFunctionSpec = {
+    const spec: FunctionCompletionSpec = {
       name: 'queryPatent',
       description: '查询专利详细信息',
       parameters: [
@@ -45,7 +45,7 @@ describe('LLMMockCodeGenerator', () => {
   });
 
   it('should add AUTO-GENERATED comment marker', async () => {
-    const spec: MockFunctionSpec = {
+    const spec: FunctionCompletionSpec = {
       name: 'testFunc',
       description: 'Test function',
       parameters: [],
@@ -63,7 +63,7 @@ describe('LLMMockCodeGenerator', () => {
   });
 
   it('should add generation timestamp', async () => {
-    const spec: MockFunctionSpec = {
+    const spec: FunctionCompletionSpec = {
       name: 'testFunc',
       description: 'Test function',
       parameters: [],
@@ -81,7 +81,7 @@ describe('LLMMockCodeGenerator', () => {
   });
 
   it('should include import statement for defineFunction', async () => {
-    const spec: MockFunctionSpec = {
+    const spec: FunctionCompletionSpec = {
       name: 'testFunc',
       description: 'Test function',
       parameters: [],
@@ -98,7 +98,7 @@ describe('LLMMockCodeGenerator', () => {
   });
 
   it('should handle multi-parameter functions', async () => {
-    const spec: MockFunctionSpec = {
+    const spec: FunctionCompletionSpec = {
       name: 'add',
       description: 'Add two numbers',
       parameters: [
@@ -124,7 +124,7 @@ describe('LLMMockCodeGenerator', () => {
   });
 
   it('should propagate LLM errors', async () => {
-    const spec: MockFunctionSpec = {
+    const spec: FunctionCompletionSpec = {
       name: 'testFunc',
       description: 'Test function',
       parameters: [],

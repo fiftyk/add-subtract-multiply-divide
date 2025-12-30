@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Planner } from '../../planner/planner.js';
-import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
+import type { CompletionOrchestratorImpl } from '../interfaces/CompletionOrchestrator.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import type { PlanResult, ExecutionPlan } from '../../planner/types.js';
 import { PlannerWithMockSupport } from '../decorators/PlannerWithMockSupport.js';
 
 describe('PlannerWithMockSupport', () => {
   let basePlanner: Planner;
-  let mockOrchestrator: IMockOrchestrator;
+  let mockOrchestrator: CompletionOrchestrator;
   let functionProvider: FunctionProvider;
   let plannerWithMockSupport: PlannerWithMockSupport;
 

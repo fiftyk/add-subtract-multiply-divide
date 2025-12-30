@@ -1,8 +1,8 @@
 /**
  * Interface for writing generated code to files
- * Responsibility: Handle file system operations for saving mock functions
+ * Responsibility: Handle file system operations for saving functions
  */
-export interface IMockFileWriter {
+export interface FunctionFileWriter {
   /**
    * Write code to a file
    * @param code - The code content to write
@@ -17,3 +17,5 @@ export interface IMockFileWriter {
    */
   ensureDirectory(path: string): Promise<void>;
 }
+
+export const FunctionFileWriter = Symbol('FunctionFileWriter');

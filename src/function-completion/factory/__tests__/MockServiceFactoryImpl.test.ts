@@ -3,7 +3,7 @@ import { MockServiceFactoryImpl } from '../MockServiceFactoryImpl.js';
 import type { LLMAdapter } from '../../interfaces/LLMAdapter.js';
 import type { FunctionRegistry } from '../../../registry/index.js';
 import type { Storage } from '../../../storage/index.js';
-import type { IMockOrchestrator } from '../../interfaces/IMockOrchestrator.js';
+import type { CompletionOrchestratorImpl } from '../../interfaces/CompletionOrchestrator.js';
 
 // Mock LoggerFactory
 vi.mock('../../../logger/index.js', () => ({
@@ -55,7 +55,7 @@ describe('MockServiceFactoryImpl', () => {
   });
 
   describe('createOrchestrator', () => {
-    it('should create a MockOrchestrator instance', () => {
+    it('should create a CompletionOrchestrator instance', () => {
       const orchestrator = factory.createOrchestrator('plan-123');
       expect(orchestrator).toBeDefined();
       expect(typeof orchestrator.generateAndRegisterMocks).toBe('function');

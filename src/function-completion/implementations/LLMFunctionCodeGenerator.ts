@@ -1,6 +1,6 @@
-import type { IMockCodeGenerator } from '../interfaces/IMockCodeGenerator.js';
+import type { FunctionCodeGenerator } from '../interfaces/FunctionCodeGenerator.js';
 import type { LLMAdapter } from '../interfaces/LLMAdapter.js';
-import type { MockFunctionSpec } from '../types.js';
+import type { FunctionCompletionSpec } from '../types.js';
 import {
   buildMockCodeGenerationPrompt,
   extractCodeFromLLMResponse,
@@ -10,7 +10,7 @@ import {
  * Generates mock function code using LLM
  * Follows SRP: Only responsible for code generation
  */
-export class LLMMockCodeGenerator implements IMockCodeGenerator {
+export class LLMFunctionCodeGeneratorImpl implements FunctionCodeGenerator {
   private importPath: string;
 
   constructor(
@@ -24,7 +24,7 @@ export class LLMMockCodeGenerator implements IMockCodeGenerator {
   /**
    * Generate mock function code from specification
    */
-  async generate(spec: MockFunctionSpec): Promise<string> {
+  async generate(spec: FunctionCompletionSpec): Promise<string> {
     const prompt = buildMockCodeGenerationPrompt(spec, {
       importPath: this.importPath,
       generator: 'LLM',
@@ -37,7 +37,7 @@ export class LLMMockCodeGenerator implements IMockCodeGenerator {
   /**
    * Format generated code with metadata and comments
    */
-  private formatCode(code: string, spec: MockFunctionSpec): string {
+  private formatCode(code: string, spec: FunctionCompletionSpec): string {
     const timestamp = new Date().toISOString();
 
     // Ensure the code has proper import

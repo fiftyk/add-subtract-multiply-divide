@@ -7,9 +7,9 @@ export interface ReturnFieldRef {
 }
 
 /**
- * Mock function specification used for code generation
+ * Function completion specification used for code generation
  */
-export interface MockFunctionSpec {
+export interface FunctionCompletionSpec {
   name: string;
   description: string;
   parameters: Array<{
@@ -26,9 +26,9 @@ export interface MockFunctionSpec {
 }
 
 /**
- * Metadata for a generated mock function
+ * Metadata for a generated function (via auto-completion)
  */
-export interface MockMetadata {
+export interface CompletionMetadata {
   functionName: string;
   filePath: string;
   generatedAt: string;
@@ -36,11 +36,11 @@ export interface MockMetadata {
 }
 
 /**
- * Result of mock generation operation
+ * Result of function generation operation
  */
-export interface MockGenerationResult {
+export interface FunctionGenerationResult {
   success: boolean;
-  generatedFunctions: MockMetadata[];
+  generatedFunctions: CompletionMetadata[];
   /** Generated function definitions for signature matching */
   generatedDefinitions?: Array<{
     name: string;
@@ -69,10 +69,10 @@ export interface PlanMetadata {
 }
 
 /**
- * Configuration for mock generation behavior
+ * Configuration for function completion behavior
  * Separates configuration from orchestration logic (SRP)
  */
-export interface MockGenerationConfig {
-  /** Maximum iterations for regenerating plan with new mocks */
+export interface FunctionCompletionConfig {
+  /** Maximum iterations for regenerating plan with new functions */
   maxIterations: number;
 }

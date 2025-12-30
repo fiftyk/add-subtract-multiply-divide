@@ -1,12 +1,12 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { IMockFileWriter } from '../interfaces/IMockFileWriter.js';
+import type { FunctionFileWriter } from '../interfaces/FunctionFileWriter.js';
 
 /**
  * Writes generated mock functions to the file system
  * Follows SRP: Only responsible for file I/O operations
  */
-export class FileSystemMockFileWriter implements IMockFileWriter {
+export class FileSystemFunctionFileWriterImpl implements FunctionFileWriter {
   constructor(private outputDirectory: string) {}
 
   /**

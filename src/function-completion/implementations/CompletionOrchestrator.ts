@@ -1,12 +1,12 @@
-import type { IMockOrchestrator } from '../interfaces/IMockOrchestrator.js';
-import type { IMockCodeGenerator } from '../interfaces/IMockCodeGenerator.js';
-import type { IMockFileWriter } from '../interfaces/IMockFileWriter.js';
-import type { IMockFunctionLoader } from '../interfaces/IMockFunctionLoader.js';
-import type { IMockMetadataProvider } from '../interfaces/IMockMetadataProvider.js';
-import type { IMockCodeValidator } from '../interfaces/IMockCodeValidator.js';
+import type { CompletionOrchestrator } from '../interfaces/CompletionOrchestrator.js';
+import type { FunctionCodeGenerator } from '../interfaces/FunctionCodeGenerator.js';
+import type { FunctionFileWriter } from '../interfaces/FunctionFileWriter.js';
+import type { FunctionLoader } from '../interfaces/FunctionLoader.js';
+import type { CompletionMetadataProvider } from '../interfaces/CompletionMetadataProvider.js';
+import type { FunctionCodeValidator } from '../interfaces/FunctionCodeValidator.js';
 import type { MissingFunction, MockFunctionReference } from '../../planner/types.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import type { MockGenerationResult, MockMetadata, ReturnFieldRef } from '../types.js';
+import type { FunctionGenerationResult, CompletionMetadata, ReturnFieldRef } from '../types.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import { Storage } from '../../storage/index.js';
@@ -18,18 +18,18 @@ import * as path from 'path';
  * Follows Facade pattern: Coordinates multiple services
  * Follows SRP: Only responsible for workflow coordination
  */
-export class MockOrchestrator implements IMockOrchestrator {
+export class CompletionOrchestratorImpl implements CompletionOrchestrator {
   private logger: ILogger;
 
   constructor(
     private planId: string, // NEW: Track which plan we're generating for
     private storage: Storage, // NEW: Storage for saving mocks to plan directory
-    private codeGenerator: IMockCodeGenerator,
-    private fileWriter: IMockFileWriter,
-    private functionLoader: IMockFunctionLoader,
-    private metadataProvider: IMockMetadataProvider,
+    private codeGenerator: FunctionCodeGenerator,
+    private fileWriter: FunctionFileWriter,
+    private functionLoader: FunctionLoader,
+    private metadataProvider: CompletionMetadataProvider,
     private functionProvider: FunctionProvider,
-    private validator?: IMockCodeValidator,
+    private validator?: FunctionCodeValidator,
     logger?: ILogger
   ) {
     this.logger = logger ?? LoggerFactory.create();
@@ -74,10 +74,10 @@ export class MockOrchestrator implements IMockOrchestrator {
   async generateAndRegisterMocks(
     missingFunctions: MissingFunction[],
     referencedFields?: Record<string, ReturnFieldRef[]>
-  ): Promise<MockGenerationResult> {
-    const results: MockMetadata[] = [];
+  ): Promise<FunctionGenerationResult> {
+    const results: CompletionMetadata[] = [];
     const errors: Array<{ functionName: string; error: string }> = [];
-    const generatedDefinitions: MockGenerationResult['generatedDefinitions'] = [];
+    const generatedDefinitions: FunctionGenerationResult['generatedDefinitions'] = [];
 
     for (const missing of missingFunctions) {
       let filePath: string | null = null;
@@ -164,7 +164,7 @@ export class MockOrchestrator implements IMockOrchestrator {
         }
 
         // 7. Mark as mock and store metadata
-        const metadata: MockMetadata = {
+        const metadata: CompletionMetadata = {
           functionName: missing.name,
           filePath,
           generatedAt: new Date().toISOString(),

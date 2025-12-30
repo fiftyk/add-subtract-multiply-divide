@@ -1,16 +1,16 @@
 import { pathToFileURL } from 'url';
 import type {
-  IMockCodeValidator,
+  FunctionCodeValidator,
   ValidationResult,
   TestResult,
-} from '../interfaces/IMockCodeValidator.js';
+} from '../interfaces/FunctionCodeValidator.js';
 import type { FunctionDefinition } from '../../registry/index.js';
 
 /**
  * Validates generated mock code by attempting to load and execute it
  * Follows SRP: Only responsible for validation logic
  */
-export class DynamicMockCodeValidator implements IMockCodeValidator {
+export class DynamicFunctionCodeValidatorImpl implements FunctionCodeValidator {
   /**
    * Validate that generated code can be imported without errors
    */

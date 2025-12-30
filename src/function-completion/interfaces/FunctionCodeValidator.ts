@@ -5,7 +5,7 @@ import type { FunctionDefinition } from '../../registry/index.js';
  * Follows SRP: Only responsible for code validation
  * Follows ISP: Small, focused interface
  */
-export interface IMockCodeValidator {
+export interface FunctionCodeValidator {
   /**
    * Validate that code can be executed without errors
    * @param filePath - Path to the generated code file
@@ -32,3 +32,5 @@ export interface TestResult {
   error?: string;
   executionTime?: number;
 }
+
+export const FunctionCodeValidator = Symbol('FunctionCodeValidator');
