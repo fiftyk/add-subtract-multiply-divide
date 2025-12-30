@@ -88,10 +88,10 @@ export async function planCommand(
     // 创建 Storage 实例
     const storage = container.get<Storage>(Storage);
 
-    if (config.mock.autoGenerate) {
-      // 启用 mock 自动生成
-      logger.info('✨ Mock 自动生成已启用', {
-        maxIterations: config.mock.maxIterations,
+    if (config.functionCompletion.enabled) {
+      // 启用函数自动补全
+      logger.info('✨ 函数自动补全已启用', {
+        maxRetries: config.functionCompletion.maxRetries,
       });
 
       // 从容器获取 MockServiceFactory，创建 mock 服务编排器
@@ -103,12 +103,12 @@ export async function planCommand(
         basePlanner,
         mockOrchestrator,
         functionProvider,
-        { maxIterations: config.mock.maxIterations },
+        { maxIterations: config.functionCompletion.maxRetries },
         logger
       );
     } else {
-      // 直接使用基础规划器，不启用 mock 生成
-      logger.info('ℹ️  Mock 自动生成已禁用');
+      // 直接使用基础规划器，不启用函数补全
+      logger.info('ℹ️  函数自动补全已禁用');
       planner = basePlanner;
     }
 
@@ -172,17 +172,17 @@ export async function planCommand(
         )
       );
 
-      // 如果 mock 生成被禁用，提供友好提示
-      if (!config.mock.autoGenerate && result.plan?.missingFunctions?.length) {
+      // 如果函数补全被禁用，提供友好提示
+      if (!config.functionCompletion.enabled && result.plan?.missingFunctions?.length) {
         console.log();
         console.log(
           chalk.cyan(`💡 提示: 缺少 ${result.plan.missingFunctions.length} 个函数`)
         );
         console.log(
-          chalk.gray('   使用 --auto-mock 标志可以自动生成缺失函数的 mock 实现')
+          chalk.gray('   使用 --auto-complete 标志可以自动生成缺失函数的实现')
         );
         console.log(
-          chalk.gray('   或在环境变量中设置 AUTO_GENERATE_MOCK=true')
+          chalk.gray('   或在环境变量中设置 AUTO_COMPLETE_FUNCTIONS=true')
         );
         console.log();
       }

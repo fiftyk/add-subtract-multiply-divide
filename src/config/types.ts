@@ -9,9 +9,9 @@ export interface APIConfig {
 }
 
 /**
- * Mock Code Generator Configuration
+ * Function Code Generator Configuration
  */
-export interface MockCodeGeneratorConfig {
+export interface FunctionCodeGeneratorConfig {
   /** Command to invoke for code generation (e.g., 'claude-switcher', 'gemini') */
   command: string;
   /** Command arguments (e.g., 'MINMAX -- -p', '-p') */
@@ -55,24 +55,24 @@ export interface StorageConfig {
 }
 
 /**
- * Mock Configuration
+ * Function Auto-Completion Configuration
  */
-export interface MockConfig {
-  /** Output directory for generated mock functions */
+export interface FunctionCompletionConfig {
+  /** Output directory for generated functions */
   outputDir: string;
 
   /**
-   * Enable/disable automatic mock generation
-   * @default false - Breaking change from previous implicit "always on" behavior
+   * Enable/disable automatic function completion
+   * @default false
    */
-  autoGenerate: boolean;
+  enabled: boolean;
 
   /**
-   * Maximum iterations for mock generation cycle
+   * Maximum retries for function completion cycle
    * Prevents infinite loops when LLM keeps generating incomplete plans
    * @default 3
    */
-  maxIterations: number;
+  maxRetries: number;
 }
 
 /**
@@ -83,8 +83,8 @@ export interface AppConfig {
   llm: LLMConfig;
   executor: ExecutorConfig;
   storage: StorageConfig;
-  mock: MockConfig;
-  mockCodeGenerator: MockCodeGeneratorConfig;
+  functionCompletion: FunctionCompletionConfig;
+  functionCodeGenerator: FunctionCodeGeneratorConfig;
   plannerGenerator: PlannerGeneratorConfig;
   mcp: MCPConfig;
 }
@@ -97,8 +97,8 @@ export type PartialAppConfig = {
   llm?: Partial<LLMConfig>;
   executor?: Partial<ExecutorConfig>;
   storage?: Partial<StorageConfig>;
-  mock?: Partial<MockConfig>;
-  mockCodeGenerator?: Partial<MockCodeGeneratorConfig>;
+  functionCompletion?: Partial<FunctionCompletionConfig>;
+  functionCodeGenerator?: Partial<FunctionCodeGeneratorConfig>;
   plannerGenerator?: Partial<PlannerGeneratorConfig>;
   mcp?: Partial<MCPConfig>;
 };

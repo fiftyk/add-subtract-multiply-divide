@@ -43,12 +43,12 @@ function loadLLMConfig(): PartialAppConfig['llm'] {
 }
 
 /**
- * Load generator configuration (for mock or planner) from environment variables
+ * Load generator configuration (for function code generator or planner) from environment variables
  */
 function loadGeneratorConfig(
   cmdKey: string,
   argsKey: string
-): PartialAppConfig['mockCodeGenerator'] | PartialAppConfig['plannerGenerator'] {
+): PartialAppConfig['functionCodeGenerator'] | PartialAppConfig['plannerGenerator'] {
   const cmd = process.env[cmdKey];
   const args = process.env[argsKey];
 
@@ -75,31 +75,31 @@ function loadStorageConfig(): PartialAppConfig['storage'] {
 }
 
 /**
- * Load mock configuration from environment variables
+ * Load function completion configuration from environment variables
  */
-function loadMockConfig(): PartialAppConfig['mock'] {
-  const outputDir = process.env.MOCK_OUTPUT_DIR;
-  const autoGenerate = process.env.AUTO_GENERATE_MOCK;
-  const maxIterations = process.env.MOCK_MAX_ITERATIONS;
+function loadFunctionCompletionConfig(): PartialAppConfig['functionCompletion'] {
+  const outputDir = process.env.FUNCTION_COMPLETION_OUTPUT_DIR;
+  const enabled = process.env.AUTO_COMPLETE_FUNCTIONS;
+  const maxRetries = process.env.FUNCTION_COMPLETION_MAX_RETRIES;
 
-  if (!outputDir && autoGenerate === undefined && !maxIterations) return undefined;
+  if (!outputDir && enabled === undefined && !maxRetries) return undefined;
 
-  const mock: PartialAppConfig['mock'] = {};
+  const functionCompletion: PartialAppConfig['functionCompletion'] = {};
 
-  if (outputDir) mock.outputDir = path.resolve(outputDir);
-  if (autoGenerate !== undefined) mock.autoGenerate = parseBoolean(autoGenerate);
-  if (maxIterations) {
-    const parsed = parseInt(maxIterations, 10);
+  if (outputDir) functionCompletion.outputDir = path.resolve(outputDir);
+  if (enabled !== undefined) functionCompletion.enabled = parseBoolean(enabled);
+  if (maxRetries) {
+    const parsed = parseInt(maxRetries, 10);
     if (!isNaN(parsed) && parsed > 0) {
-      mock.maxIterations = parsed;
+      functionCompletion.maxRetries = parsed;
     } else {
       console.warn(
-        `Warning: Invalid MOCK_MAX_ITERATIONS value "${maxIterations}". Using default value.`
+        `Warning: Invalid FUNCTION_COMPLETION_MAX_RETRIES value "${maxRetries}". Using default value.`
       );
     }
   }
 
-  return mock;
+  return functionCompletion;
 }
 
 /**
@@ -166,8 +166,8 @@ function loadFromEnv(): PartialAppConfig {
   const llmConfig = loadLLMConfig();
   const executorConfig = loadExecutorConfig();
   const storageConfig = loadStorageConfig();
-  const mockConfig = loadMockConfig();
-  const mockCodeGeneratorConfig = loadGeneratorConfig('MOCK_GENERATOR_CMD', 'MOCK_GENERATOR_ARGS');
+  const functionCompletionConfig = loadFunctionCompletionConfig();
+  const functionCodeGeneratorConfig = loadGeneratorConfig('FUNCTION_GENERATOR_CMD', 'FUNCTION_GENERATOR_ARGS');
   const plannerGeneratorConfig = loadGeneratorConfig('PLANNER_GENERATOR_CMD', 'PLANNER_GENERATOR_ARGS');
   const mcpConfig = loadMCPConfig();
 
@@ -176,8 +176,8 @@ function loadFromEnv(): PartialAppConfig {
   if (llmConfig) config.llm = llmConfig;
   if (executorConfig) config.executor = executorConfig;
   if (storageConfig) config.storage = storageConfig;
-  if (mockConfig) config.mock = mockConfig;
-  if (mockCodeGeneratorConfig) config.mockCodeGenerator = mockCodeGeneratorConfig;
+  if (functionCompletionConfig) config.functionCompletion = functionCompletionConfig;
+  if (functionCodeGeneratorConfig) config.functionCodeGenerator = functionCodeGeneratorConfig;
   if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
   if (mcpConfig) config.mcp = mcpConfig;
 
@@ -197,10 +197,10 @@ function mergeConfig(
     llm: { ...base.llm, ...override.llm },
     executor: { ...base.executor, ...override.executor },
     storage: { ...base.storage, ...override.storage },
-    mock: { ...base.mock, ...override.mock },
-    mockCodeGenerator: {
-      ...base.mockCodeGenerator,
-      ...override.mockCodeGenerator,
+    functionCompletion: { ...base.functionCompletion, ...override.functionCompletion },
+    functionCodeGenerator: {
+      ...base.functionCodeGenerator,
+      ...override.functionCodeGenerator,
     },
     plannerGenerator: {
       ...base.plannerGenerator,
@@ -246,9 +246,9 @@ export function loadConfig(overrides?: PartialAppConfig): AppConfig {
 
   // CRITICAL: Handle explicit CLI boolean overrides
   // When CLI explicitly sets a boolean (true/false), it must override env/default
-  // This fixes the --no-auto-mock being overridden by AUTO_GENERATE_MOCK=true
-  if (overrides?.mock?.autoGenerate !== undefined) {
-    finalBaseConfig.mock.autoGenerate = overrides.mock.autoGenerate;
+  // This fixes the --no-auto-complete being overridden by AUTO_COMPLETE_FUNCTIONS=true
+  if (overrides?.functionCompletion?.enabled !== undefined) {
+    finalBaseConfig.functionCompletion.enabled = overrides.functionCompletion.enabled;
   }
 
   // Handle API config separately (required)

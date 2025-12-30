@@ -151,7 +151,7 @@ container.bind(Executor).to(ExecutorImpl);
 // ============================================
 container.bind(LLMAdapter).toDynamicValue(() => {
     const config = ConfigManager.get();
-    const { command, args } = config.mockCodeGenerator;
+    const { command, args } = config.functionCodeGenerator;
 
     if (command && args) {
         // 使用 CLI 命令（如 claude-switcher, gemini 等）

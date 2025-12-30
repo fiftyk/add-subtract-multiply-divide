@@ -27,8 +27,8 @@ describe('ConfigManager', () => {
 
       const config = ConfigManager.get();
       expect(config.api.apiKey).toBe('test-key');
-      expect(config.mock.autoGenerate).toBe(DEFAULT_CONFIG.mock.autoGenerate);
-      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+      expect(config.functionCompletion.enabled).toBe(DEFAULT_CONFIG.functionCompletion.enabled);
+      expect(config.functionCompletion.maxRetries).toBe(DEFAULT_CONFIG.functionCompletion.maxRetries);
     });
 
     it('should throw error if called twice', () => {
@@ -40,69 +40,69 @@ describe('ConfigManager', () => {
 
     it('should merge CLI options with environment config', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.AUTO_GENERATE_MOCK = 'false';
+      process.env.AUTO_COMPLETE_FUNCTIONS = 'false';
 
       ConfigManager.initialize({
-        autoMock: true, // CLI overrides env
+        autoComplete: true, // CLI overrides env
       });
 
       const config = ConfigManager.get();
-      expect(config.mock.autoGenerate).toBe(true); // CLI wins
+      expect(config.functionCompletion.enabled).toBe(true); // CLI wins
     });
 
     it('should apply CLI options with highest priority', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.AUTO_GENERATE_MOCK = 'true';
-      process.env.MOCK_MAX_ITERATIONS = '5';
+      process.env.AUTO_COMPLETE_FUNCTIONS = 'true';
+      process.env.FUNCTION_COMPLETION_MAX_RETRIES = '5';
 
       ConfigManager.initialize({
-        autoMock: false,
-        mockMaxIterations: 10,
+        autoComplete: false,
+        maxRetries: 10,
       });
 
       const config = ConfigManager.get();
-      expect(config.mock.autoGenerate).toBe(false); // CLI overrides env
-      expect(config.mock.maxIterations).toBe(10); // CLI overrides env
+      expect(config.functionCompletion.enabled).toBe(false); // CLI overrides env
+      expect(config.functionCompletion.maxRetries).toBe(10); // CLI overrides env
     });
 
     it('should handle partial CLI options', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.MOCK_MAX_ITERATIONS = '7';
+      process.env.FUNCTION_COMPLETION_MAX_RETRIES = '7';
 
       ConfigManager.initialize({
-        autoMock: true, // Only override autoMock
+        autoComplete: true, // Only override autoComplete
       });
 
       const config = ConfigManager.get();
-      expect(config.mock.autoGenerate).toBe(true);
-      expect(config.mock.maxIterations).toBe(7); // From env
+      expect(config.functionCompletion.enabled).toBe(true);
+      expect(config.functionCompletion.maxRetries).toBe(7); // From env
     });
 
-    it('should validate and warn when mockMaxIterations without autoMock', () => {
+    it('should validate and warn when maxRetries without autoComplete', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
 
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       ConfigManager.initialize({
-        mockMaxIterations: 5,
-        // autoMock not specified, defaults to false
+        maxRetries: 5,
+        // autoComplete not specified, defaults to false
       });
 
       expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('--mock-max-iterations specified but mock generation is disabled')
+        expect.stringContaining('--max-retries specified but function completion is disabled')
       );
 
       warnSpy.mockRestore();
     });
 
-    it('should not warn when mockMaxIterations with autoMock=true', () => {
+    it('should not warn when maxRetries with autoComplete=true', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
 
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       ConfigManager.initialize({
-        autoMock: true,
-        mockMaxIterations: 5,
+        autoComplete: true,
+        maxRetries: 5,
       });
 
       expect(warnSpy).not.toHaveBeenCalled();
@@ -110,15 +110,15 @@ describe('ConfigManager', () => {
       warnSpy.mockRestore();
     });
 
-    it('should not warn when mockMaxIterations with AUTO_GENERATE_MOCK=true in env', () => {
+    it('should not warn when maxRetries with AUTO_COMPLETE_FUNCTIONS=true in env', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.AUTO_GENERATE_MOCK = 'true';
+      process.env.AUTO_COMPLETE_FUNCTIONS = 'true';
 
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       ConfigManager.initialize({
-        mockMaxIterations: 5,
-        // autoMock not in CLI, but env has AUTO_GENERATE_MOCK=true
+        maxRetries: 5,
+        // autoComplete not in CLI, but env has AUTO_COMPLETE_FUNCTIONS=true
       });
 
       expect(warnSpy).not.toHaveBeenCalled();
@@ -202,14 +202,14 @@ describe('ConfigManager', () => {
   describe('Configuration Priority', () => {
     it('should follow priority: CLI > Env > Defaults', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.AUTO_GENERATE_MOCK = 'true';
+      process.env.AUTO_COMPLETE_FUNCTIONS = 'true';
 
       ConfigManager.initialize({
-        autoMock: false, // CLI overrides env
+        autoComplete: false, // CLI overrides env
       });
 
       const config = ConfigManager.get();
-      expect(config.mock.autoGenerate).toBe(false);
+      expect(config.functionCompletion.enabled).toBe(false);
     });
 
     it('should use defaults when no CLI or env config provided', () => {
@@ -218,8 +218,8 @@ describe('ConfigManager', () => {
       ConfigManager.initialize();
 
       const config = ConfigManager.get();
-      expect(config.mock.autoGenerate).toBe(DEFAULT_CONFIG.mock.autoGenerate);
-      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+      expect(config.functionCompletion.enabled).toBe(DEFAULT_CONFIG.functionCompletion.enabled);
+      expect(config.functionCompletion.maxRetries).toBe(DEFAULT_CONFIG.functionCompletion.maxRetries);
       expect(config.llm.model).toBe(DEFAULT_CONFIG.llm.model);
     });
   });
@@ -230,8 +230,8 @@ describe('ConfigManager', () => {
       process.env.LLM_MODEL = 'claude-3-opus';
 
       ConfigManager.initialize({
-        autoMock: true,
-        mockMaxIterations: 7,
+        autoComplete: true,
+        maxRetries: 7,
       });
 
       const config = ConfigManager.get();
@@ -241,8 +241,8 @@ describe('ConfigManager', () => {
       expect(config.llm.model).toBe('claude-3-opus');
 
       // From CLI
-      expect(config.mock.autoGenerate).toBe(true);
-      expect(config.mock.maxIterations).toBe(7);
+      expect(config.functionCompletion.enabled).toBe(true);
+      expect(config.functionCompletion.maxRetries).toBe(7);
 
       // From defaults
       expect(config.llm.maxTokens).toBe(DEFAULT_CONFIG.llm.maxTokens);

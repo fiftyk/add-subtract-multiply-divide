@@ -67,21 +67,21 @@ describe('Configuration System', () => {
 
     it('should load mock config from environment variables', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
-      process.env.MOCK_OUTPUT_DIR = './custom-mocks';
+      process.env.FUNCTION_COMPLETION_OUTPUT_DIR = './custom-mocks';
       const config = loadConfig();
 
-      expect(config.mock.outputDir).toContain('custom-mocks');
+      expect(config.functionCompletion.outputDir).toContain('custom-mocks');
     });
 
     it('should load mock autoGenerate from environment variables', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
-      process.env.AUTO_GENERATE_MOCK = 'true';
+      process.env.AUTO_COMPLETE_FUNCTIONS = 'true';
       const config = loadConfig();
 
-      expect(config.mock.autoGenerate).toBe(true);
+      expect(config.functionCompletion.enabled).toBe(true);
     });
 
-    it('should parse AUTO_GENERATE_MOCK flexibly', () => {
+    it('should parse AUTO_COMPLETE_FUNCTIONS flexibly', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
 
       const testCases = [
@@ -98,44 +98,44 @@ describe('Configuration System', () => {
       ];
 
       testCases.forEach(({ value, expected }) => {
-        process.env.AUTO_GENERATE_MOCK = value;
+        process.env.AUTO_COMPLETE_FUNCTIONS = value;
         const config = loadConfig();
-        expect(config.mock.autoGenerate).toBe(expected);
+        expect(config.functionCompletion.enabled).toBe(expected);
       });
     });
 
     it('should load mock maxIterations from environment variables', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
-      process.env.MOCK_MAX_ITERATIONS = '5';
+      process.env.FUNCTION_COMPLETION_MAX_RETRIES = '5';
       const config = loadConfig();
 
-      expect(config.mock.maxIterations).toBe(5);
+      expect(config.functionCompletion.maxRetries).toBe(5);
     });
 
-    it('should handle invalid MOCK_MAX_ITERATIONS gracefully', () => {
+    it('should handle invalid FUNCTION_COMPLETION_MAX_RETRIES gracefully', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
-      process.env.MOCK_MAX_ITERATIONS = 'invalid';
+      process.env.FUNCTION_COMPLETION_MAX_RETRIES = 'invalid';
       const config = loadConfig();
 
       // Should use default value (3) when invalid
-      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+      expect(config.functionCompletion.maxRetries).toBe(DEFAULT_CONFIG.functionCompletion.maxRetries);
     });
 
-    it('should handle negative MOCK_MAX_ITERATIONS gracefully', () => {
+    it('should handle negative FUNCTION_COMPLETION_MAX_RETRIES gracefully', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
-      process.env.MOCK_MAX_ITERATIONS = '-1';
+      process.env.FUNCTION_COMPLETION_MAX_RETRIES = '-1';
       const config = loadConfig();
 
       // Should use default value when negative
-      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+      expect(config.functionCompletion.maxRetries).toBe(DEFAULT_CONFIG.functionCompletion.maxRetries);
     });
 
     it('should use default mock config when env vars are not set', () => {
       process.env.ANTHROPIC_API_KEY = 'test-api-key';
       const config = loadConfig();
 
-      expect(config.mock.autoGenerate).toBe(DEFAULT_CONFIG.mock.autoGenerate);
-      expect(config.mock.maxIterations).toBe(DEFAULT_CONFIG.mock.maxIterations);
+      expect(config.functionCompletion.enabled).toBe(DEFAULT_CONFIG.functionCompletion.enabled);
+      expect(config.functionCompletion.maxRetries).toBe(DEFAULT_CONFIG.functionCompletion.maxRetries);
     });
 
     it('should use default values when env vars are not set', () => {
@@ -245,32 +245,32 @@ describe('Configuration System', () => {
   describe('Mock Code Generator Configuration', () => {
     it('should load mock code generator config from environment variables', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.MOCK_GENERATOR_CMD = 'claude-switcher';
-      process.env.MOCK_GENERATOR_ARGS = 'MINMAX -- -p';
+      process.env.FUNCTION_GENERATOR_CMD = 'claude-switcher';
+      process.env.FUNCTION_GENERATOR_ARGS = 'MINMAX -- -p';
       const config = loadConfig();
 
-      expect(config.mockCodeGenerator.command).toBe('claude-switcher');
-      expect(config.mockCodeGenerator.args).toBe('MINMAX -- -p');
+      expect(config.functionCodeGenerator.command).toBe('claude-switcher');
+      expect(config.functionCodeGenerator.args).toBe('MINMAX -- -p');
     });
 
     it('should use empty strings when only command is set', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.MOCK_GENERATOR_CMD = 'claude-switcher';
-      delete process.env.MOCK_GENERATOR_ARGS;
+      process.env.FUNCTION_GENERATOR_CMD = 'claude-switcher';
+      delete process.env.FUNCTION_GENERATOR_ARGS;
       const config = loadConfig();
 
-      expect(config.mockCodeGenerator.command).toBe('claude-switcher');
-      expect(config.mockCodeGenerator.args).toBe('');
+      expect(config.functionCodeGenerator.command).toBe('claude-switcher');
+      expect(config.functionCodeGenerator.args).toBe('');
     });
 
     it('should use empty strings when only args is set', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      delete process.env.MOCK_GENERATOR_CMD;
-      process.env.MOCK_GENERATOR_ARGS = '-p';
+      delete process.env.FUNCTION_GENERATOR_CMD;
+      process.env.FUNCTION_GENERATOR_ARGS = '-p';
       const config = loadConfig();
 
-      expect(config.mockCodeGenerator.command).toBe('');
-      expect(config.mockCodeGenerator.args).toBe('-p');
+      expect(config.functionCodeGenerator.command).toBe('');
+      expect(config.functionCodeGenerator.args).toBe('-p');
     });
   });
 
@@ -309,16 +309,16 @@ describe('Configuration System', () => {
       expect(config.plannerGenerator.args).toBe('-p');
     });
 
-    it('should merge mockCodeGenerator configs', () => {
+    it('should merge functionCodeGenerator configs', () => {
       process.env.ANTHROPIC_API_KEY = 'test-key';
-      process.env.MOCK_GENERATOR_CMD = 'env-cmd';
+      process.env.FUNCTION_GENERATOR_CMD = 'env-cmd';
 
       const config = loadConfig({
-        mockCodeGenerator: { command: 'override-cmd', args: '--gen' },
+        functionCodeGenerator: { command: 'override-cmd', args: '--gen' },
       });
 
-      expect(config.mockCodeGenerator.command).toBe('override-cmd');
-      expect(config.mockCodeGenerator.args).toBe('--gen');
+      expect(config.functionCodeGenerator.command).toBe('override-cmd');
+      expect(config.functionCodeGenerator.args).toBe('--gen');
     });
   });
 
