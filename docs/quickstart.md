@@ -164,9 +164,9 @@ npx fn-orchestrator show-plan plan-abc123
 
 ---
 
-## Mock 自动生成（可选）
+## 函数自动补全（可选）
 
-当你请求的功能需要尚未实现的函数时，系统可以自动生成 mock 实现。
+当你请求的功能需要尚未实现的函数时，系统可以自动生成 函数实现。
 
 ### 默认行为（缺失函数提示）
 
@@ -184,24 +184,24 @@ npx fn-orchestrator plan "计算 16 的平方根"
    - 返回: number
 
 💡 提示: 缺少 1 个函数
-   使用 --auto-mock 标志可以自动生成缺失函数的 mock 实现
-   或在环境变量中设置 AUTO_GENERATE_MOCK=true
+   使用 --auto-complete 标志可以自动生成缺失函数的 函数实现
+   或在环境变量中设置 AUTO_COMPLETE_FUNCTIONS=true
 ```
 
-### 启用 Mock 生成
+### 启用 函数补全
 
 **方式 1: CLI 参数（推荐用于临时测试）**
 ```bash
-npx fn-orchestrator plan "计算 16 的平方根" --auto-mock
+npx fn-orchestrator plan "计算 16 的平方根" --auto-complete
 ```
 
 **方式 2: 环境变量（推荐用于开发环境）**
 ```bash
 # 设置环境变量
-export AUTO_GENERATE_MOCK=true
+export AUTO_COMPLETE_FUNCTIONS=true
 
 # 或在 .env 文件中
-echo "AUTO_GENERATE_MOCK=true" >> .env
+echo "AUTO_COMPLETE_FUNCTIONS=true" >> .env
 
 # 正常使用
 npx fn-orchestrator plan "计算 16 的平方根"
@@ -224,8 +224,8 @@ npx fn-orchestrator plan "计算 16 的平方根"
   Step 1: sqrt(number=16)
     → 计算 16 的平方根
 
-⚠️  此计划使用了 MOCK 数据，结果仅供测试
-📁 Mock functions: sqrt
+⚠️  此计划使用了 补全函数，结果仅供测试
+📁 补全函数: sqrt
 💡 提示: 编辑 functions/generated/ 中的文件来实现真实逻辑
 
 执行命令: npx fn-orchestrator execute plan-xyz789
@@ -290,9 +290,9 @@ npx fn-orchestrator execute <plan-id> -f ./my-functions/index.js
 
 **示例**:
 ```bash
-# 即使 .env 中设置 AUTO_GENERATE_MOCK=false
+# 即使 .env 中设置 AUTO_COMPLETE_FUNCTIONS=false
 # CLI 参数仍会覆盖
-npx fn-orchestrator plan "..." --auto-mock
+npx fn-orchestrator plan "..." --auto-complete
 ```
 
 ---
@@ -337,17 +337,17 @@ ls -l ./dist/functions/index.js
 npx fn-orchestrator list functions -f ./path/to/functions.js
 ```
 
-### 3. Mock 没有生成
+### 3. 函数补全未生成
 
-**问题**: 使用 `--auto-mock` 但没有生成 mock
+**问题**: 使用 `--auto-complete` 但没有生成 mock
 
 **检查**:
 ```bash
 # 1. 确认 CLI 参数正确
-npx fn-orchestrator plan "..." --auto-mock
+npx fn-orchestrator plan "..." --auto-complete
 
 # 2. 查看 debug 日志
-LOG_LEVEL=debug npx fn-orchestrator plan "..." --auto-mock
+LOG_LEVEL=debug npx fn-orchestrator plan "..." --auto-complete
 
 # 3. 检查生成目录
 ls -l functions/generated/
@@ -379,8 +379,8 @@ npx fn-orchestrator list functions
 
 # 生成计划
 npx fn-orchestrator plan "<需求>"
-npx fn-orchestrator plan "<需求>" --auto-mock
-npx fn-orchestrator plan "<需求>" --auto-mock --mock-max-iterations 5
+npx fn-orchestrator plan "<需求>" --auto-complete
+npx fn-orchestrator plan "<需求>" --auto-complete --max-retries 5
 
 # 执行计划
 npx fn-orchestrator execute <plan-id>
@@ -401,6 +401,6 @@ npx fn-orchestrator execute <plan-id> -f <path>
 ## 下一步
 
 - 📖 [配置详解](./configuration.md) - 了解所有配置选项
-- 🏗️ [Mock 生成设计](./mock-generation-design.md) - 深入理解 Mock 系统
+- 🏗️ [函数补全设计](./function-completion-design.md) - 深入理解 函数补全系统
 - 🔧 [自定义函数](../README.md#自定义函数) - 创建自己的函数
 - 📝 [完整 README](../README.md) - 查看完整文档
