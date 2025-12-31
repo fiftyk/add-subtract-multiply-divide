@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ExecutorImpl } from '../executor.js';
+import { ExecutorImpl } from '../implementations/ExecutorImpl.js';
 import type { Executor } from '../interfaces/Executor.js';
 import { ExecutionContext } from '../context.js';
 import { defineFunction } from '../../registry/index.js';

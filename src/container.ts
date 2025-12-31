@@ -17,7 +17,7 @@ import { SessionStorageImpl } from './services/storage/SessionStorage.js';
 import { Storage } from './storage/interfaces/Storage.js';
 import { StorageImpl } from './storage/StorageImpl.js';
 import { Executor } from './executor/interfaces/Executor.js';
-import { ExecutorImpl } from './executor/executor.js';
+import { ExecutorImpl } from './executor/implementations/ExecutorImpl.js';
 import { UserInputProvider } from './user-input/interfaces/UserInputProvider.js';
 import { CLIUserInputProvider } from './user-input/adapters/CLIUserInputProvider.js';
 import { LLMAdapter } from './function-completion/interfaces/LLMAdapter.js';

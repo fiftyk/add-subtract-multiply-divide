@@ -12,4 +12,10 @@ export interface ExecutorConfig {
 export interface Executor {
   execute(plan: ExecutionPlan): Promise<ExecutionResult>;
   formatResultForDisplay(result: ExecutionResult): string;
+
+  /**
+   * 获取执行器的计划规则描述（用于 LLM prompt）
+   * 返回纯字符串，描述执行器支持的步骤类型、语法规则等
+   */
+  getPlanRulesForLLM(): string;
 }

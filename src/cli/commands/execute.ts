@@ -3,8 +3,11 @@ import inquirer from 'inquirer';
 import container from '../../container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Executor } from '../../executor/index.js';
+import { ExecutorImpl } from '../../executor/implementations/ExecutorImpl.js';
+import { ConditionalExecutor } from '../../executor/implementations/ConditionalExecutor.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
+import { StepType } from '../../planner/types.js';
 import { loadFunctions } from '../utils.js';
 
 interface ExecuteOptions {
@@ -142,8 +145,16 @@ export async function executeCommand(
     console.log(chalk.blue('🚀 开始执行...'));
     console.log();
 
-    // 执行计划
-    const executor = container.get<Executor>(Executor);
+    // 根据计划内容选择执行器
+    const hasConditionSteps = plan.steps.some(step => step.type === StepType.CONDITION);
+    const executor: Executor = hasConditionSteps
+      ? new ConditionalExecutor(functionProvider)
+      : new ExecutorImpl(functionProvider);
+
+    if (hasConditionSteps) {
+      console.log(chalk.gray('ℹ️  检测到条件分支步骤，使用条件执行器'));
+    }
+
     const result = await executor.execute(plan);
 
     // 保存执行结果

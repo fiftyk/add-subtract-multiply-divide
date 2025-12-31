@@ -1,28 +1,28 @@
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged } from 'inversify';
-import type { ExecutionPlan, FunctionCallStep, UserInputStep } from '../planner/types.js';
-import { StepType } from '../planner/types.js';
-import { isFunctionCallStep, isUserInputStep } from '../planner/type-guards.js';
+import type { ExecutionPlan, FunctionCallStep, UserInputStep } from '../../planner/types.js';
+import { StepType } from '../../planner/types.js';
+import { isFunctionCallStep, isUserInputStep, isConditionalStep } from '../../planner/type-guards.js';
 import type {
   ExecutionResult,
   StepResult,
   FunctionCallResult,
   UserInputResult,
-} from './types.js';
-import type { Executor } from './interfaces/Executor.js';
-import { ExecutionContext } from './context.js';
+} from '../types.js';
+import type { Executor } from '../interfaces/Executor.js';
+import { ExecutionContext } from '../context.js';
 import {
   FunctionExecutionError,
   ExecutionTimeoutError,
   getUserFriendlyMessage,
   UnsupportedFieldTypeError,
-} from '../errors/index.js';
-import type { ILogger } from '../logger/index.js';
-import { LoggerFactory } from '../logger/index.js';
-import { PlanValidator } from '../validation/index.js';
-import { ConfigManager } from '../config/index.js';
-import { UserInputProvider } from '../user-input/interfaces/UserInputProvider.js';
-import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
+} from '../../errors/index.js';
+import type { ILogger } from '../../logger/index.js';
+import { LoggerFactory } from '../../logger/index.js';
+import { PlanValidator } from '../../validation/index.js';
+import { ConfigManager } from '../../config/index.js';
+import { UserInputProvider } from '../../user-input/interfaces/UserInputProvider.js';
+import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
 /**
  * Executor 配置选项
@@ -47,10 +47,10 @@ export interface ExecutorConfig {
  */
 @injectable()
 export class ExecutorImpl implements Executor {
-  private functionProvider: FunctionProvider;
-  private userInputProvider?: UserInputProvider;
-  private config: Required<ExecutorConfig>;
-  private logger: ILogger;
+  protected functionProvider: FunctionProvider;
+  protected userInputProvider?: UserInputProvider;
+  protected config: Required<ExecutorConfig>;
+  protected logger: ILogger;
 
   constructor(
     @inject(FunctionProvider) functionProvider: FunctionProvider,
@@ -142,7 +142,7 @@ export class ExecutorImpl implements Executor {
   /**
    * 带超时控制的步骤执行
    */
-  private async executeStepWithTimeout(
+  protected async executeStepWithTimeout(
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
@@ -205,8 +205,9 @@ export class ExecutorImpl implements Executor {
 
   /**
    * 执行单个步骤（根据类型分派）
+   * 注意：ConditionalStep 由子类 ConditionalExecutor 处理
    */
-  private async executeStep(
+  protected async executeStep(
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
@@ -214,8 +215,14 @@ export class ExecutorImpl implements Executor {
       return this.executeFunctionCall(step, context);
     } else if (isUserInputStep(step)) {
       return this.executeUserInput(step, context);
+    } else if (isConditionalStep(step)) {
+      // ConditionalStep 由子类处理，基类抛出错误
+      throw new Error(
+        `ConditionalStep (step ${step.stepId}) requires ConditionalExecutor. ` +
+        `Please use ConditionalExecutor or a subclass to execute plans with condition steps.`
+      );
     } else {
-      // 类型守卫应该确保永远不会到这里
+      // 这是一个防御性检查，理论上不应该到达这里
       const exhaustiveCheck: never = step;
       throw new Error(`Unknown step type: ${(exhaustiveCheck as any).type}`);
     }
@@ -225,7 +232,7 @@ export class ExecutorImpl implements Executor {
    * 执行函数调用步骤
    * 使用统一的 FunctionProvider 接口，无需判断本地/远程
    */
-  private async executeFunctionCall(
+  protected async executeFunctionCall(
     step: FunctionCallStep,
     context: ExecutionContext
   ): Promise<FunctionCallResult> {
@@ -276,7 +283,7 @@ export class ExecutorImpl implements Executor {
    * 执行用户输入步骤
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async executeUserInput(
+  protected async executeUserInput(
     step: UserInputStep,
     _context: ExecutionContext
   ): Promise<UserInputResult> {
@@ -385,5 +392,19 @@ export class ExecutorImpl implements Executor {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * 获取执行器的计划规则描述（用于 LLM prompt）
+   */
+  getPlanRulesForLLM(): string {
+    return `执行器支持以下步骤类型：
+1. 函数调用 (function_call): 调用注册的函数
+   - 参数: functionName (函数名), parameters (参数字典)
+   - 引用格式: step.X.result 获取步骤结果
+
+2. 用户输入 (user_input): 收集用户输入
+   - 参数: schema (输入字段定义)
+   - 引用格式: step.X.result 获取输入值`;
   }
 }

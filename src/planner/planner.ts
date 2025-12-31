@@ -6,7 +6,7 @@ import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
 import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
 import { StepType } from './types.js';
-import { isFunctionCallStep } from './type-guards.js';
+import { isFunctionCallStep, isConditionalStep } from './type-guards.js';
 import { PlannerLLMClient } from './interfaces/PlannerLLMClient.js';
 import type { Planner } from './interfaces/IPlanner.js';
 import { buildPlannerPrompt, parseLLMResponse, type RawPlanStep } from './prompt.js';
@@ -103,7 +103,7 @@ export class PlannerImpl implements Planner {
         parameters: rawStep.parameters,
         dependsOn: rawStep.dependsOn,
       };
-    } else {
+    } else if (rawStep.type === 'user_input') {
       // 转换为 UserInputStep
       return {
         stepId: rawStep.stepId,
@@ -111,6 +111,17 @@ export class PlannerImpl implements Planner {
         description: rawStep.description,
         schema: rawStep.schema,
         outputName: rawStep.outputName,
+      };
+    } else {
+      // 转换为 ConditionalStep
+      return {
+        stepId: rawStep.stepId,
+        type: StepType.CONDITION,
+        description: rawStep.description,
+        condition: rawStep.condition,
+        onTrue: rawStep.onTrue,
+        onFalse: rawStep.onFalse,
+        outputVariable: rawStep.outputVariable,
       };
     }
   }
@@ -150,6 +161,10 @@ export class PlannerImpl implements Planner {
         if (isFunctionCallStep(step)) {
           const params = this.formatParameters(step.parameters);
           lines.push(`  Step ${step.stepId}: ${step.functionName}(${params})`);
+          lines.push(`    → ${step.description}`);
+        } else if (isConditionalStep(step)) {
+          // 条件步骤
+          lines.push(`  Step ${step.stepId}: [Condition] ${step.condition}`);
           lines.push(`    → ${step.description}`);
         } else {
           // 用户输入步骤
