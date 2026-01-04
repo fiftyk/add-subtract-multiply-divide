@@ -1,7 +1,7 @@
 import type { Planner } from '../../planner/interfaces/IPlanner.js';
 import type { CompletionOrchestrator } from '../interfaces/CompletionOrchestrator.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import type { PlanResult, MockFunctionReference, PlanStep, FunctionCallStep, MissingFunction } from '../../planner/types.js';
+import type { PlanResult, MockFunctionReference, PlanStep, FunctionCallStep, MissingFunction, ExecutionPlan } from '../../planner/types.js';
 import type { ILogger } from '../../logger/index.js';
 import type { FunctionCompletionConfig, ReturnFieldRef } from '../types.js';
 import type { FunctionDefinition } from '../../registry/types.js';
@@ -164,6 +164,13 @@ export class PlannerWithMockSupport {
   ) {
     this.logger = logger ?? LoggerFactory.create();
     this.config = config;
+  }
+
+  /**
+   * 格式化计划用于显示（委托给基础 planner）
+   */
+  formatPlanForDisplay(plan: ExecutionPlan): string {
+    return this.basePlanner.formatPlanForDisplay(plan);
   }
 
   /**

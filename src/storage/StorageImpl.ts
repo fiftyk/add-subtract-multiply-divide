@@ -6,6 +6,43 @@ import { injectable } from 'inversify';
 import type { ExecutionPlan } from '../planner/types.js';
 import type { ExecutionResult } from '../executor/types.js';
 import type { Storage } from './interfaces/Storage.js';
+import { normalizeParameters, parametersNeedNormalization } from '../utils/parameterNormalization.js';
+
+/**
+ * Normalize plan parameters to ensure correct format
+ * Handles both legacy format (direct values) and new format (type/value)
+ */
+function normalizePlanParameters(plan: ExecutionPlan): ExecutionPlan {
+  const normalizedSteps = plan.steps.map((step) => {
+    if (step.type !== 'function_call') {
+      return step;
+    }
+
+    const funcStep = step as any;
+    const normalizedParams = normalizeParameters(funcStep.parameters || {});
+
+    return {
+      ...funcStep,
+      parameters: normalizedParams,
+    };
+  });
+
+  return {
+    ...plan,
+    steps: normalizedSteps as any,
+  };
+}
+
+/**
+ * Check if plan needs normalization
+ */
+function planNeedsNormalization(plan: ExecutionPlan): boolean {
+  return plan.steps.some((step) => {
+    if (step.type !== 'function_call') return false;
+    const params = (step as any).parameters || {};
+    return parametersNeedNormalization(params);
+  });
+}
 
 /**
  * 持久化存储
@@ -75,7 +112,13 @@ export class StorageImpl implements Storage {
     try {
       const filePath = path.join(this.plansDir, `${planId}.json`);
       const content = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(content) as ExecutionPlan;
+      const plan = JSON.parse(content) as ExecutionPlan;
+
+      // Normalize parameters if needed
+      if (planNeedsNormalization(plan)) {
+        return normalizePlanParameters(plan);
+      }
+      return plan;
     } catch {
       return undefined;
     }
@@ -165,6 +208,29 @@ export class StorageImpl implements Storage {
       return results;
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * 删除特定 Plan 的所有执行记录
+   */
+  async deleteExecutionsByPlanId(planId: string): Promise<void> {
+    await this.ensureDirectories();
+    try {
+      const files = await fs.readdir(this.executionsDir);
+
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const id = file.replace('.json', '');
+          const result = await this.loadExecution(id);
+          if (result && result.planId === planId) {
+            const filePath = path.join(this.executionsDir, file);
+            await fs.unlink(filePath);
+          }
+        }
+      }
+    } catch {
+      // 忽略错误
     }
   }
 

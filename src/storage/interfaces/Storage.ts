@@ -41,6 +41,7 @@ export interface Storage {
   saveExecution(result: ExecutionResult): Promise<string>;
   loadExecution(executionId: string): Promise<ExecutionResult | undefined>;
   listExecutions(): Promise<ExecutionResult[]>;
+  deleteExecutionsByPlanId(planId: string): Promise<void>;
 
   // ========== 工具方法 ==========
 

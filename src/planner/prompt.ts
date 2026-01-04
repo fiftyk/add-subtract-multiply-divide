@@ -1,5 +1,6 @@
 import type { A2UISchema } from '../user-input/interfaces/A2UISchema.js';
 import { StepType } from './types.js';
+import { normalizeParameters } from '../utils/parameterNormalization.js';
 
 // Step type constants for validation
 export const STEP_TYPE_FUNCTION_CALL = StepType.FUNCTION_CALL;
@@ -253,6 +254,10 @@ function validateStep(step: unknown, stepId: number): void {
     if (!s.parameters || typeof s.parameters !== 'object') {
       throw new Error(`Invalid function_call step: missing "parameters" (stepId: ${stepId})`);
     }
+
+    // Normalize parameters to ensure correct format
+    const params = s.parameters as Record<string, unknown>;
+    (s as Record<string, unknown>).parameters = normalizeParameters(params);
   }
 
   if (s.type === STEP_TYPE_USER_INPUT) {

@@ -13,6 +13,23 @@ import type { A2UISchema, A2UIResult } from './A2UISchema.js';
 export const UserInputProvider = Symbol('UserInputProvider');
 
 /**
+ * 用户输入请求（用于 HTTP/WebSocket 交互）
+ */
+export interface UserInputRequest {
+  requestId: string;
+  sessionId: string;
+  stepId: number;
+  fields: Array<{
+    id: string;
+    type: string;
+    label: string;
+    required: boolean;
+    options?: Array<{ label: string; value: string }>;
+  }>;
+  createdAt: string;
+}
+
+/**
  * 用户输入提供者接口
  */
 export interface UserInputProvider {
@@ -35,4 +52,37 @@ export interface UserInputProvider {
    * @returns 是否支持
    */
   supportsFieldType(type: string): boolean;
+
+  // ========== HTTP 特定方法（可选）==========
+  // 这些方法用于支持 Web/WebSocket 交互模式
+
+  /**
+   * 提交用户输入响应
+   * （HTTP 实现特有）
+   */
+  submitInput?(sessionId: string, stepId: number, values: Record<string, unknown>): boolean;
+
+  /**
+   * 取消待处理的输入
+   * （HTTP 实现特有）
+   */
+  cancelInput?(sessionId: string, stepId: number): boolean;
+
+  /**
+   * 获取待处理的输入请求列表
+   * （HTTP 实现特有）
+   */
+  getPendingInputs?(sessionId?: string): UserInputRequest[];
+
+  /**
+   * 添加待处理的输入请求
+   * （HTTP 实现特有）
+   */
+  addPendingInput?(sessionId: string, stepId: number, schema: A2UISchema): UserInputRequest;
+
+  /**
+   * 清空所有待处理的输入
+   * （HTTP 实现特有）
+   */
+  clearPendingInputs?(): void;
 }

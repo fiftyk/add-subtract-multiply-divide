@@ -19,6 +19,7 @@ import { StorageImpl } from './storage/StorageImpl.js';
 import { Executor } from './executor/interfaces/Executor.js';
 import { ExecutorImpl } from './executor/implementations/ExecutorImpl.js';
 import { UserInputProvider } from './user-input/interfaces/UserInputProvider.js';
+import { HttpUserInputProvider } from './user-input/implementations/HttpUserInputProvider.js';
 import { CLIUserInputProvider } from './user-input/adapters/CLIUserInputProvider.js';
 import { LLMAdapter } from './function-completion/interfaces/LLMAdapter.js';
 import { AnthropicLLMAdapter } from './function-completion/adapters/AnthropicLLMAdapter.js';
@@ -137,9 +138,24 @@ container.bind(SessionStorage).toDynamicValue(() => {
 });
 
 // ============================================
-// UserInputProvider - CLIUserInputProvider 实现
+// UserInputProvider - 根据运行模式选择实现
 // ============================================
-container.bind(UserInputProvider).to(CLIUserInputProvider);
+container.bind(UserInputProvider).toDynamicValue(() => {
+    // 检测是否为 Web 模式
+    // 方式1: 环境变量 RUN_MODE=web
+    // 方式2: 命令行参数中包含 'web'
+    const isWebMode =
+        process.env.RUN_MODE === 'web' ||
+        process.argv.some(arg => arg === 'web' || arg.includes('/web/server'));
+
+    if (isWebMode) {
+        // Web 模式使用 HttpUserInputProvider
+        return new HttpUserInputProvider();
+    }
+
+    // CLI 模式使用 CLIUserInputProvider
+    return new CLIUserInputProvider();
+});
 
 // ============================================
 // Executor - ExecutorImpl 实现
@@ -170,5 +186,21 @@ container.bind(LLMAdapter).toDynamicValue(() => {
 // ============================================
 container.bind(MockServiceFactory).to(MockServiceFactoryImpl);
 
-export { container, MockServiceFactory };
+// ============================================
+// OrchestrationService - 编排服务
+// ============================================
+import { OrchestrationService } from './core/interfaces/OrchestrationService.js';
+import { OrchestrationServiceImpl } from './core/services/OrchestrationServiceImpl.js';
+
+container.bind(OrchestrationService).to(OrchestrationServiceImpl);
+
+// ============================================
+// InteractiveSession - 交互式会话服务
+// ============================================
+import { InteractiveSession } from './core/services/interfaces/InteractiveSession.js';
+import { InteractiveSessionService } from './core/services/InteractiveSessionService.js';
+
+container.bind(InteractiveSession).to(InteractiveSessionService);
+
+export { container, MockServiceFactory, OrchestrationService, InteractiveSession };
 export default container;
