@@ -1,16 +1,16 @@
 /**
- * A2UI Schema 验证器
+ * Form Input Schema 验证器
  *
  * 使用 Zod 进行 Schema 结构验证和用户输入验证
  */
 
 import { z } from 'zod';
 import type {
-  A2UISchema,
-  A2UIField,
-  A2UIFieldType,
+  FormInputSchema,
+  FormInputField,
+  FormInputFieldType,
   SelectFieldConfig,
-} from '../interfaces/A2UISchema.js';
+} from '../interfaces/FormInputSchema.js';
 
 /**
  * 字段验证 Schema
@@ -53,9 +53,9 @@ const FieldSchema = z.object({
 });
 
 /**
- * A2UI Schema 验证器
+ * Form Input Schema 验证器
  */
-const A2UISchemaValidator = z.object({
+const FormInputSchemaValidator = z.object({
   version: z.literal('1.0'),
   fields: z.array(FieldSchema).min(1, 'At least one field is required'),
   config: z
@@ -67,14 +67,14 @@ const A2UISchemaValidator = z.object({
 });
 
 /**
- * 验证 A2UI Schema 结构
+ * 验证 Form Input Schema 结构
  *
  * @param schema 待验证的 Schema
  * @returns 验证通过的 Schema
  * @throws {z.ZodError} Schema 格式错误
  */
-export function validateA2UISchema(schema: unknown): A2UISchema {
-  return A2UISchemaValidator.parse(schema);
+export function validateFormInputSchema(schema: unknown): FormInputSchema {
+  return FormInputSchemaValidator.parse(schema);
 }
 
 /**
@@ -85,7 +85,7 @@ export function validateA2UISchema(schema: unknown): A2UISchema {
  * @returns 验证结果
  */
 export function validateUserInput(
-  field: A2UIField,
+  field: FormInputField,
   value: unknown
 ): { valid: boolean; error?: string } {
   // 必填检查
@@ -132,7 +132,7 @@ export function validateUserInput(
 /**
  * 验证数字类型
  */
-function validateNumber(field: A2UIField, value: unknown): { valid: boolean; error?: string } {
+function validateNumber(field: FormInputField, value: unknown): { valid: boolean; error?: string } {
   if (typeof value !== 'number' || isNaN(value)) {
     return {
       valid: false,
@@ -165,7 +165,7 @@ function validateNumber(field: A2UIField, value: unknown): { valid: boolean; err
 /**
  * 验证文本类型
  */
-function validateText(field: A2UIField, value: unknown): { valid: boolean; error?: string } {
+function validateText(field: FormInputField, value: unknown): { valid: boolean; error?: string } {
   if (typeof value !== 'string') {
     return {
       valid: false,
@@ -217,7 +217,7 @@ function validateText(field: A2UIField, value: unknown): { valid: boolean; error
 /**
  * 验证布尔类型
  */
-function validateBoolean(field: A2UIField, value: unknown): { valid: boolean; error?: string } {
+function validateBoolean(field: FormInputField, value: unknown): { valid: boolean; error?: string } {
   if (typeof value !== 'boolean') {
     return {
       valid: false,
@@ -231,7 +231,7 @@ function validateBoolean(field: A2UIField, value: unknown): { valid: boolean; er
 /**
  * 验证日期类型
  */
-function validateDate(field: A2UIField, value: unknown): { valid: boolean; error?: string } {
+function validateDate(field: FormInputField, value: unknown): { valid: boolean; error?: string } {
   // 支持字符串格式 (ISO 8601) 或时间戳
   if (typeof value === 'string') {
     // 验证 ISO 8601 日期格式
@@ -266,7 +266,7 @@ function validateDate(field: A2UIField, value: unknown): { valid: boolean; error
  * 验证单选类型
  */
 function validateSingleSelect(
-  field: A2UIField,
+  field: FormInputField,
   value: unknown
 ): { valid: boolean; error?: string } {
   const config = field.config as SelectFieldConfig | undefined;
@@ -293,7 +293,7 @@ function validateSingleSelect(
  * 验证多选类型
  */
 function validateMultiSelect(
-  field: A2UIField,
+  field: FormInputField,
   value: unknown
 ): { valid: boolean; error?: string } {
   if (!Array.isArray(value)) {

@@ -4,7 +4,7 @@
  * 管理执行过程中的用户交互会话
  */
 
-import type { A2UIField } from '../../../user-input/interfaces/A2UISchema.js';
+import type { FormInputField } from '../../../user-input/interfaces/FormInputSchema.js';
 
 export type SessionStatus = 'pending' | 'running' | 'awaiting_input' | 'completed' | 'cancelled' | 'error';
 
@@ -83,7 +83,7 @@ export interface UserInputResponse {
 export interface SessionPendingInput {
   sessionId: string;
   stepId: number;
-  schema: { fields: A2UIField[]; version?: string };
+  schema: { fields: FormInputField[]; version?: string };
   status: 'pending' | 'received' | 'cancelled';
   response?: UserInputResponse;
   createdAt: string;

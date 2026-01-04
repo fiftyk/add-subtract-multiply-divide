@@ -7,7 +7,7 @@
 
 import 'reflect-metadata';
 import { injectable } from 'inversify';
-import type { A2UISchema, A2UIField, A2UIResult } from '../interfaces/A2UISchema.js';
+import type { FormInputSchema, FormInputField, FormInputResult } from '../interfaces/FormInputSchema.js';
 import type { UserInputProvider, UserInputRequest } from '../interfaces/UserInputProvider.js';
 import type { SessionPendingInput, UserInputResponse } from '../../core/services/interfaces/InteractiveSession.js';
 
@@ -40,7 +40,7 @@ export class HttpUserInputProvider implements UserInputProvider {
   private pendingResolvers: Map<
     string,
     {
-      resolve: (value: A2UIResult) => void;
+      resolve: (value: FormInputResult) => void;
       reject: (error: Error) => void;
       timer: NodeJS.Timeout;
     }
@@ -49,11 +49,11 @@ export class HttpUserInputProvider implements UserInputProvider {
   /**
    * 请求用户输入
    *
-   * @param schema A2UI Schema 定义
+   * @param schema Form Input Schema 定义
    * @param context 执行上下文
    * @returns 用户输入结果
    */
-  async requestInput(schema: A2UISchema, context?: Record<string, unknown>): Promise<A2UIResult> {
+  async requestInput(schema: FormInputSchema, context?: Record<string, unknown>): Promise<FormInputResult> {
     const sessionId = context?.sessionId as string;
     const stepId = context?.stepId as number;
 
@@ -80,7 +80,7 @@ export class HttpUserInputProvider implements UserInputProvider {
     this.pendingInputs.set(requestId, pendingInput);
 
     // 使用 Promise 等待输入响应
-    return new Promise<A2UIResult>((resolve, reject) => {
+    return new Promise<FormInputResult>((resolve, reject) => {
       // 设置超时定时器
       const timer = setTimeout(() => {
         this.pendingInputs.delete(requestId);
@@ -120,18 +120,18 @@ export class HttpUserInputProvider implements UserInputProvider {
    *
    * @param sessionId 会话 ID
    * @param stepId 步骤 ID
-   * @param schema A2UI Schema
+   * @param schema Form Input Schema
    * @returns 请求信息
    */
   createInputRequest(
     sessionId: string,
     stepId: number,
-    schema: A2UISchema
+    schema: FormInputSchema
   ): UserInputRequest {
     const requestId = `${sessionId}-step-${stepId}`;
 
     // 转换为更简单的格式用于 API 返回
-    const fields = schema.fields.map((field: A2UIField) => ({
+    const fields = schema.fields.map((field: FormInputField) => ({
       id: field.id,
       type: field.type,
       label: field.label,
@@ -155,10 +155,10 @@ export class HttpUserInputProvider implements UserInputProvider {
    *
    * @param sessionId 会话 ID
    * @param stepId 步骤 ID
-   * @param schema A2UI Schema
+   * @param schema Form Input Schema
    * @returns 请求信息
    */
-  addPendingInput(sessionId: string, stepId: number, schema: A2UISchema): UserInputRequest {
+  addPendingInput(sessionId: string, stepId: number, schema: FormInputSchema): UserInputRequest {
     const requestId = `${sessionId}-step-${stepId}`;
     const request = this.createInputRequest(sessionId, stepId, schema);
 
@@ -260,7 +260,7 @@ export class HttpUserInputProvider implements UserInputProvider {
         continue;
       }
 
-      const schema: A2UISchema = {
+      const schema: FormInputSchema = {
         version: '1.0',
         fields: pendingInput.schema.fields,
       };

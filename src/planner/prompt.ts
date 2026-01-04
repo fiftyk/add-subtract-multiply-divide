@@ -1,4 +1,4 @@
-import type { A2UISchema } from '../user-input/interfaces/A2UISchema.js';
+import type { FormInputSchema } from '../user-input/interfaces/FormInputSchema.js';
 import { StepType } from './types.js';
 import { normalizeParameters } from '../utils/parameterNormalization.js';
 
@@ -24,7 +24,7 @@ export type RawUserInputStep = {
   stepId: number;
   type: 'user_input';
   description: string;
-  schema: A2UISchema;
+  schema: FormInputSchema;
   outputName?: string;
 };
 

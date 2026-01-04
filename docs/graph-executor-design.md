@@ -66,7 +66,7 @@ export interface FunctionNodeConfig {
  * 用户输入节点配置
  */
 export interface InputNodeConfig {
-  schema: A2UISchema;
+  schema: FormInputSchema;
   outputName?: string;
 }
 
@@ -417,7 +417,7 @@ export class GraphExecutor {
             schema: {
               type: 'object',
               required: true,
-              description: 'A2UI schema 定义输入字段',
+              description: 'Form Input Schema 定义输入字段',
               example: {
                 fields: [
                   { id: 'name', type: 'text', label: '姓名' }

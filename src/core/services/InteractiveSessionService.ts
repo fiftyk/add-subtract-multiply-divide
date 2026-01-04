@@ -31,7 +31,7 @@ import type {
   StepType,
 } from '../../planner/types.js';
 import type { ExecutionResult } from '../../executor/types.js';
-import type { A2UIField } from '../../user-input/interfaces/A2UISchema.js';
+import type { FormInputField } from '../../user-input/interfaces/FormInputSchema.js';
 
 /**
  * Type guard for FunctionCallStep

@@ -5,7 +5,7 @@
  * 通过适配器模式支持多种用户输入方式
  */
 
-import type { A2UISchema, A2UIResult } from './A2UISchema.js';
+import type { FormInputSchema, FormInputResult } from './FormInputSchema.js';
 
 /**
  * UserInputProvider 的 DI Symbol
@@ -36,14 +36,14 @@ export interface UserInputProvider {
   /**
    * 请求用户输入
    *
-   * @param schema A2UI Schema 定义
+   * @param schema Form Input Schema 定义
    * @param context 执行上下文(可用于动态选项生成)
    * @returns 用户输入结果
    * @throws {UserInputTimeoutError} 超时
    * @throws {UserInputCancelledError} 用户取消
    * @throws {Error} 验证失败或其他错误
    */
-  requestInput(schema: A2UISchema, context?: Record<string, unknown>): Promise<A2UIResult>;
+  requestInput(schema: FormInputSchema, context?: Record<string, unknown>): Promise<FormInputResult>;
 
   /**
    * 检查是否支持特定字段类型
@@ -78,7 +78,7 @@ export interface UserInputProvider {
    * 添加待处理的输入请求
    * （HTTP 实现特有）
    */
-  addPendingInput?(sessionId: string, stepId: number, schema: A2UISchema): UserInputRequest;
+  addPendingInput?(sessionId: string, stepId: number, schema: FormInputSchema): UserInputRequest;
 
   /**
    * 清空所有待处理的输入

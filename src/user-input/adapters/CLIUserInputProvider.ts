@@ -9,7 +9,7 @@
  * 优势：
  * - 快速实现，无需复杂的 Schema → inquirer 转换
  * - 开发者友好，支持从文件粘贴 JSON
- * - 保持 A2UI Schema 接口，未来可升级为表单模式
+ * - 保持 Form Input Schema 接口，未来可升级为表单模式
  */
 
 import 'reflect-metadata';
@@ -17,11 +17,11 @@ import { injectable } from 'inversify';
 import inquirer from 'inquirer';
 import type { UserInputProvider } from '../interfaces/UserInputProvider.js';
 import type {
-  A2UISchema,
-  A2UIResult,
-  A2UIField,
+  FormInputSchema,
+  FormInputResult,
+  FormInputField,
   SelectFieldConfig,
-} from '../interfaces/A2UISchema.js';
+} from '../interfaces/FormInputSchema.js';
 import { validateUserInput } from '../validation/schema-validator.js';
 
 @injectable()
@@ -37,9 +37,9 @@ export class CLIUserInputProvider implements UserInputProvider {
    * 请求用户输入（JSON 模式）
    */
   async requestInput(
-    schema: A2UISchema,
+    schema: FormInputSchema,
     context?: Record<string, unknown>
-  ): Promise<A2UIResult> {
+  ): Promise<FormInputResult> {
     console.log('\n' + '='.repeat(50));
     console.log('  User Input Required');
     console.log('='.repeat(50) + '\n');
@@ -116,7 +116,7 @@ export class CLIUserInputProvider implements UserInputProvider {
   /**
    * 生成示例 JSON
    */
-  private generateExample(schema: A2UISchema): string {
+  private generateExample(schema: FormInputSchema): string {
     const example: Record<string, unknown> = {};
 
     schema.fields.forEach((field) => {
@@ -134,7 +134,7 @@ export class CLIUserInputProvider implements UserInputProvider {
   /**
    * 根据字段类型生成示例值
    */
-  private generateExampleValue(field: A2UIField): unknown {
+  private generateExampleValue(field: FormInputField): unknown {
     switch (field.type) {
       case 'text':
         return 'example text';

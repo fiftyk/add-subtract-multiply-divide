@@ -45,8 +45,8 @@ export interface FunctionCallStep extends BasePlanStep {
 export interface UserInputStep extends BasePlanStep {
   type: StepType.USER_INPUT;
 
-  /** A2UI Schema */
-  schema: import('../user-input/interfaces/A2UISchema.js').A2UISchema;
+  /** Form Input Schema */
+  schema: import('../user-input/interfaces/FormInputSchema.js').FormInputSchema;
 
   /**
    * 输入结果的存储名称(可选)

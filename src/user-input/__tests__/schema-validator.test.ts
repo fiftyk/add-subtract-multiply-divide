@@ -3,13 +3,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateA2UISchema, validateUserInput } from '../validation/schema-validator.js';
-import type { A2UISchema, A2UIField } from '../interfaces/A2UISchema.js';
+import { validateFormInputSchema, validateUserInput } from '../validation/schema-validator.js';
+import type { FormInputSchema, FormInputField } from '../interfaces/FormInputSchema.js';
 
 describe('Schema Validator', () => {
-  describe('validateA2UISchema', () => {
+  describe('validateFormInputSchema', () => {
     it('should validate a valid schema', () => {
-      const schema: A2UISchema = {
+      const schema: FormInputSchema = {
         version: '1.0',
         fields: [
           {
@@ -21,7 +21,7 @@ describe('Schema Validator', () => {
         ],
       };
 
-      expect(() => validateA2UISchema(schema)).not.toThrow();
+      expect(() => validateFormInputSchema(schema)).not.toThrow();
     });
 
     it('should reject schema without version', () => {
@@ -35,7 +35,7 @@ describe('Schema Validator', () => {
         ],
       };
 
-      expect(() => validateA2UISchema(invalidSchema)).toThrow();
+      expect(() => validateFormInputSchema(invalidSchema)).toThrow();
     });
 
     it('should reject schema with wrong version', () => {
@@ -50,7 +50,7 @@ describe('Schema Validator', () => {
         ],
       };
 
-      expect(() => validateA2UISchema(invalidSchema)).toThrow();
+      expect(() => validateFormInputSchema(invalidSchema)).toThrow();
     });
 
     it('should reject schema without fields', () => {
@@ -59,7 +59,7 @@ describe('Schema Validator', () => {
         fields: [],
       };
 
-      expect(() => validateA2UISchema(invalidSchema)).toThrow();
+      expect(() => validateFormInputSchema(invalidSchema)).toThrow();
     });
 
     it('should reject schema with invalid field type', () => {
@@ -74,11 +74,11 @@ describe('Schema Validator', () => {
         ],
       };
 
-      expect(() => validateA2UISchema(invalidSchema)).toThrow();
+      expect(() => validateFormInputSchema(invalidSchema)).toThrow();
     });
 
     it('should accept schema with optional config', () => {
-      const schema: A2UISchema = {
+      const schema: FormInputSchema = {
         version: '1.0',
         fields: [
           {
@@ -93,7 +93,7 @@ describe('Schema Validator', () => {
         },
       };
 
-      expect(() => validateA2UISchema(schema)).not.toThrow();
+      expect(() => validateFormInputSchema(schema)).not.toThrow();
     });
 
     it('should reject negative timeout', () => {
@@ -111,13 +111,13 @@ describe('Schema Validator', () => {
         },
       };
 
-      expect(() => validateA2UISchema(invalidSchema)).toThrow();
+      expect(() => validateFormInputSchema(invalidSchema)).toThrow();
     });
   });
 
   describe('validateUserInput - text field', () => {
     it('should validate valid text input', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -129,7 +129,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject empty required text', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -142,7 +142,7 @@ describe('Schema Validator', () => {
     });
 
     it('should accept empty optional text', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -154,7 +154,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate text length constraint', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -169,7 +169,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate text pattern', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'email',
         type: 'text',
         label: 'Email',
@@ -183,7 +183,7 @@ describe('Schema Validator', () => {
     });
 
     it('should use custom error message', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -199,7 +199,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject non-string value for text field', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -213,7 +213,7 @@ describe('Schema Validator', () => {
 
   describe('validateUserInput - number field', () => {
     it('should validate valid number input', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'age',
         type: 'number',
         label: 'Age',
@@ -225,7 +225,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject non-number value', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'age',
         type: 'number',
         label: 'Age',
@@ -236,7 +236,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate number range', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'age',
         type: 'number',
         label: 'Age',
@@ -253,7 +253,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate only min range', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'price',
         type: 'number',
         label: 'Price',
@@ -268,7 +268,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate only max range', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'discount',
         type: 'number',
         label: 'Discount',
@@ -285,7 +285,7 @@ describe('Schema Validator', () => {
 
   describe('validateUserInput - boolean field', () => {
     it('should validate valid boolean input', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'agreed',
         type: 'boolean',
         label: 'I agree',
@@ -296,7 +296,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject non-boolean value', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'agreed',
         type: 'boolean',
         label: 'I agree',
@@ -309,7 +309,7 @@ describe('Schema Validator', () => {
 
   describe('validateUserInput - single_select field', () => {
     it('should validate valid selection', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'country',
         type: 'single_select',
         label: 'Country',
@@ -326,7 +326,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject invalid selection', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'country',
         type: 'single_select',
         label: 'Country',
@@ -344,7 +344,7 @@ describe('Schema Validator', () => {
     });
 
     it('should work with numeric values', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'rating',
         type: 'single_select',
         label: 'Rating',
@@ -364,7 +364,7 @@ describe('Schema Validator', () => {
 
   describe('validateUserInput - multi_select field', () => {
     it('should validate valid multi-selection', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'languages',
         type: 'multi_select',
         label: 'Languages',
@@ -383,7 +383,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject non-array value', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'languages',
         type: 'multi_select',
         label: 'Languages',
@@ -400,7 +400,7 @@ describe('Schema Validator', () => {
     });
 
     it('should reject invalid selection in array', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'languages',
         type: 'multi_select',
         label: 'Languages',
@@ -418,7 +418,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate minSelections', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'skills',
         type: 'multi_select',
         label: 'Skills',
@@ -438,7 +438,7 @@ describe('Schema Validator', () => {
     });
 
     it('should validate maxSelections', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'skills',
         type: 'multi_select',
         label: 'Skills',
@@ -461,7 +461,7 @@ describe('Schema Validator', () => {
 
   describe('validateUserInput - required field handling', () => {
     it('should reject undefined for required field', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',
@@ -473,7 +473,7 @@ describe('Schema Validator', () => {
     });
 
     it('should accept undefined for optional field', () => {
-      const field: A2UIField = {
+      const field: FormInputField = {
         id: 'name',
         type: 'text',
         label: 'Name',

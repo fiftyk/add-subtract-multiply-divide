@@ -11,7 +11,7 @@
 
 "等待用户输入"机制在不同形态的程序中形态也不一致，在 cli 程序中，可能是等待用户在终端输入数据，而在 web 程序中，可能是通过弹出对话框或表单让用户填写信息。统一接口设计下的具体实现可以根据不同的运行环境进行适配。
 
-在web程序中，我希望可以支持和实现 [A2UI](https://a2ui.org/) 协议。 这个协议能用在 cli 端吗？感觉有可能。
+在 web 程序中，我希望可以支持和实现自定义的 **Form Input Schema** 协议用于表单输入收集。这是一个独立于 Google A2UI (Agent-to-UI) 渲染协议的表单输入协议。
 
 ---
 
@@ -21,19 +21,19 @@
 
 ### 技术方案选择
 
-- **协议**: 采用 A2UI 协议，支持 CLI 和未来的 Web 环境
+- **协议**: 采用 Form Input Schema 协议，支持 CLI 和 Web 环境
 - **范围**: 仅在 Executor 执行阶段支持用户输入
 - **Schema 验证**: 使用 Zod 进行类型验证
 - **架构原则**: SOLID 原则，最小侵入性，渐进式实施
 
 ### 实施阶段
 
-#### 阶段 1: A2UI Schema 基础设施 (1-2 天)
+#### 阶段 1: Form Input Schema 基础设施 (1-2 天)
 
-**目标**: 建立 A2UI Schema 类型定义和验证机制
+**目标**: 建立 Form Input Schema 类型定义和验证机制
 
 **交付物**:
-- `src/user-input/interfaces/A2UISchema.ts` - A2UI Schema 接口定义
+- `src/user-input/interfaces/FormInputSchema.ts` - Form Input Schema 接口定义
 - `src/user-input/validation/schema-validator.ts` - Zod 验证器实现
 - 单元测试 (覆盖率 > 80%)
 
@@ -62,7 +62,7 @@
 - 集成测试
 
 **关键特性**:
-- A2UI Schema 到 inquirer 的自动转换
+- Form Input Schema 到 inquirer 的自动转换
 - 验证失败时自动重试
 - 超时控制支持
 - 用户取消检测
@@ -142,6 +142,5 @@
 
 ### 参考资源
 
-- A2UI 协议: https://a2ui.org/
 - Zod 文档: https://zod.dev/
 - 完整设计文档: `/Users/liurongtao/.claude/plans/streamed-zooming-wall.md`

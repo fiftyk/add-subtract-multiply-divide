@@ -1,28 +1,30 @@
 /**
- * A2UI Schema - 用户输入的结构化描述
+ * Form Input Schema - 用户输入的结构化描述
  *
- * A2UI (AI-to-UI) 协议定义了 AI 系统如何以结构化方式描述 UI 需求
- * 该协议支持多种环境 (CLI, Web, Mobile) 的用户输入收集
+ * 该协议定义了 AI 系统如何以结构化方式描述表单输入需求
+ * 支持多种环境 (CLI, Web, Mobile) 的用户输入收集
+ *
+ * 注意：这是本项目自定义的表单输入协议，与 Google 的 A2UI (Agent-to-UI) 渲染协议无关
  */
 
 /**
- * A2UI Schema 核心接口
+ * Form Input Schema 核心接口
  */
-export interface A2UISchema {
+export interface FormInputSchema {
   /** Schema 版本 */
   version: '1.0';
 
   /** 输入字段定义 */
-  fields: A2UIField[];
+  fields: FormInputField[];
 
   /** 全局配置(可选) */
-  config?: A2UISchemaConfig;
+  config?: FormInputSchemaConfig;
 }
 
 /**
  * Schema 全局配置
  */
-export interface A2UISchemaConfig {
+export interface FormInputSchemaConfig {
   /** 超时时间(毫秒),默认无限制 */
   timeout?: number;
 
@@ -33,12 +35,12 @@ export interface A2UISchemaConfig {
 /**
  * 单个输入字段定义
  */
-export interface A2UIField {
+export interface FormInputField {
   /** 字段唯一标识 */
   id: string;
 
   /** 字段类型 */
-  type: A2UIFieldType;
+  type: FormInputFieldType;
 
   /** 显示标签 */
   label: string;
@@ -53,19 +55,19 @@ export interface A2UIField {
   defaultValue?: unknown;
 
   /** 验证规则 */
-  validation?: A2UIValidation;
+  validation?: FormInputValidation;
 
   /** 类型特定配置 */
-  config?: A2UIFieldConfig;
+  config?: FormInputFieldConfig;
 
   /** 条件显示规则(可选,阶段4实现) */
-  condition?: A2UICondition;
+  condition?: FormInputCondition;
 }
 
 /**
  * 支持的字段类型
  */
-export type A2UIFieldType =
+export type FormInputFieldType =
   | 'text'           // 单行文本
   | 'number'         // 数字
   | 'boolean'        // 是/否
@@ -76,7 +78,7 @@ export type A2UIFieldType =
 /**
  * 验证规则
  */
-export interface A2UIValidation {
+export interface FormInputValidation {
   /** 数字范围 */
   range?: {
     min?: number;
@@ -99,7 +101,7 @@ export interface A2UIValidation {
 /**
  * 字段特定配置
  */
-export type A2UIFieldConfig =
+export type FormInputFieldConfig =
   | TextFieldConfig
   | SelectFieldConfig;
 
@@ -135,7 +137,7 @@ export interface SelectFieldConfig {
 /**
  * 条件显示规则(阶段4)
  */
-export interface A2UICondition {
+export interface FormInputCondition {
   /** 依赖的字段 ID */
   dependsOn: string;
 
@@ -149,7 +151,7 @@ export interface A2UICondition {
 /**
  * 用户输入结果
  */
-export interface A2UIResult {
+export interface FormInputResult {
   /** 字段 ID → 用户输入值 */
   values: Record<string, unknown>;
 
