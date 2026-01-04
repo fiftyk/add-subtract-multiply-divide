@@ -376,6 +376,74 @@
         </div>
       </div>
     </div>
+
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <span>交互式会话</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>用户请求:</label>
+          <input type="text" id="userRequest" placeholder="例如: 请提供您的姓名和年龄，我将帮您创建待办事项" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" value="请提供您的姓名和年龄">
+        </div>
+
+        <div class="form-group">
+          <label>或输入已创建的计划 ID:</label>
+          <input type="text" id="planId" placeholder="例如: plan-abc123" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+        </div>
+
+        <div class="action-buttons">
+          <button class="action-btn primary" onclick="startInteractiveSession()">启动交互式会话</button>
+          <button class="action-btn secondary" onclick="confirmExecution()">确认执行</button>
+          <button class="action-btn secondary" onclick="cancelSession()">取消会话</button>
+        </div>
+
+        <div id="interactiveSessionInfo" style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:6px;display:none;">
+          <strong>会话状态:</strong> <span id="sessionStatus">-</span><br>
+          <strong>步骤数:</strong> <span id="stepCount">0</span><br>
+          <strong>当前步骤:</strong> <span id="currentStep">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <span>交互式表单</span>
+        <button class="action-btn secondary" onclick="refreshPendingInputs()">刷新待输入</button>
+      </div>
+      <div class="panel-body">
+        <div id="interactiveFormContainer" class="ui-preview">
+          <div class="empty-state">启动交互式会话后，当需要用户输入时会显示表单</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px;">
+      <div class="panel-header">
+        <span>函数执行</span>
+        <button class="action-btn secondary" onclick="loadFunctions()">刷新函数列表</button>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>选择函数:</label>
+          <select id="functionSelect" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+            <option value="">-- 请选择函数 --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>参数 (JSON格式):</label>
+          <textarea id="functionParams" style="width:100%;height:80px;padding:10px;border:1px solid #ddd;border-radius:6px;font-family:monospace;">{}</textarea>
+        </div>
+
+        <button class="action-btn primary" onclick="executeFunction()">执行函数</button>
+
+        <div id="functionResult" style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:6px;display:none;">
+          <strong>执行结果:</strong>
+          <pre id="functionResultContent" style="margin-top:10px;white-space:pre-wrap;word-break:break-all;"></pre>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -383,9 +451,24 @@
     let sessionId = null;
     let eventSource = null;
     let messageCount = 0;
+    let interactiveSessionId = null;
 
-    // API Base URL
-    const API_BASE = 'http://localhost:3006/api/a2ui';
+    // API Configuration
+    // Port 3000: REST API server
+    // Port 3001: SSE/WebSocket server
+    const REST_API_PORT = '3000';
+    const SSE_PORT = '3001';
+
+    // API Base URLs - REST API is on port 3000, SSE is on port 3001
+    const API_BASE = `http://localhost:${REST_API_PORT}/api/a2ui`;
+    const INTERACTIVE_API_BASE = `http://localhost:${REST_API_PORT}/api/interactive-a2ui`;
+    const SSE_URL = `http://localhost:${SSE_PORT}`;
+
+    console.log('API Configuration:', { REST_API_PORT, SSE_PORT, API_BASE, INTERACTIVE_API_BASE, SSE_URL });
+
+    // Interactive form state
+    let pendingInputs = [];
+    let currentStepId = null;
 
     // Update connection status
     function updateConnectionStatus(connected) {
@@ -560,6 +643,15 @@
 
           case 'Column':
             element.className = 'a2ui-column';
+            // Render children
+            if (props.children && Array.isArray(props.children)) {
+              props.children.forEach(child => {
+                const childElement = createComponentElement(child);
+                if (childElement) {
+                  element.appendChild(childElement);
+                }
+              });
+            }
             break;
 
           case 'Row':
@@ -841,6 +933,430 @@
 
     // Initialize
     console.log('A2UI Demo Page Loaded');
+
+    // Load available functions on page load
+    loadFunctions();
+
+    // Load available functions
+    async function loadFunctions() {
+      try {
+        const response = await fetch(`${API_BASE}/functions`);
+        const result = await response.json();
+        if (result.success) {
+          const select = document.getElementById('functionSelect');
+          // Keep the first option
+          select.innerHTML = '<option value="">-- 请选择函数 --</option>';
+          result.data.forEach(fn => {
+            const option = document.createElement('option');
+            option.value = fn.name;
+            option.textContent = `${fn.name} - ${fn.description || '无描述'}`;
+            option.dataset.parameters = JSON.stringify(fn.parameters || []);
+            select.appendChild(option);
+          });
+          showToast(`已加载 ${result.data.length} 个函数`);
+        }
+      } catch (error) {
+        console.error('Failed to load functions:', error);
+        showToast('加载函数列表失败: ' + error.message, true);
+      }
+    }
+
+    // Execute function
+    async function executeFunction() {
+      if (!sessionId) {
+        showToast('请先创建会话并连接 SSE', true);
+        return;
+      }
+
+      const functionName = document.getElementById('functionSelect').value;
+      if (!functionName) {
+        showToast('请选择要执行的函数', true);
+        return;
+      }
+
+      let parameters;
+      try {
+        const paramsText = document.getElementById('functionParams').value;
+        parameters = JSON.parse(paramsText);
+      } catch (error) {
+        showToast('参数 JSON 格式错误', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/sessions/${sessionId}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            functionName,
+            parameters,
+          })
+        });
+        const result = await response.json();
+
+        const resultDiv = document.getElementById('functionResult');
+        const resultContent = document.getElementById('functionResultContent');
+        resultDiv.style.display = 'block';
+
+        if (result.success) {
+          resultContent.innerHTML = `<span style="color:#4caf50;">✓ 执行成功</span>
+执行时间: ${result.data.executionTime}ms
+返回值: ${JSON.stringify(result.data.result, null, 2)}`;
+          showToast(`函数执行成功 (${result.data.executionTime}ms)`);
+        } else {
+          resultContent.innerHTML = `<span style="color:#f44336;">✗ 执行失败</span>
+错误: ${result.data.error}`;
+          showToast('函数执行失败: ' + result.data.error, true);
+        }
+      } catch (error) {
+        showToast('请求失败: ' + error.message, true);
+      }
+    }
+
+    // ==================== Interactive Session Functions ====================
+
+    // Start interactive session
+    async function startInteractiveSession() {
+      const request = document.getElementById('userRequest').value.trim();
+      const planId = document.getElementById('planId').value.trim();
+
+      if (!request && !planId) {
+        showToast('请输入用户请求或计划 ID', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${INTERACTIVE_API_BASE}/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request, planId })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          interactiveSessionId = result.data.sessionId;
+          document.getElementById('interactiveSessionInfo').style.display = 'block';
+          updateInteractiveSessionInfo(result.data);
+
+          showToast('交互式会话已启动: ' + interactiveSessionId);
+          logMessage('interactive_session_started', result.data);
+
+          // Start polling for updates
+          startPolling();
+        } else {
+          showToast('启动失败: ' + result.error, true);
+        }
+      } catch (error) {
+        showToast('请求失败: ' + error.message, true);
+      }
+    }
+
+    // Polling for interactive session updates (instead of SSE)
+    let pollingInterval = null;
+
+    function startPolling() {
+      if (pollingInterval) return;
+      pollingInterval = setInterval(async () => {
+        if (!interactiveSessionId) return;
+        await checkPendingInputs();
+        await refreshSessionStatus();
+      }, 1000); // Poll every second
+      showToast('开始轮询更新');
+    }
+
+    function stopPolling() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+    }
+
+    // Check for pending inputs
+    async function checkPendingInputs() {
+      if (!interactiveSessionId) return;
+
+      try {
+        const response = await fetch(`${INTERACTIVE_API_BASE}/${interactiveSessionId}/pending-inputs`);
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (result.success && result.data && result.data.forms && result.data.forms.length > 0) {
+          // Render the first form
+          const form = result.data.forms[0];
+          renderInteractiveForm(form.components, form.surfaceId);
+          currentStepId = form.stepId;
+          showToast('等待用户输入...');
+        }
+      } catch (error) {
+        console.error('Check pending inputs error:', error);
+      }
+    }
+
+    // Refresh session status
+    async function refreshSessionStatus() {
+      if (!interactiveSessionId) return;
+
+      try {
+        const response = await fetch(`${INTERACTIVE_API_BASE}/${interactiveSessionId}`);
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (result.success && result.data) {
+          updateInteractiveSessionInfo(result.data);
+        }
+      } catch (error) {
+        console.error('Refresh session status error:', error);
+      }
+    }
+
+    // Handle interactive session messages (for polling mode)
+    function handleInteractiveMessage(data) {
+      // Handle different message types
+      if (data.surfaceUpdate) {
+        renderInteractiveForm(data.surfaceUpdate.components || []);
+      }
+
+      if (data.dataModelUpdate) {
+        const contents = data.dataModelUpdate.contents || {};
+        if (contents.sessionStatus) {
+          updateSessionStatus(contents.sessionStatus);
+        }
+      }
+
+      logMessage('interactive_event', data);
+    }
+
+    // Update interactive session info display
+    function updateInteractiveSessionInfo(data) {
+      document.getElementById('sessionStatus').textContent = data.status || '-';
+      document.getElementById('stepCount').textContent = data.steps?.length || 0;
+
+      const currentStep = data.steps?.find((s, i) => i === (data.currentStep || 0));
+      if (currentStep) {
+        document.getElementById('currentStep').textContent = `${currentStep.description || currentStep.type}`;
+      }
+    }
+
+    // Update session status
+    function updateSessionStatus(status) {
+      document.getElementById('sessionStatus').textContent = status;
+
+      const statusLabels = {
+        'pending': '待确认',
+        'running': '执行中',
+        'awaiting_input': '等待输入',
+        'completed': '已完成',
+        'cancelled': '已取消',
+        'error': '错误'
+      };
+
+      showToast(`会话状态: ${statusLabels[status] || status}`);
+    }
+
+    // Render interactive form from components
+    function renderInteractiveForm(components) {
+      const container = document.getElementById('interactiveFormContainer');
+      container.innerHTML = '';
+
+      if (!components || components.length === 0) {
+        container.innerHTML = '<div class="empty-state">无表单组件</div>';
+        return;
+      }
+
+      components.forEach(comp => {
+        const element = createComponentElement(comp);
+        if (element) {
+          container.appendChild(element);
+        }
+      });
+
+      // Add submit button if not present
+      const hasSubmit = components.some(c => c.id && c.id.includes('submit'));
+      if (!hasSubmit) {
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'a2ui-button';
+        submitBtn.textContent = '提交';
+        submitBtn.onclick = () => submitInteractiveForm();
+        container.appendChild(submitBtn);
+      }
+    }
+
+    // Confirm execution
+    async function confirmExecution() {
+      if (!interactiveSessionId) {
+        showToast('请先启动交互式会话', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${INTERACTIVE_API_BASE}/${interactiveSessionId}/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmed: true })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          showToast('执行已确认，计划开始运行');
+          logMessage('execution_confirmed', result);
+        } else {
+          showToast('确认失败: ' + result.error, true);
+        }
+      } catch (error) {
+        showToast('请求失败: ' + error.message, true);
+      }
+    }
+
+    // Cancel session
+    async function cancelSession() {
+      if (!interactiveSessionId) {
+        showToast('请先启动交互式会话', true);
+        return;
+      }
+
+      try {
+        // Stop polling
+        stopPolling();
+
+        const response = await fetch(`${INTERACTIVE_API_BASE}/${interactiveSessionId}/cancel`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          showToast('会话已取消');
+          logMessage('session_cancelled', { sessionId: interactiveSessionId });
+          interactiveSessionId = null;
+          document.getElementById('interactiveSessionInfo').style.display = 'none';
+        } else {
+          showToast('取消失败: ' + result.error, true);
+        }
+      } catch (error) {
+        showToast('请求失败: ' + error.message, true);
+      }
+    }
+
+    // Refresh pending inputs
+    async function refreshPendingInputs() {
+      if (!interactiveSessionId) {
+        showToast('请先启动交互式会话', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${INTERACTIVE_API_BASE}/${interactiveSessionId}/pending-inputs`);
+        const result = await response.json();
+
+        if (result.success) {
+          pendingInputs = result.data.inputs || [];
+          renderPendingForms(result.data.forms || []);
+          showToast(`待输入表单: ${pendingInputs.length}`);
+        }
+      } catch (error) {
+        showToast('请求失败: ' + error.message, true);
+      }
+    }
+
+    // Render pending forms
+    function renderPendingForms(forms) {
+      const container = document.getElementById('interactiveFormContainer');
+
+      if (!forms || forms.length === 0) {
+        container.innerHTML = '<div class="empty-state">无待处理的输入</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      forms.forEach((form, index) => {
+        const formDiv = document.createElement('div');
+        formDiv.className = 'a2ui-card';
+        formDiv.innerHTML = `<h4>步骤 ${form.stepId}</h4>`;
+
+        const components = form.components || [];
+        components.forEach(comp => {
+          const element = createComponentElement(comp);
+          if (element) {
+            formDiv.appendChild(element);
+          }
+        });
+
+        // Add submit button
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'a2ui-button';
+        submitBtn.textContent = '提交';
+        submitBtn.onclick = () => submitPendingForm(form.stepId, form.surfaceId);
+        formDiv.appendChild(submitBtn);
+
+        container.appendChild(formDiv);
+      });
+    }
+
+    // Submit interactive form (collects values from rendered form)
+    async function submitInteractiveForm() {
+      if (!interactiveSessionId || currentStepId === null) {
+        showToast('无待提交的输入', true);
+        return;
+      }
+
+      // Collect form values from the UI
+      const values = collectFormValues();
+      await submitInput(currentStepId, values);
+    }
+
+    // Submit pending form
+    async function submitPendingForm(stepId, surfaceId) {
+      const values = collectFormValues();
+      await submitInput(stepId, values);
+    }
+
+    // Collect form values from rendered inputs
+    function collectFormValues() {
+      const values = {};
+      const container = document.getElementById('interactiveFormContainer');
+
+      // Find all inputs in the form container
+      const inputs = container.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        const id = input.id || input.name;
+        if (id && input.value) {
+          // Convert field ID to field name (remove field_ prefix)
+          const fieldName = id.replace(/^(form-|input-|field_)/, '');
+          values[fieldName] = input.value;
+        }
+      });
+
+      return values;
+    }
+
+    // Submit input to interactive session
+    async function submitInput(stepId, values) {
+      if (!interactiveSessionId) {
+        showToast('会话不存在', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${INTERACTIVE_API_BASE}/${interactiveSessionId}/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stepId, values })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          showToast('输入已提交');
+          logMessage('input_submitted', { stepId, values });
+          // Clear form
+          document.getElementById('interactiveFormContainer').innerHTML = '<div class="empty-state">等待下一步...</div>';
+        } else {
+          showToast('提交失败: ' + result.error, true);
+        }
+      } catch (error) {
+        showToast('请求失败: ' + error.message, true);
+      }
+    }
+
+    // ==================== End Interactive Session Functions ====================
   </script>
 </body>
 </html>

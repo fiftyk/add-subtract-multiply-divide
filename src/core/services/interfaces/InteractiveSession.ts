@@ -98,6 +98,14 @@ export interface InteractiveSession {
   listSessions(): Promise<SessionInfo[]>;
   getPendingInputs(sessionId: string): Promise<UserInputRequest[]>;
   submitInput(sessionId: string, stepId: number, values: Record<string, unknown>): Promise<boolean>;
+
+  /**
+   * 订阅会话事件
+   * @param sessionId 会话 ID
+   * @param callback 事件回调
+   * @returns 取消订阅函数
+   */
+  onEvent(sessionId: string, callback: (event: SessionEvent) => void): () => void;
 }
 
 export const InteractiveSession = Symbol('InteractiveSession');

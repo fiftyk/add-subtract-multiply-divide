@@ -16,6 +16,7 @@ import { executeRouter } from './routes/execute.js';
 import { functionsRouter } from './routes/functions.js';
 import { interactiveRouter } from './routes/interactive.js';
 import { a2uiRouter } from './routes/a2ui.js';
+import { interactiveA2UIRouter } from './routes/interactive-a2ui.js';
 import { ConfigManager } from '../config/index.js';
 import { WebSocketServerImpl } from './WebSocketServer.js';
 import { InteractiveSession } from '../core/services/interfaces/InteractiveSession.js';
@@ -63,10 +64,10 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
   const WS_PORT = Number(process.env.WS_PORT) || 3001;
 
-  // 速率限制
+  // 速率限制 - 提高限制以支持交互式会话测试
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 5000, // limit each IP to 5000 requests per windowMs (increased from 500)
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
@@ -75,7 +76,7 @@ async function startServer() {
   // 中间件
   app.use(
     cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
+      origin: '*', // 允许所有来源（演示用途）
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
@@ -106,6 +107,7 @@ async function startServer() {
   app.use('/api/functions', functionsRouter);
   app.use('/api/interactive', interactiveRouter);
   app.use('/api/a2ui', a2uiRouter);
+  app.use('/api/interactive-a2ui', interactiveA2UIRouter);
 
   // 健康检查
   app.get('/health', (_req: Request, res: Response) => {
@@ -143,6 +145,7 @@ async function startServer() {
       functions: `http://localhost:${PORT}/api/functions`,
       interactive: `http://localhost:${PORT}/api/interactive`,
       a2ui: `http://localhost:${PORT}/api/a2ui`,
+      interactiveA2ui: `http://localhost:${PORT}/api/interactive-a2ui`,
       websocket: `ws://localhost:${WS_PORT}`,
     });
   });

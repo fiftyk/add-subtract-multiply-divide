@@ -69,6 +69,10 @@ export class InteractiveSessionService implements InteractiveSession {
     @inject(UserInputProvider) private userInputProvider: UserInputProvider
   ) {
     this.logger = LoggerFactory.create() as ConsoleLogger;
+    this.logger.info('InteractiveSessionService initialized', {
+      userInputProviderType: this.userInputProvider.constructor.name,
+      hasSubmitInput: 'submitInput' in this.userInputProvider,
+    });
   }
 
   async start(request: string, planId?: string): Promise<SessionInfo> {
@@ -157,9 +161,11 @@ export class InteractiveSessionService implements InteractiveSession {
   }
 
   async submitInput(sessionId: string, stepId: number, values: Record<string, unknown>): Promise<boolean> {
+    this.logger.debug('submitInput called', { sessionId, stepId, values, providerType: this.userInputProvider.constructor.name });
     // 使用类型守卫检查 HTTP 特定方法
     if ('submitInput' in this.userInputProvider && typeof this.userInputProvider.submitInput === 'function') {
       const result = this.userInputProvider.submitInput(sessionId, stepId, values);
+      this.logger.debug('submitInput result', { result });
       if (result) {
         this.emitEvent({
           type: 'input_received',
@@ -170,6 +176,7 @@ export class InteractiveSessionService implements InteractiveSession {
       }
       return result;
     }
+    this.logger.warn('submitInput not available on provider', { type: this.userInputProvider.constructor.name });
     return false;
   }
 
@@ -358,15 +365,9 @@ export class InteractiveSessionService implements InteractiveSession {
         context.sessionId = sessionId;
         context.stepId = stepId;
 
-        // 添加待处理输入
-        const schema = (step as any).schema;
-        if ('addPendingInput' in this.userInputProvider && typeof this.userInputProvider.addPendingInput === 'function') {
-          this.userInputProvider.addPendingInput(sessionId, stepId, schema);
-        }
-
         // 等待用户输入（阻塞）
         try {
-          const result = await this.userInputProvider.requestInput(schema, context);
+          const result = await this.userInputProvider.requestInput((step as any).schema, context);
           stepResults.push({
             stepId,
             type: 'user_input',

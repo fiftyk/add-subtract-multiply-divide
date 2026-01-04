@@ -16,12 +16,14 @@ export type {
 
 // BoundValue
 export type { BoundValue } from './BoundValue.js';
-export {
+export type {
   LiteralString,
   LiteralNumber,
   LiteralBoolean,
   PathReference,
   PathWithDefault,
+} from './BoundValue.js';
+export {
   isLiteralString,
   isLiteralNumber,
   isLiteralBoolean,
@@ -33,7 +35,7 @@ export {
 export type { Component, ComponentProperties, SelectOption, ChildrenConfig, TemplateConfig } from './Component.js';
 
 // Core interfaces
-export { A2UISession, type A2UISessionOptions } from './A2UISession.js';
+export { A2UISession, type A2UISessionOptions, type FunctionExecutionResult } from './A2UISession.js';
 export { SurfaceManager, type SurfaceState } from './SurfaceManager.js';
 
 // Component catalog

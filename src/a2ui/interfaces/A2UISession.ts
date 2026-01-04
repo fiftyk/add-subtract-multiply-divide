@@ -10,6 +10,16 @@ import type { Component } from './Component.js';
 export const A2UISession = Symbol('A2UISession');
 
 /**
+ * 函数执行结果
+ */
+export interface FunctionExecutionResult {
+  success: boolean;
+  result?: unknown;
+  error?: string;
+  executionTime: number;
+}
+
+/**
  * A2UI 会话接口
  */
 export interface A2UISession {
@@ -63,6 +73,18 @@ export interface A2UISession {
    * 取消订阅
    */
   unsubscribe(subscriberId: string): void;
+
+  /**
+   * 执行函数并发送结果
+   * @param functionName 函数名称
+   * @param parameters 函数参数
+   * @param surfaceId 目标 surface ID
+   */
+  executeFunction(
+    surfaceId: string,
+    functionName: string,
+    parameters: Record<string, unknown>
+  ): Promise<FunctionExecutionResult>;
 }
 
 /**

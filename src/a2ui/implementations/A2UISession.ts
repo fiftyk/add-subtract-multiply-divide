@@ -15,8 +15,11 @@ import type {
   DataModelUpdateMessage,
   BeginRenderingMessage,
   DeleteSurfaceMessage,
+  FunctionExecutionResult,
 } from '../interfaces/index.js';
 import { SurfaceManager as SurfaceManagerSymbol, MessageSender as MessageSenderSymbol } from '../interfaces/index.js';
+import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
+import { LocalFunctionProviderSymbol } from '../../function-provider/symbols.js';
 
 @injectable()
 export class A2UISessionImpl implements A2UISession {
@@ -28,7 +31,8 @@ export class A2UISessionImpl implements A2UISession {
 
   constructor(
     @inject(SurfaceManagerSymbol) private surfaceManager: SurfaceManager,
-    @inject(MessageSenderSymbol) private messageSender: MessageSender
+    @inject(MessageSenderSymbol) private messageSender: MessageSender,
+    @inject(LocalFunctionProviderSymbol) private functionProvider: FunctionProvider
   ) {
     this.sessionId = `a2ui-${uuidv4().slice(0, 8)}`;
     this.createdAt = new Date();
@@ -108,5 +112,47 @@ export class A2UISessionImpl implements A2UISession {
     }
 
     return entries;
+  }
+
+  async executeFunction(
+    surfaceId: string,
+    functionName: string,
+    parameters: Record<string, unknown>
+  ): Promise<FunctionExecutionResult> {
+    const startTime = Date.now();
+
+    // 执行函数
+    const result = await this.functionProvider.execute(functionName, parameters);
+    const executionTime = Date.now() - startTime;
+
+    if (result.success) {
+      // 发送函数结果到数据模型
+      this.sendDataModelUpdate(surfaceId, {
+        functionResult: result.result,
+        functionName,
+        functionSuccess: true,
+        functionExecutionTime: executionTime,
+      });
+
+      return {
+        success: true,
+        result: result.result,
+        executionTime,
+      };
+    } else {
+      // 发送错误信息
+      this.sendDataModelUpdate(surfaceId, {
+        functionError: result.error,
+        functionName,
+        functionSuccess: false,
+        functionExecutionTime: executionTime,
+      });
+
+      return {
+        success: false,
+        error: result.error,
+        executionTime,
+      };
+    }
   }
 }

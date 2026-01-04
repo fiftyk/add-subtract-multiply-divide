@@ -14,6 +14,8 @@ import type {
   UserActionMessage,
   MessageSender,
 } from '../../a2ui/interfaces/index.js';
+import container from '../../container.js';
+import { OrchestrationService } from '../../core/interfaces/OrchestrationService.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { NotFoundError, ValidationError } from '../errors/ApiErrors.js';
 import { LoggerFactory } from '../../logger/index.js';
@@ -352,6 +354,63 @@ router.get(
     req.on('error', () => {
       messageSender.unregisterSSESubscription(req.params.id, sseId);
     });
+  })
+);
+
+// POST /api/a2ui/sessions/:id/execute - 执行函数
+router.post(
+  '/sessions/:id/execute',
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessionInfo = a2uiSessions.get(req.params.id);
+
+    if (!sessionInfo) {
+      throw new NotFoundError('A2UI session not found');
+    }
+
+    const body = req.body || {};
+    const { functionName, parameters, surfaceId } = body;
+
+    if (!functionName) {
+      throw new ValidationError('functionName is required');
+    }
+
+    const factory = getSessionFactory(req);
+    const a2uiSession = factory.getSession(req.params.id);
+
+    if (!a2uiSession) {
+      throw new NotFoundError('A2UI session not found');
+    }
+
+    const targetSurfaceId = surfaceId || sessionInfo.surfaceId;
+
+    logger.info('Executing function via A2UI', {
+      sessionId: req.params.id,
+      functionName,
+      parameters,
+      surfaceId: targetSurfaceId,
+    });
+
+    const result = await a2uiSession.executeFunction(targetSurfaceId, functionName, parameters || {});
+
+    res.json({
+      success: result.success,
+      data: {
+        functionName,
+        result: result.result,
+        error: result.error,
+        executionTime: result.executionTime,
+      },
+    });
+  })
+);
+
+// GET /api/a2ui/functions - 列出可用函数
+router.get(
+  '/functions',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const orchestrationService = container.get<OrchestrationService>(OrchestrationService);
+    const functions = await orchestrationService.listFunctions();
+    res.json({ success: true, data: functions });
   })
 );
 

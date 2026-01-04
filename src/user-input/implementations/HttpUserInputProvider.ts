@@ -186,7 +186,18 @@ export class HttpUserInputProvider implements UserInputProvider {
     const pendingInput = this.pendingInputs.get(requestId);
     const resolver = this.pendingResolvers.get(requestId);
 
+    console.log('[HttpUserInputProvider] submitInput called', {
+      requestId,
+      sessionId,
+      stepId,
+      pendingInputExists: !!pendingInput,
+      pendingInputStatus: pendingInput?.status,
+      resolverExists: !!resolver,
+      pendingInputsKeys: Array.from(this.pendingInputs.keys()),
+    });
+
     if (!pendingInput || pendingInput.status !== 'pending' || !resolver) {
+      console.log('[HttpUserInputProvider] submitInput failed: conditions not met');
       return false;
     }
 
