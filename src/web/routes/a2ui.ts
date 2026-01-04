@@ -12,6 +12,7 @@ import type {
   A2UISessionFactory,
   SurfaceManager,
   UserActionMessage,
+  MessageSender,
 } from '../../a2ui/interfaces/index.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { NotFoundError, ValidationError } from '../errors/ApiErrors.js';
@@ -34,6 +35,19 @@ const getSessionFactory = (req: Request): A2UISessionFactory => {
     throw new Error('A2UISessionFactory not available');
   }
   return req.a2uiSessionFactory;
+};
+
+// 获取 MessageSender
+const getMessageSender = (req: Request): MessageSender => {
+  // MessageSender 通过 A2UI 容器绑定
+  const factory = getSessionFactory(req);
+  // 临时获取 session 来访问 messageSender
+  const sessions = (factory as any).sessions;
+  if (sessions && sessions.size > 0) {
+    const firstSession = sessions.values().next().value;
+    return (firstSession as any).messageSender;
+  }
+  throw new Error('MessageSender not available');
 };
 
 // 存储会话信息
@@ -281,6 +295,62 @@ router.get(
         orchestrationSessionId: sessionInfo.orchestrationSessionId,
         createdAt: sessionInfo.createdAt,
       },
+    });
+  })
+);
+
+// GET /api/a2ui/sessions/:id/stream - SSE 流式传输
+router.get(
+  '/sessions/:id/stream',
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessionInfo = a2uiSessions.get(req.params.id);
+
+    if (!sessionInfo) {
+      throw new NotFoundError('A2UI session not found');
+    }
+
+    const factory = getSessionFactory(req);
+    const a2uiSession = factory.getSession(req.params.id);
+
+    if (!a2uiSession) {
+      throw new NotFoundError('A2UI session not found');
+    }
+
+    // 设置 SSE 头部
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 禁用 nginx 缓冲
+    res.flushHeaders();
+
+    // 生成 SSE 连接 ID
+    const sseId = `sse-${uuidv4().slice(0, 8)}`;
+
+    // 创建 SSE 写入器
+    const sseWriter = {
+      write: (data: string): void => {
+        res.write(data);
+      },
+      end: (): void => {
+        res.end();
+      },
+    };
+
+    // 注册 SSE 订阅
+    const messageSender = getMessageSender(req);
+    messageSender.registerSSESubscription(req.params.id, sseId, sseWriter);
+
+    // 发送连接成功事件
+    res.write(`data: ${JSON.stringify({ type: 'connected', sessionId: req.params.id, sseId })}\n\n`);
+
+    // 处理客户端断开连接
+    req.on('close', () => {
+      messageSender.unregisterSSESubscription(req.params.id, sseId);
+      logger.debug('SSE connection closed', { sessionId: req.params.id, sseId });
+    });
+
+    req.on('error', () => {
+      messageSender.unregisterSSESubscription(req.params.id, sseId);
     });
   })
 );

@@ -41,7 +41,7 @@ export { ComponentCatalog, type ComponentDefinition, type PropertyDefinition, ty
 export { ComponentCatalogRegistry } from './ComponentCatalogRegistry.js';
 
 // Transport
-export { MessageSender } from './MessageSender.js';
+export { MessageSender, type SSEResponseWriter } from './MessageSender.js';
 export { MessageReceiver } from './MessageReceiver.js';
 export { Transport, type SSEServerConfig, type WebSocketConfig } from './Transport.js';
 
