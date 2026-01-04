@@ -43,7 +43,8 @@ const a2uiSessions: Map<string, A2UISessionInfo> = new Map();
 router.post(
   '/sessions',
   asyncHandler(async (req: Request, res: Response) => {
-    const { orchestrationSessionId } = req.body;
+    const body = req.body || {};
+    const { orchestrationSessionId } = body;
 
     const factory = getSessionFactory(req);
     const a2uiSession = factory.create();
@@ -143,7 +144,8 @@ router.post(
       throw new NotFoundError('A2UI session not found');
     }
 
-    const { components } = req.body;
+    const body = req.body || {};
+    const { components } = body;
 
     if (!Array.isArray(components)) {
       throw new ValidationError('components must be an array');
@@ -172,11 +174,17 @@ router.post(
       throw new NotFoundError('A2UI session not found');
     }
 
-    const { data, path } = req.body;
+    const body = req.body || {};
+    const path = body.path;
 
-    if (!data || typeof data !== 'object') {
+    // body 本身就是要更新的数据（不需要 data 包装）
+    if (typeof body !== 'object' || Array.isArray(body)) {
       throw new ValidationError('data must be an object');
     }
+
+    // 移除 path 字段，剩下的作为数据
+    const data = { ...body };
+    delete (data as Record<string, unknown>).path;
 
     const factory = getSessionFactory(req);
     const a2uiSession = factory.getSession(req.params.id);
@@ -201,7 +209,8 @@ router.post(
       throw new NotFoundError('A2UI session not found');
     }
 
-    const { catalogId, rootComponentId } = req.body;
+    const body = req.body || {};
+    const { catalogId, rootComponentId } = body;
 
     const factory = getSessionFactory(req);
     const a2uiSession = factory.getSession(req.params.id);
@@ -224,7 +233,8 @@ router.post(
 router.post(
   '/sessions/:id/actions',
   asyncHandler(async (req: Request, res: Response) => {
-    const { actionName, surfaceId, sourceComponentId, context } = req.body;
+    const body = req.body || {};
+    const { actionName, surfaceId, sourceComponentId, context } = body;
 
     if (!actionName || !sourceComponentId) {
       throw new ValidationError('actionName and sourceComponentId are required');

@@ -3,17 +3,18 @@
  */
 
 import 'reflect-metadata';
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
 import type { A2UISession, A2UISessionFactory, A2UISessionOptions, SurfaceManager, MessageSender } from '../interfaces/index.js';
 import { A2UISessionImpl } from '../implementations/A2UISession.js';
+import { SurfaceManager as SurfaceManagerSymbol, MessageSender as MessageSenderSymbol } from '../interfaces/index.js';
 
 @injectable()
 export class A2UISessionFactoryImpl implements A2UISessionFactory {
   private sessions: Map<string, A2UISession> = new Map();
 
   constructor(
-    private surfaceManager: SurfaceManager,
-    private messageSender: MessageSender
+    @inject(SurfaceManagerSymbol) private surfaceManager: SurfaceManager,
+    @inject(MessageSenderSymbol) private messageSender: MessageSender
   ) {}
 
   create(options?: A2UISessionOptions): A2UISession {

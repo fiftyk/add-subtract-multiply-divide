@@ -3,7 +3,7 @@
  */
 
 import 'reflect-metadata';
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   A2UISession,
@@ -16,25 +16,22 @@ import type {
   BeginRenderingMessage,
   DeleteSurfaceMessage,
 } from '../interfaces/index.js';
+import { SurfaceManager as SurfaceManagerSymbol, MessageSender as MessageSenderSymbol } from '../interfaces/index.js';
 
 @injectable()
 export class A2UISessionImpl implements A2UISession {
   readonly sessionId: string;
   readonly createdAt: Date;
 
-  private surfaceManager: SurfaceManager;
-  private messageSender: MessageSender;
   private subscribers: Map<string, (message: string) => void> = new Map();
   private actionHandlers: Map<string, (action: UserActionMessage) => void> = new Map();
 
   constructor(
-    surfaceManager: SurfaceManager,
-    messageSender: MessageSender
+    @inject(SurfaceManagerSymbol) private surfaceManager: SurfaceManager,
+    @inject(MessageSenderSymbol) private messageSender: MessageSender
   ) {
     this.sessionId = `a2ui-${uuidv4().slice(0, 8)}`;
     this.createdAt = new Date();
-    this.surfaceManager = surfaceManager;
-    this.messageSender = messageSender;
   }
 
   createSurface(surfaceId: string): void {
