@@ -14,4 +14,9 @@ export interface A2UISessionFactory {
    * 创建新会话
    */
   create(options?: A2UISessionOptions): A2UISession;
+
+  /**
+   * 获取现有会话
+   */
+  getSession(sessionId: string): A2UISession | undefined;
 }

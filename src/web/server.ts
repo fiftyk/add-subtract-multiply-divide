@@ -15,13 +15,16 @@ import { plansRouter } from './routes/plans.js';
 import { executeRouter } from './routes/execute.js';
 import { functionsRouter } from './routes/functions.js';
 import { interactiveRouter } from './routes/interactive.js';
+import { a2uiRouter } from './routes/a2ui.js';
 import { ConfigManager } from '../config/index.js';
 import { WebSocketServerImpl } from './WebSocketServer.js';
 import { InteractiveSession } from '../core/services/interfaces/InteractiveSession.js';
 import type { InteractiveSessionService } from '../core/services/InteractiveSessionService.js';
+import { A2UISessionFactory } from '../a2ui/interfaces/index.js';
 import { LoggerFactory } from '../logger/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { loadFunctionsFromDirectory } from '../cli/utils.js';
+import { bindA2UIContainer } from '../a2ui/container.js';
 
 // 初始化配置
 ConfigManager.initialize();
@@ -85,10 +88,15 @@ async function startServer() {
   const orchestrationService = container.get<OrchestrationService>(OrchestrationService);
   const sessionService = container.get<InteractiveSessionService>(InteractiveSession);
 
+  // 绑定 A2UI 容器
+  bindA2UIContainer(container);
+  const a2uiSessionFactory = container.get<A2UISessionFactory>(A2UISessionFactory);
+
   // 将服务挂载到 request 上供路由使用
   app.use((req: Request, _res: Response, next: NextFunction) => {
     req.orchestrationService = orchestrationService;
     req.sessionService = sessionService;
+    req.a2uiSessionFactory = a2uiSessionFactory;
     next();
   });
 
@@ -97,6 +105,7 @@ async function startServer() {
   app.use('/api/execute', executeRouter);
   app.use('/api/functions', functionsRouter);
   app.use('/api/interactive', interactiveRouter);
+  app.use('/api/a2ui', a2uiRouter);
 
   // 健康检查
   app.get('/health', (_req: Request, res: Response) => {
@@ -133,6 +142,7 @@ async function startServer() {
       execute: `http://localhost:${PORT}/api/execute`,
       functions: `http://localhost:${PORT}/api/functions`,
       interactive: `http://localhost:${PORT}/api/interactive`,
+      a2ui: `http://localhost:${PORT}/api/a2ui`,
       websocket: `ws://localhost:${WS_PORT}`,
     });
   });
