@@ -21,6 +21,7 @@ import type {
   ProgressProps,
   BadgeProps,
   ColumnProps,
+  DateFieldProps,
 } from '../types.js';
 
 interface Surface {
@@ -116,6 +117,35 @@ export class CLIRenderer implements A2UIRenderer {
           name: confirmed ? btnProps.action : 'cancel',
           surfaceId,
           componentId,
+        };
+      }
+
+      case 'DateField': {
+        const dateProps = p as DateFieldProps;
+        const { value } = await inquirer.prompt([{
+          type: 'input',
+          name: 'value',
+          message: dateProps.label,
+          default: new Date().toISOString().split('T')[0],
+          validate: (input: string) => {
+            const date = new Date(input);
+            if (isNaN(date.getTime())) {
+              return 'Please enter a valid date (YYYY-MM-DD)';
+            }
+            if (dateProps.minDate && date < new Date(dateProps.minDate)) {
+              return `Date must be after ${dateProps.minDate}`;
+            }
+            if (dateProps.maxDate && date > new Date(dateProps.maxDate)) {
+              return `Date must be before ${dateProps.maxDate}`;
+            }
+            return true;
+          },
+        }]);
+        return {
+          name: 'submit',
+          surfaceId,
+          componentId,
+          payload: { [dateProps.name]: value },
         };
       }
 

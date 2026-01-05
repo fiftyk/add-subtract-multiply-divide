@@ -23,6 +23,7 @@ import { PlanValidator } from '../../validation/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
 import type { A2UIRenderer as A2UIRendererType } from '../../a2ui/A2UIRenderer.js';
+import type { A2UIComponent } from '../../a2ui/types.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
 /**
@@ -308,17 +309,55 @@ export class ExecutorImpl implements Executor {
       const values: Record<string, unknown> = {};
       for (const field of step.schema.fields) {
         const componentId = `field-${field.id}`;
-        const component = {
-          id: componentId,
-          component: {
-            TextField: {
-              label: field.label,
-              name: field.id,
-              placeholder: field.description,
-              required: field.required,
-            }
-          }
-        };
+
+        // Create component based on field type
+        let component: A2UIComponent;
+        switch (field.type) {
+          case 'date':
+            const dateConfig = field.config as { minDate?: string; maxDate?: string } | undefined;
+            component = {
+              id: componentId,
+              component: {
+                DateField: {
+                  label: field.label,
+                  name: field.id,
+                  minDate: dateConfig?.minDate,
+                  maxDate: dateConfig?.maxDate,
+                }
+              }
+            };
+            break;
+          case 'single_select':
+          case 'multi_select':
+            const selectConfig = field.config as { options: Array<{ value: string | number; label: string; description?: string }> } | undefined;
+            component = {
+              id: componentId,
+              component: {
+                SelectField: {
+                  label: field.label,
+                  name: field.id,
+                  options: selectConfig?.options || [],
+                  multiSelect: field.type === 'multi_select',
+                }
+              }
+            };
+            break;
+          case 'text':
+          case 'number':
+          case 'boolean':
+          default:
+            component = {
+              id: componentId,
+              component: {
+                TextField: {
+                  label: field.label,
+                  name: field.id,
+                  placeholder: field.description,
+                  required: field.required,
+                }
+              }
+            };
+        }
 
         // Add component to surface (required by requestInput)
         this.a2uiRenderer.update(surfaceId, [component]);
@@ -343,7 +382,15 @@ export class ExecutorImpl implements Executor {
                 value = value.toLowerCase() === 'true' || value === '1' || value === 'yes';
               }
               break;
-            // 'text', 'date', 'single_select', 'multi_select' keep as-is
+            case 'date':
+              // Validate and parse date
+              const date = new Date(value as string);
+              if (isNaN(date.getTime())) {
+                throw new Error(`Invalid date value for field "${field.id}": ${value}`);
+              }
+              value = date.toISOString().split('T')[0];
+              break;
+            // 'text', 'single_select', 'multi_select' keep as-is
           }
 
           values[field.id] = value;

@@ -199,4 +199,21 @@ export class A2UIService {
     const action = await this.renderer.requestInput(this.currentSurfaceId!, id);
     return action.name === 'confirm';
   }
+
+  /**
+   * Request date input (blocking)
+   */
+  async date(label: string, name: string, minDate?: string, maxDate?: string): Promise<string> {
+    if (!this.currentSurfaceId) {
+      this.startSurface();
+    }
+
+    const id = this.nextId('date');
+    this.renderer.update(this.currentSurfaceId!, [
+      { id, component: { DateField: { label, name, minDate, maxDate } } }
+    ]);
+
+    const action = await this.renderer.requestInput(this.currentSurfaceId!, id);
+    return (action.payload?.[name] as string) || '';
+  }
 }

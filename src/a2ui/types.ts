@@ -47,7 +47,7 @@ export interface A2UIValidation {
   errorMessage?: string;
 }
 
-export type A2UIFieldConfig = TextFieldInputConfig | SelectFieldConfig;
+export type A2UIFieldConfig = TextFieldInputConfig | SelectFieldConfig | DateFieldConfig;
 
 export interface TextFieldInputConfig {
   multiline?: boolean;
@@ -58,6 +58,11 @@ export interface SelectFieldConfig {
   options: Array<{ value: string | number; label: string; description?: string }>;
   minSelections?: number;
   maxSelections?: number;
+}
+
+export interface DateFieldConfig {
+  minDate?: string; // ISO date string
+  maxDate?: string; // ISO date string
 }
 
 export interface A2UIResult {
@@ -196,4 +201,18 @@ export interface BadgeProps {
 
 export interface DividerProps {
   style?: 'solid' | 'dashed';
+}
+
+export interface DateFieldProps {
+  label: string;
+  name: string;
+  minDate?: string;
+  maxDate?: string;
+}
+
+export interface SelectFieldProps {
+  label: string;
+  name: string;
+  options: Array<{ value: string | number; label: string; description?: string }>;
+  multiSelect?: boolean;
 }
