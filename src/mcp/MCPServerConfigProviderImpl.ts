@@ -5,7 +5,7 @@
  */
 
 import 'reflect-metadata';
-import { injectable } from 'inversify';
+import { injectable, unmanaged } from 'inversify';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { MCPServerConfigProvider } from './interfaces/MCPServerConfigProvider.js';
@@ -21,7 +21,7 @@ export class MCPServerConfigProviderImpl implements MCPServerConfigProvider {
   private config: MCPConfigFile | null = null;
   private readonly configPath: string;
 
-  constructor(configPath?: string) {
+  constructor(@unmanaged() configPath?: string) {
     // 默认从项目根目录加载配置文件
     this.configPath = configPath || path.resolve(process.cwd(), 'fn-orchestrator.mcp.json');
     this.loadConfig();

@@ -52,7 +52,7 @@ export class CompositeFunctionProvider implements FunctionProvider {
 
   constructor(
     @inject(LocalFunctionProviderSymbol) @optional() localProvider?: LocalFunctionProvider | FunctionProvider[],
-    @multiInject(AllRemoteFunctionProvidersSymbol) @optional() remoteProviders?: MCPFunctionProvider[],
+    @inject(AllRemoteFunctionProvidersSymbol) @optional() remoteProviders?: MCPFunctionProvider[],
     @unmanaged() config?: CompositeFunctionProviderConfig
   ) {
     // 检测是否是直接实例化（测试场景）：第一个参数是数组
