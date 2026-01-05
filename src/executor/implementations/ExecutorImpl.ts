@@ -300,36 +300,58 @@ export class ExecutorImpl implements Executor {
 
       this.logger.info('Requesting user input', { stepId: step.stepId });
 
-      // TODO: Implement user input via A2UIRenderer
-      // For now, create a simple surface with the schema fields
+      // Use A2UIRenderer to collect user input
       const surfaceId = `user-input-${step.stepId}`;
       this.a2uiRenderer.begin(surfaceId, 'root');
-      
-      // Render form fields
-      const components = step.schema.fields.map((field, index) => ({
-        id: `field-${index}`,
-        component: {
-          TextField: {
-            label: field.label,
-            name: field.id,
-            placeholder: field.description,
-            required: field.required,
-          }
-        }
-      }));
-      
-      this.a2uiRenderer.update(surfaceId, [{
-        id: 'root',
-        component: { Column: { children: components.map(c => c.id) } }
-      }, ...components]);
-      
-      // Request input from first field (simplified)
-      const result = await this.a2uiRenderer.requestInput(surfaceId, 'field-0');
-      
-      this.a2uiRenderer.end(surfaceId);
 
-      // Extract values from A2UIUserAction payload
-      const values = result.payload || {};
+      // Collect input for each field sequentially
+      const values: Record<string, unknown> = {};
+      for (const field of step.schema.fields) {
+        const componentId = `field-${field.id}`;
+        const component = {
+          id: componentId,
+          component: {
+            TextField: {
+              label: field.label,
+              name: field.id,
+              placeholder: field.description,
+              required: field.required,
+            }
+          }
+        };
+
+        // Add component to surface (required by requestInput)
+        this.a2uiRenderer.update(surfaceId, [component]);
+
+        // Request input (inquirer handles its own rendering)
+        const action = await this.a2uiRenderer.requestInput(surfaceId, componentId);
+
+        // Extract the value from payload and convert type if needed
+        if (action.payload && action.payload[field.id] !== undefined) {
+          let value = action.payload[field.id];
+
+          // Type conversion based on field type
+          switch (field.type) {
+            case 'number':
+              value = typeof value === 'string' ? parseFloat(value) : value;
+              if (isNaN(value as number)) {
+                throw new Error(`Invalid number value for field "${field.id}": ${action.payload[field.id]}`);
+              }
+              break;
+            case 'boolean':
+              if (typeof value === 'string') {
+                value = value.toLowerCase() === 'true' || value === '1' || value === 'yes';
+              }
+              break;
+            // 'text', 'date', 'single_select', 'multi_select' keep as-is
+          }
+
+          values[field.id] = value;
+        }
+      }
+
+      // Clean up surface (won't render because it's a user-input surface)
+      this.a2uiRenderer.end(surfaceId);
 
       this.logger.info('User input received', {
         stepId: step.stepId,

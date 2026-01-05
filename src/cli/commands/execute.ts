@@ -8,6 +8,7 @@ import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { StepType } from '../../planner/types.js';
 import { A2UIService } from '../../a2ui/A2UIService.js';
+import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
 import { loadFunctions } from '../utils.js';
 
 interface ExecuteOptions {
@@ -57,20 +58,32 @@ export async function executeCommand(
     ui.heading('📦 已加载的函数:');
     ui.caption(`总共 ${allFunctions.length} 个函数`);
 
-    // 区分 mock 函数和普通函数
+    // 区分本地函数、远程函数和 mock 函数
+    // 使用 type 字段（更稳定）而不是 source 字段
     const mockFunctions = plan.metadata?.mockFunctions || [];
     const mockFunctionNames = mockFunctions.map((m) => m.name);
-    const normalFunctions = allFunctions.filter(
-      (f) => !mockFunctionNames.includes(f.name)
+
+    const localFunctions = allFunctions.filter(
+      (f) => f.type === 'local' && !mockFunctionNames.includes(f.name)
+    );
+    const remoteFunctions = allFunctions.filter(
+      (f) => f.type === 'remote' && !mockFunctionNames.includes(f.name)
     );
     const loadedMocks = allFunctions.filter((f) =>
       mockFunctionNames.includes(f.name)
     );
 
-    if (normalFunctions.length > 0) {
-      ui.text('普通函数:', 'subheading');
-      normalFunctions.forEach(f => {
+    if (localFunctions.length > 0) {
+      ui.text('本地函数:', 'subheading');
+      localFunctions.forEach(f => {
         ui.caption(`  • ${f.name}`);
+      });
+    }
+
+    if (remoteFunctions.length > 0) {
+      ui.text('远程工具:', 'subheading');
+      remoteFunctions.forEach(f => {
+        ui.caption(`  • ${f.name} (${f.source})`);
       });
     }
 
@@ -140,11 +153,14 @@ export async function executeCommand(
     ui.startSurface('execute-running');
     ui.heading('🚀 开始执行...');
 
+    // 获取 A2UIRenderer 用于处理用户输入
+    const a2uiRenderer = container.get<A2UIRenderer>(A2UIRenderer);
+
     // 根据计划内容选择执行器
     const hasConditionSteps = plan.steps.some(step => step.type === StepType.CONDITION);
     const executor: Executor = hasConditionSteps
-      ? new ConditionalExecutor(functionProvider)
-      : new ExecutorImpl(functionProvider);
+      ? new ConditionalExecutor(functionProvider, undefined, a2uiRenderer)
+      : new ExecutorImpl(functionProvider, undefined, a2uiRenderer);
 
     if (hasConditionSteps) {
       ui.caption('ℹ️  检测到条件分支步骤，使用条件执行器');

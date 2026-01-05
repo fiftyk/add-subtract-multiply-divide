@@ -48,8 +48,7 @@ export class CLIRenderer implements A2UIRenderer {
       surface.components.set(comp.id, comp);
     }
 
-    // Re-render surface from root
-    this.renderSurface(surfaceId);
+    // Don't render immediately - wait for end() to render once
   }
 
   remove(surfaceId: string, componentIds: string[]): void {
@@ -62,6 +61,11 @@ export class CLIRenderer implements A2UIRenderer {
   }
 
   end(surfaceId: string): void {
+    // Only render if this is not a user-input surface
+    // (user-input surfaces use inquirer for their own rendering)
+    if (!surfaceId.startsWith('user-input-')) {
+      this.renderSurface(surfaceId);
+    }
     this.surfaces.delete(surfaceId);
   }
 
@@ -124,11 +128,19 @@ export class CLIRenderer implements A2UIRenderer {
     const surface = this.surfaces.get(surfaceId);
     if (!surface) return;
 
-    const root = surface.components.get(surface.rootId);
-    if (!root) return;
-
     console.log(''); // Empty line before surface
-    this.renderComponent(surface, root, 0);
+
+    // Try to render from root component first
+    const root = surface.components.get(surface.rootId);
+    if (root) {
+      this.renderComponent(surface, root, 0);
+    } else {
+      // If no root component, render all top-level components
+      for (const comp of surface.components.values()) {
+        this.renderComponent(surface, comp, 0);
+      }
+    }
+
     console.log(''); // Empty line after surface
   }
 
