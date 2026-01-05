@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { defineFunction } from '../src/registry/index.js';
 import { LocalFunctionProvider } from '../src/function-provider/index.js';
-import { ExecutorImpl } from '../src/executor/executor.js';
+import { ExecutorImpl } from '../src/executor/implementations/ExecutorImpl.js';
 import type { Executor } from '../src/executor/interfaces/Executor.js';
 import type { ExecutionPlan } from '../src/planner/types.js';
 import { ConfigManager } from '../src/config/index.js';

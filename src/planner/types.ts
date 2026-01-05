@@ -15,6 +15,9 @@ export enum StepType {
 
   /** 用户输入(新增) */
   USER_INPUT = 'user_input',
+
+  /** 条件分支 */
+  CONDITION = 'condition',
 }
 
 /**
@@ -53,10 +56,42 @@ export interface UserInputStep extends BasePlanStep {
 }
 
 /**
+ * 条件分支步骤
+ */
+export interface ConditionalStep extends BasePlanStep {
+  type: StepType.CONDITION;
+
+  /**
+   * 条件表达式 (JavaScript 表达式)
+   * 可以引用之前步骤的结果: step.1.result, step.2.value.nestedField
+   * 示例: "step.1.result > 10", "step.2.status === 'error'"
+   */
+  condition: string;
+
+  /**
+   * 条件为真时执行的步骤 ID 列表
+   * 这些步骤会在条件判断后执行
+   */
+  onTrue: number[];
+
+  /**
+   * 条件为假时执行的步骤 ID 列表
+   * 这些步骤会在条件判断后执行
+   */
+  onFalse: number[];
+
+  /**
+   * 条件结果变量名 (可选)
+   * 如果设置，会将条件结果存储到上下文
+   */
+  outputVariable?: string;
+}
+
+/**
  * 执行计划中的一个步骤
  * 使用判别联合类型支持多种步骤类型
  */
-export type PlanStep = FunctionCallStep | UserInputStep;
+export type PlanStep = FunctionCallStep | UserInputStep | ConditionalStep;
 
 /**
  * 缺失的函数定义

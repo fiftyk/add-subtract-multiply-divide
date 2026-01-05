@@ -11,6 +11,13 @@ export class ExecutionContext {
   private results: Map<number, unknown> = new Map();
 
   /**
+   * 获取所有步骤结果（只读访问）
+   */
+  getResults(): ReadonlyMap<number, unknown> {
+    return this.results as ReadonlyMap<number, unknown>;
+  }
+
+  /**
    * 存储步骤结果
    */
   setStepResult(stepId: number, result: unknown): void {

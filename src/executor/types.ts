@@ -32,9 +32,20 @@ export interface UserInputResult extends BaseStepResult {
 }
 
 /**
+ * 条件分支步骤执行结果
+ */
+export interface ConditionalResult extends BaseStepResult {
+  type: StepType.CONDITION;
+  condition: string;
+  evaluatedResult: boolean; // 条件求值结果
+  executedBranch: 'onTrue' | 'onFalse' | 'none';
+  skippedSteps: number[]; // 未执行的分支步骤 ID
+}
+
+/**
  * 步骤执行结果（联合类型）
  */
-export type StepResult = FunctionCallResult | UserInputResult;
+export type StepResult = FunctionCallResult | UserInputResult | ConditionalResult;
 
 /**
  * 执行结果

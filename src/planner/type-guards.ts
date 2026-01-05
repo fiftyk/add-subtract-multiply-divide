@@ -5,7 +5,7 @@
  * 使 TypeScript 能够正确收窄类型
  */
 
-import type { PlanStep, FunctionCallStep, UserInputStep } from './types.js';
+import type { PlanStep, FunctionCallStep, UserInputStep, ConditionalStep } from './types.js';
 import { StepType } from './types.js';
 
 /**
@@ -27,4 +27,11 @@ export function isFunctionCallStep(step: PlanStep): step is FunctionCallStep {
  */
 export function isUserInputStep(step: PlanStep): step is UserInputStep {
   return step.type === StepType.USER_INPUT;
+}
+
+/**
+ * 检查是否为条件分支步骤
+ */
+export function isConditionalStep(step: PlanStep): step is ConditionalStep {
+  return step.type === StepType.CONDITION;
 }

@@ -8,6 +8,12 @@ import type { ExecutionPlan } from '../../../planner/types.js';
 import type { ExecutionResult } from '../../../executor/types.js';
 import type { FunctionDefinition } from '../../../registry/types.js';
 
+// Shared mock reference for executor mocks
+const sharedMockExecutor = {
+  execute: vi.fn(),
+  formatResultForDisplay: vi.fn(),
+};
+
 // Mock container
 vi.mock('../../../container.js', () => ({
   default: {
@@ -26,6 +32,23 @@ vi.mock('inquirer', () => ({
     prompt: vi.fn(),
   },
 }));
+
+// Mock executors - use shared mock reference
+vi.mock('../../../executor/implementations/ExecutorImpl.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../executor/implementations/ExecutorImpl.js')>();
+  return {
+    ...original,
+    ExecutorImpl: vi.fn().mockImplementation(() => sharedMockExecutor),
+  };
+});
+
+vi.mock('../../../executor/implementations/ConditionalExecutor.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../executor/implementations/ConditionalExecutor.js')>();
+  return {
+    ...original,
+    ConditionalExecutor: vi.fn().mockImplementation(() => sharedMockExecutor),
+  };
+});
 
 // Import after mocks
 import container from '../../../container.js';
@@ -47,6 +70,10 @@ describe('execute command', () => {
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
+
+    // Reset shared mock executor functions
+    sharedMockExecutor.execute.mockReset();
+    sharedMockExecutor.formatResultForDisplay.mockReset();
 
     // Mock process.exit
     exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string) => {
@@ -72,10 +99,8 @@ describe('execute command', () => {
       saveExecution: vi.fn(),
     };
 
-    mockExecutor = {
-      execute: vi.fn(),
-      formatResultForDisplay: vi.fn(),
-    };
+    // Use shared mock executor
+    mockExecutor = sharedMockExecutor;
 
     mockPlanner = {
       formatPlanForDisplay: vi.fn(),

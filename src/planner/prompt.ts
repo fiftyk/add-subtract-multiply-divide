@@ -4,6 +4,7 @@ import { StepType } from './types.js';
 // Step type constants for validation
 export const STEP_TYPE_FUNCTION_CALL = StepType.FUNCTION_CALL;
 export const STEP_TYPE_USER_INPUT = StepType.USER_INPUT;
+export const STEP_TYPE_CONDITION = StepType.CONDITION;
 
 // ============================================================
 // Types
@@ -26,7 +27,17 @@ export type RawUserInputStep = {
   outputName?: string;
 };
 
-export type RawPlanStep = RawFunctionCallStep | RawUserInputStep;
+export type RawConditionalStep = {
+  stepId: number;
+  type: 'condition';
+  description: string;
+  condition: string; // JavaScript 表达式，如 "step.1.result > 10"
+  onTrue: number[]; // 条件为真时执行的步骤 ID 列表
+  onFalse: number[]; // 条件为假时执行的步骤 ID 列表
+  outputVariable?: string; // 可选：将条件结果存储到变量
+};
+
+export type RawPlanStep = RawFunctionCallStep | RawUserInputStep | RawConditionalStep;
 
 export interface ParsedLLMResponse {
   steps: RawPlanStep[];
@@ -89,6 +100,7 @@ const SYSTEM_PROMPT = `你是一位资深技术顾问兼架构师。你的工作
 
 1. **function_call**: 调用已注册函数完成任务
 2. **user_input**: 向用户收集信息（可以在任意步骤，不仅仅是开始）
+3. **condition**: 条件分支，根据条件表达式决定执行哪个分支
 
 **用户输入的使用场景：**
 - 需求开始时缺少必填信息（如"查询某公司专利"缺少公司名称）
@@ -102,6 +114,16 @@ const SYSTEM_PROMPT = `你是一位资深技术顾问兼架构师。你的工作
 - **实际存储的结果是扁平对象 { fieldId1: value1, fieldId2: value2 }**
 - 后续函数引用时使用 step.{stepId}.{fieldId}，例如 step.1.n
 - 不要使用 step.{stepId}.{outputName}.{fieldId} 这种嵌套格式
+
+**条件分支的使用场景：**
+- 根据计算结果选择不同的处理方式（如"如果结果大于 100，则执行 A，否则执行 B"）
+- 需要根据运行时数据决定执行路径
+- 需要条件判断后执行不同的操作序列
+
+**条件表达式语法：**
+- 使用 JavaScript 表达式语法
+- 可以引用之前步骤的结果：step.X.result 或 step.X.fieldId
+- 示例：step.1.result > 10, step.2.count >= 5, step.3.status === 'error'
 
 ## 输出格式
 
@@ -149,6 +171,18 @@ const EXAMPLE_4_USER_INPUT_IN_MIDDLE = `// 场景：用户需要先选择排序�
   "status": "executable"
 }`;
 
+// 示例5：条件分支（根据计算结果选择不同处理方式）
+const EXAMPLE_5_CONDITION = `// 场景：如果计算结果大于 100 则乘以 2，否则除以 2
+{
+  "steps": [
+    { "stepId": 1, "type": "function_call", "functionName": "calculate", "description": "执行初始计算", "parameters": { "value": { "type": "literal", "value": 50 } } },
+    { "stepId": 2, "type": "condition", "description": "检查结果是否大于 100", "condition": "step.1.result > 100", "onTrue": [3], "onFalse": [4] },
+    { "stepId": 3, "type": "function_call", "functionName": "multiply", "description": "结果大于 100，乘以 2", "parameters": { "a": { "type": "reference", "value": "step.1.result" }, "b": { "type": "literal", "value": 2 } }, "dependsOn": [2] },
+    { "stepId": 4, "type": "function_call", "functionName": "divide", "description": "结果小于等于 100，除以 2", "parameters": { "a": { "type": "reference", "value": "step.1.result" }, "b": { "type": "literal", "value": 2 } }, "dependsOn": [2] }
+  ],
+  "status": "executable"
+}`;
+
 // ============================================================
 // Main Function
 // ============================================================
@@ -178,6 +212,9 @@ ${EXAMPLE_3_MISSING_FUNCTION}
 示例4 - 用户输入在中间步骤:
 ${EXAMPLE_4_USER_INPUT_IN_MIDDLE}
 
+示例5 - 条件分支:
+${EXAMPLE_5_CONDITION}
+
 请直接生成执行计划 JSON，不要有其他内容。不要解释，不要提问。
 
 **重要提醒：**
@@ -205,7 +242,7 @@ function extractJSON(response: string): string {
 function validateStep(step: unknown, stepId: number): void {
   const s = step as Record<string, unknown>;
 
-  if (!s.type || ![STEP_TYPE_FUNCTION_CALL, STEP_TYPE_USER_INPUT].includes(s.type as StepType)) {
+  if (!s.type || ![STEP_TYPE_FUNCTION_CALL, STEP_TYPE_USER_INPUT, STEP_TYPE_CONDITION].includes(s.type as StepType)) {
     throw new Error(`Invalid step: missing "type" field (stepId: ${stepId})`);
   }
 
@@ -226,6 +263,18 @@ function validateStep(step: unknown, stepId: number): void {
     const fields = schema.fields as unknown[];
     if (!Array.isArray(fields) || fields.length === 0) {
       throw new Error(`Invalid user_input step: schema.fields must be non-empty (stepId: ${stepId})`);
+    }
+  }
+
+  if (s.type === STEP_TYPE_CONDITION) {
+    if (!s.condition || typeof s.condition !== 'string') {
+      throw new Error(`Invalid condition step: missing "condition" (stepId: ${stepId})`);
+    }
+    if (!s.onTrue || !Array.isArray(s.onTrue)) {
+      throw new Error(`Invalid condition step: missing or invalid "onTrue" (stepId: ${stepId})`);
+    }
+    if (!s.onFalse || !Array.isArray(s.onFalse)) {
+      throw new Error(`Invalid condition step: missing or invalid "onFalse" (stepId: ${stepId})`);
     }
   }
 }
