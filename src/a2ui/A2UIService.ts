@@ -258,4 +258,38 @@ export class A2UIService {
     const action = await this.renderer.requestInput(this.currentSurfaceId!, id);
     return (action.payload?.[name] as (string | number)[]) || [];
   }
+
+  /**
+   * Display children in a row (horizontal layout)
+   */
+  row(children: A2UIComponent[], gap?: number): void {
+    if (!this.currentSurfaceId) {
+      this.startSurface();
+    }
+
+    const rowId = this.nextId('row');
+    const childIds = children.map((c) => c.id);
+
+    this.renderer.update(this.currentSurfaceId!, [
+      { id: rowId, component: { Row: { children: childIds, gap } } },
+      ...children,
+    ]);
+  }
+
+  /**
+   * Display children in a column (vertical layout)
+   */
+  column(children: A2UIComponent[], gap?: number): void {
+    if (!this.currentSurfaceId) {
+      this.startSurface();
+    }
+
+    const colId = this.nextId('column');
+    const childIds = children.map((c) => c.id);
+
+    this.renderer.update(this.currentSurfaceId!, [
+      { id: colId, component: { Column: { children: childIds, gap } } },
+      ...children,
+    ]);
+  }
 }

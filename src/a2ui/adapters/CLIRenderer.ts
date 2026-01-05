@@ -23,6 +23,7 @@ import type {
   ColumnProps,
   DateFieldProps,
   SelectFieldProps,
+  RowProps,
 } from '../types.js';
 
 interface Surface {
@@ -214,6 +215,10 @@ export class CLIRenderer implements A2UIRenderer {
         this.renderColumn(surface, props as ColumnProps, indent);
         break;
 
+      case 'Row':
+        this.renderRow(surface, props as RowProps, indent);
+        break;
+
       case 'List':
         this.renderList(surface, props as ListProps, indent);
         break;
@@ -278,6 +283,51 @@ export class CLIRenderer implements A2UIRenderer {
       if (child) {
         this.renderComponent(surface, child, indent);
       }
+    }
+  }
+
+  private renderRow(surface: Surface, props: RowProps, indent: number): void {
+    const pad = '  '.repeat(indent);
+    const gap = props.gap || 2;
+    const renderedChildren: string[] = [];
+
+    for (const childId of props.children) {
+      const child = surface.components.get(childId);
+      if (child) {
+        // Capture the output of rendering each child
+        const lines = this.captureRenderComponent(surface, child);
+        renderedChildren.push(lines.join('\n'));
+      }
+    }
+
+    // Render children on the same line separated by spaces
+    console.log(pad + renderedChildren.join(' '.repeat(gap)));
+  }
+
+  private captureRenderComponent(surface: Surface, comp: A2UIComponent): string[] {
+    const [[type, rawProps]] = Object.entries(comp.component);
+    const props = rawProps as unknown;
+
+    switch (type) {
+      case 'Text':
+        return this.captureText(props as TextProps);
+      default:
+        return [`[${type}]`];
+    }
+  }
+
+  private captureText(props: TextProps): string[] {
+    switch (props.style) {
+      case 'heading':
+        return [chalk.bold.white(props.text)];
+      case 'subheading':
+        return [chalk.bold(props.text)];
+      case 'caption':
+        return [chalk.dim(props.text)];
+      case 'code':
+        return [chalk.cyan(props.text)];
+      default:
+        return [props.text];
     }
   }
 
