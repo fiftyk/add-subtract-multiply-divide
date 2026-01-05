@@ -1,10 +1,6 @@
-import { injectable, inject } from 'inversify';
 import inquirer from 'inquirer';
 import container from '../../container/cli-container.js';
-import {
-  InteractivePlanService,
-  SessionStorage,
-} from '../../services/index.js';
+import { InteractivePlanService, SessionStorage } from '../../services/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
@@ -21,17 +17,16 @@ interface RefineOptions {
 /**
  * Refine Command - 交互式改进 plan
  */
-@injectable()
 export class RefineCommand {
   private service: InteractivePlanService;
 
   constructor(
-    @inject(A2UIService) private ui: A2UIService,
-    @inject(Storage) private storage: Storage,
-    @inject(SessionStorage) private sessionStorage: SessionStorage,
-    @inject(Planner) private planner: Planner,
-    @inject(PlanRefinementLLMClient) private refinementLLMClient: PlanRefinementLLMClient,
-    @inject(FunctionProvider) private functionProvider: FunctionProvider
+    private ui: A2UIService,
+    private storage: Storage,
+    private sessionStorage: SessionStorage,
+    private planner: Planner,
+    private refinementLLMClient: PlanRefinementLLMClient,
+    private functionProvider: FunctionProvider
   ) {
     this.service = new InteractivePlanService(
       planner,
@@ -189,8 +184,19 @@ export class RefineCommand {
   }
 }
 
+// 工厂函数
+function createRefineCommand(): RefineCommand {
+  return new RefineCommand(
+    container.get<A2UIService>(A2UIService),
+    container.get<Storage>(Storage),
+    container.get<SessionStorage>(SessionStorage),
+    container.get<Planner>(Planner),
+    container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient),
+    container.get<FunctionProvider>(FunctionProvider)
+  );
+}
+
 // 便捷导出
 export async function refineCommand(planId: string, options: RefineOptions): Promise<void> {
-  const cmd = container.get(RefineCommand);
-  return cmd.execute(planId, options);
+  return createRefineCommand().execute(planId, options);
 }

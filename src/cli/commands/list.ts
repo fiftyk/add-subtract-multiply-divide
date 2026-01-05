@@ -1,4 +1,3 @@
-import { injectable, inject } from 'inversify';
 import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Storage } from '../../storage/index.js';
@@ -12,19 +11,17 @@ interface ListFunctionsOptions {
 
 /**
  * List Command - 列表查询命令
+ * 
+ * 使用工厂函数模式手动解析依赖，避免循环导入问题
  */
-@injectable()
 export class ListCommand {
   constructor(
-    @inject(A2UIService) private ui: A2UIService,
-    @inject(FunctionProvider) private functionProvider: FunctionProvider,
-    @inject(Storage) private storage: Storage,
-    @inject(Planner) private planner: Planner
+    private ui: A2UIService,
+    private functionProvider: FunctionProvider,
+    private storage: Storage,
+    private planner: Planner
   ) {}
 
-  /**
-   * 列出所有已注册的函数
-   */
   async functions(options: ListFunctionsOptions): Promise<void> {
     try {
       this.ui.startSurface('list-functions');
@@ -42,7 +39,6 @@ export class ListCommand {
       const localFunctions = allFunctions.filter(f => f.source === 'local');
       const remoteFunctions = allFunctions.filter(f => f.source !== 'local');
 
-      // 显示本地函数
       if (localFunctions.length > 0) {
         this.ui.heading(`📚 本地函数 (${localFunctions.length} 个):`);
         for (const func of localFunctions) {
@@ -58,7 +54,6 @@ export class ListCommand {
         }
       }
 
-      // 显示远程函数
       if (remoteFunctions.length > 0) {
         this.ui.heading(`🔗 远程函数 (${remoteFunctions.length} 个):`);
         for (const func of remoteFunctions) {
@@ -90,9 +85,6 @@ export class ListCommand {
     }
   }
 
-  /**
-   * 列出所有执行计划
-   */
   async plans(): Promise<void> {
     try {
       this.ui.startSurface('list-plans');
@@ -121,9 +113,6 @@ export class ListCommand {
     }
   }
 
-  /**
-   * 显示单个计划详情
-   */
   async showPlan(planId: string): Promise<void> {
     try {
       this.ui.startSurface('show-plan');
@@ -146,18 +135,25 @@ export class ListCommand {
   }
 }
 
-// 便捷辅助函数（保持向后兼容）
+// 工厂函数 - 手动解析依赖
+function createListCommand(): ListCommand {
+  return new ListCommand(
+    container.get<A2UIService>(A2UIService),
+    container.get<FunctionProvider>(FunctionProvider),
+    container.get<Storage>(Storage),
+    container.get<Planner>(Planner)
+  );
+}
+
+// 便捷导出
 export const listCommand = {
   async functions(options: ListFunctionsOptions): Promise<void> {
-    const cmd = container.get(ListCommand);
-    return cmd.functions(options);
+    return createListCommand().functions(options);
   },
   async plans(): Promise<void> {
-    const cmd = container.get(ListCommand);
-    return cmd.plans();
+    return createListCommand().plans();
   },
   async showPlan(planId: string): Promise<void> {
-    const cmd = container.get(ListCommand);
-    return cmd.showPlan(planId);
+    return createListCommand().showPlan(planId);
   },
 };

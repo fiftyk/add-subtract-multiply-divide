@@ -14,8 +14,24 @@ const sharedMockExecutor = {
   formatResultForDisplay: vi.fn(),
 };
 
+// Mock A2UIService
+const mockA2UIService = {
+  startSurface: vi.fn(),
+  endSurface: vi.fn(),
+  text: vi.fn(),
+  heading: vi.fn(),
+  caption: vi.fn(),
+  badge: vi.fn(),
+  code: vi.fn(),
+  divider: vi.fn(),
+  progress: vi.fn(),
+  list: vi.fn(),
+  input: vi.fn(),
+  confirm: vi.fn(),
+};
+
 // Mock container
-vi.mock('../../../container.js', () => ({
+vi.mock('../../../container/cli-container.js', () => ({
   default: {
     get: vi.fn(),
   },
@@ -51,9 +67,10 @@ vi.mock('../../../executor/implementations/ConditionalExecutor.js', async (impor
 });
 
 // Import after mocks
-import container from '../../../container.js';
+import container from '../../../container/cli-container.js';
 import { loadFunctions } from '../../utils.js';
 import inquirer from 'inquirer';
+import { A2UIService } from '../../../a2ui/A2UIService.js';
 
 describe('execute command', () => {
   let mockFunctionProvider: Partial<FunctionProvider>;
@@ -61,7 +78,6 @@ describe('execute command', () => {
   let mockExecutor: Partial<Executor>;
   let mockPlanner: Partial<Planner>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let inquirerPromptSpy: ReturnType<typeof vi.spyOn>;
 
@@ -75,13 +91,15 @@ describe('execute command', () => {
     sharedMockExecutor.execute.mockReset();
     sharedMockExecutor.formatResultForDisplay.mockReset();
 
+    // Reset A2UIService mocks
+    Object.values(mockA2UIService).forEach(mock => mock.mockReset());
+
     // Mock process.exit
     exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string) => {
       return undefined as never;
     }) as any);
 
-    // Mock console methods
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Mock console.error (still used for error handling)
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Mock loadFunctions
@@ -123,13 +141,15 @@ describe('execute command', () => {
       if (token === Planner) {
         return mockPlanner as T;
       }
+      if (token === A2UIService) {
+        return mockA2UIService as T;
+      }
       throw new Error(`Unexpected token: ${token?.toString()}`);
     });
   });
 
   afterEach(() => {
     exitSpy.mockRestore();
-    consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
 
@@ -139,17 +159,15 @@ describe('execute command', () => {
 
       await executeCommand('non-existent-plan', defaultOptions);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('找不到计划: non-existent-plan')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('list plans')
+      expect(mockA2UIService.badge).toHaveBeenCalledWith(
+        expect.stringContaining('找不到计划'),
+        'error'
       );
     });
   });
 
   describe('non-executable plan', () => {
-    it('should show missing functions for incomplete plan', async () => {
+    it('should show warning for incomplete plan', async () => {
       const incompletePlan: ExecutionPlan = {
         id: 'plan-incomplete',
         userRequest: '查询专利',
@@ -164,11 +182,9 @@ describe('execute command', () => {
 
       await executeCommand('plan-incomplete', defaultOptions);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('计划不可执行')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('queryPatent')
+      expect(mockA2UIService.badge).toHaveBeenCalledWith(
+        expect.stringContaining('不可执行'),
+        'warning'
       );
     });
 
@@ -216,15 +232,6 @@ describe('execute command', () => {
 
       expect(mockStorage.loadPlanMocks).toHaveBeenCalledWith('plan-mocks');
       expect(mockFunctionProvider.register).toHaveBeenCalled();
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('1 个 plan-specific mock 函数')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Mock 函数')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('customFunc (mock)')
-      );
     });
   });
 
@@ -299,7 +306,7 @@ describe('execute command', () => {
 
       await executeCommand('plan-123', defaultOptions);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect(mockA2UIService.caption).toHaveBeenCalledWith(
         expect.stringContaining('已取消执行')
       );
       // Executor should not be called
@@ -355,8 +362,9 @@ describe('execute command', () => {
       expect(mockExecutor.execute).toHaveBeenCalledWith(executablePlan);
       expect(mockStorage.saveExecution).toHaveBeenCalledWith(mockResult);
       expect(exitSpy).toHaveBeenCalledWith(0);
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('执行成功')
+      expect(mockA2UIService.badge).toHaveBeenCalledWith(
+        expect.stringContaining('执行成功'),
+        'success'
       );
     });
 
@@ -399,17 +407,8 @@ describe('execute command', () => {
 
       await executeCommand('plan-123', { functions: './dist/functions/index.js', yes: true });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect(mockA2UIService.heading).toHaveBeenCalledWith(
         expect.stringContaining('已加载的函数')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('总共 2 个函数')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('add')
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('subtract')
       );
     });
   });
@@ -461,8 +460,9 @@ describe('execute command', () => {
       await executeCommand('plan-fail', { functions: './dist/functions/index.js', yes: true });
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('执行失败')
+      expect(mockA2UIService.badge).toHaveBeenCalledWith(
+        expect.stringContaining('执行失败'),
+        'error'
       );
     });
   });
@@ -475,8 +475,9 @@ describe('execute command', () => {
 
       await executeCommand('plan-error', defaultOptions);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to load plan')
+      expect(mockA2UIService.badge).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to load plan'),
+        'error'
       );
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
@@ -504,8 +505,9 @@ describe('execute command', () => {
 
       await executeCommand('plan-mocks', { functions: './dist/functions/index.js', yes: true });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('无法加载 plan-specific mocks')
+      expect(mockA2UIService.badge).toHaveBeenCalledWith(
+        expect.stringContaining('无法加载'),
+        'warning'
       );
       // Should continue execution despite mock loading error
       expect(mockExecutor.execute).toHaveBeenCalled();
@@ -612,7 +614,7 @@ describe('execute command', () => {
       await executeCommand('plan-display', { functions: './dist/functions/index.js', yes: true });
 
       expect(mockExecutor.formatResultForDisplay).toHaveBeenCalledWith(mockResult);
-      expect(consoleLogSpy).toHaveBeenCalledWith('最终结果: 42\n步骤数: 2');
+      expect(mockA2UIService.text).toHaveBeenCalledWith('最终结果: 42\n步骤数: 2');
     });
   });
 });

@@ -1,4 +1,3 @@
-import { injectable, inject } from 'inversify';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
 import container, { MockServiceFactory } from '../../container/cli-container.js';
@@ -24,16 +23,15 @@ interface PlanOptions {
 /**
  * Plan Command - 规划执行计划
  */
-@injectable()
 export class PlanCommand {
   constructor(
-    @inject(A2UIService) private ui: A2UIService,
-    @inject(FunctionProvider) private functionProvider: FunctionProvider,
-    @inject(Planner) private basePlanner: Planner,
-    @inject(Storage) private storage: Storage,
-    @inject(Executor) private executor: Executor,
-    @inject(SessionStorage) private sessionStorage: SessionStorage,
-    @inject(PlanRefinementLLMClient) private refinementLLMClient: PlanRefinementLLMClient
+    private ui: A2UIService,
+    private functionProvider: FunctionProvider,
+    private basePlanner: Planner,
+    private storage: Storage,
+    private executor: Executor,
+    private sessionStorage: SessionStorage,
+    private refinementLLMClient: PlanRefinementLLMClient
   ) {}
 
   async execute(request: string, options: PlanOptions): Promise<void> {
@@ -53,7 +51,6 @@ export class PlanCommand {
         return;
       }
 
-      // 统计函数
       const builtinFunctions = allFunctions.filter(f => f.source === 'local');
       const mcpFunctions = allFunctions.filter(f => f.source.includes('mcp') || f.source.includes('remote'));
       const mockFunctions = allFunctions.filter(f =>
@@ -267,8 +264,20 @@ export class PlanCommand {
   }
 }
 
+// 工厂函数
+function createPlanCommand(): PlanCommand {
+  return new PlanCommand(
+    container.get<A2UIService>(A2UIService),
+    container.get<FunctionProvider>(FunctionProvider),
+    container.get<Planner>(Planner),
+    container.get<Storage>(Storage),
+    container.get<Executor>(Executor),
+    container.get<SessionStorage>(SessionStorage),
+    container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient)
+  );
+}
+
 // 便捷导出
 export async function planCommand(request: string, options: PlanOptions): Promise<void> {
-  const cmd = container.get(PlanCommand);
-  return cmd.execute(request, options);
+  return createPlanCommand().execute(request, options);
 }
