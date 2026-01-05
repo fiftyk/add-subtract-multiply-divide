@@ -1,4 +1,4 @@
-import inquirer from 'inquirer';
+import { input } from '@inquirer/prompts';
 import container from '../../container/cli-container.js';
 import { InteractivePlanService, SessionStorage } from '../../services/index.js';
 import { Storage } from '../../storage/index.js';
@@ -101,11 +101,9 @@ export class RefineCommand {
       let sessionId = options.session;
 
       while (true) {
-        const { instruction } = await inquirer.prompt([{
-          type: 'input',
-          name: 'instruction',
+        const instruction = await input({
           message: '请描述你想做的修改（输入 "done" 完成，"quit" 退出）：',
-        }]);
+        });
 
         if (instruction.toLowerCase() === 'done' || instruction.toLowerCase() === 'quit') {
           this.ui.startSurface('refine-done');

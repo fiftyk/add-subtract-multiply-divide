@@ -1,4 +1,4 @@
-import inquirer from 'inquirer';
+import { input } from '@inquirer/prompts';
 import { v4 as uuidv4 } from 'uuid';
 import container, { MockServiceFactory } from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
@@ -164,13 +164,11 @@ export class PlanCommand {
         this.ui.startSurface('plan-interactive');
         this.ui.divider();
 
-        const { input } = await inquirer.prompt([{
-          type: 'input',
-          name: 'input',
+        const userInput = await input({
           message: '请输入操作（改进指令 / "execute"(e) 执行 / "show"(s) 查看 / "quit"(q) 退出）：',
-        }]);
+        });
 
-        const command = input.trim().toLowerCase();
+        const command = userInput.trim().toLowerCase();
 
         if (command === 'execute' || command === 'e') {
           await this.executePlanInline(currentPlan);
@@ -184,7 +182,7 @@ export class PlanCommand {
           this.ui.text(this.formatPlanForDisplay(currentPlan));
           this.ui.endSurface();
           continue;
-        } else if (!input.trim()) {
+        } else if (!userInput.trim()) {
           this.ui.badge('⚠️ 请输入有效的操作', 'warning');
           this.ui.endSurface();
           continue;
@@ -198,7 +196,7 @@ export class PlanCommand {
               currentPlanId = `${basePlanId}-v1`;
             }
 
-            const result = await service.refinePlan(currentPlanId, input, sessionId);
+            const result = await service.refinePlan(currentPlanId, userInput, sessionId);
             currentPlanId = result.newPlan.fullId;
             currentPlan = result.newPlan.plan;
             sessionId = result.session.sessionId;

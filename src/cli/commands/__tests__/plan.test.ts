@@ -49,19 +49,14 @@ vi.mock('../../../logger/index.js', () => ({
   },
 }));
 
-// Mock inquirer
-vi.mock('inquirer', () => ({
-  default: {
-    prompt: vi.fn(),
-  },
-}));
+// Mock @inquirer/prompts
+vi.mock('@inquirer/prompts');
 
 // Import after mocks
 import container, { MockServiceFactory as MockServiceFactoryToken } from '../../../container/cli-container.js';
 import { loadFunctions } from '../../utils.js';
 import { ConfigManager } from '../../../config/index.js';
 import { LoggerFactory } from '../../../logger/index.js';
-import inquirer from 'inquirer';
 import { A2UIService } from '../../../a2ui/A2UIService.js';
 
 describe('plan command', () => {
@@ -74,10 +69,17 @@ describe('plan command', () => {
   let mockRefinementLLMClient: Partial<PlanRefinementLLMClient>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
   let configGetSpy: ReturnType<typeof vi.spyOn>;
+  let mockInputFn: ReturnType<typeof vi.fn>;
 
   const defaultOptions = { functions: './dist/functions/index.js' };
 
   beforeEach(() => {
+    // Set up @inquirer/prompts mock
+    mockInputFn = vi.fn().mockResolvedValue('quit');
+    vi.doMock('@inquirer/prompts', async () => ({
+      input: mockInputFn,
+      confirm: vi.fn(),
+    }));
     vi.clearAllMocks();
     Object.values(mockA2UIService).forEach(mock => mock.mockReset());
 
@@ -94,8 +96,6 @@ describe('plan command', () => {
     const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     vi.spyOn(LoggerFactory, 'create').mockReturnValue(mockLogger as any);
     vi.spyOn(LoggerFactory, 'createFromEnv').mockReturnValue(mockLogger as any);
-
-    vi.spyOn(inquirer, 'prompt').mockResolvedValue({ input: 'quit' });
 
     mockFunctionProvider = { list: vi.fn(), register: vi.fn() };
     mockStorage = { savePlan: vi.fn(), getPlanMocksDir: vi.fn().mockReturnValue('.data/plans/plan-xxx/mocks') };

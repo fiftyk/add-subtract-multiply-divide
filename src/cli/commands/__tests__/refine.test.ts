@@ -32,16 +32,27 @@ vi.mock('../../../config/index.js', () => ({
   },
 }));
 
-// Mock inquirer
-vi.mock('inquirer', () => ({
-  default: {
-    prompt: vi.fn(),
-  },
-}));
+// Mock @inquirer/prompts - create mocks in factory
+// Store mock functions in module-level variables for test control
+var inquirerPromptInput: ReturnType<typeof vi.fn>;
+var inquirerPromptConfirm: ReturnType<typeof vi.fn>;
+
+vi.mock('@inquirer/prompts', async () => {
+  // Create mock functions if not already created
+  if (typeof inquirerPromptInput === 'undefined') {
+    inquirerPromptInput = vi.fn();
+  }
+  if (typeof inquirerPromptConfirm === 'undefined') {
+    inquirerPromptConfirm = vi.fn();
+  }
+  return {
+    input: inquirerPromptInput,
+    confirm: inquirerPromptConfirm,
+  };
+});
 
 // Import after mocks
 import container from '../../../container/cli-container.js';
-import inquirer from 'inquirer';
 import { A2UIService } from '../../../a2ui/A2UIService.js';
 
 describe('refine command', () => {
@@ -50,17 +61,18 @@ describe('refine command', () => {
   let mockSessionStorage: Partial<SessionStorage>;
   let mockRefinementLLMClient: Partial<PlanRefinementLLMClient>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
-  let inquirerPromptSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     Object.values(mockA2UIService).forEach(mock => mock.mockReset());
 
+    // Configure inquirer prompts mocks - modify existing mocks, don't reassign
+    if (inquirerPromptInput) inquirerPromptInput.mockReset().mockResolvedValue('done');
+    if (inquirerPromptConfirm) inquirerPromptConfirm.mockReset().mockResolvedValue(true);
+
     exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string) => {
       return undefined as never;
     }) as any);
-
-    inquirerPromptSpy = vi.spyOn(inquirer, 'prompt').mockResolvedValue({ instruction: 'done' });
 
     mockFunctionProvider = { list: vi.fn() };
     mockSessionStorage = { saveSession: vi.fn() };
@@ -123,7 +135,7 @@ describe('refine command', () => {
 
       vi.mocked(mockStorage.parsePlanId!).mockReturnValue({ basePlanId: 'plan-abc', version: 1 });
       vi.mocked(mockStorage.loadPlanVersion!).mockResolvedValue(mockPlan);
-      inquirerPromptSpy.mockResolvedValue({ instruction: 'quit' });
+      if (inquirerPromptInput) inquirerPromptInput.mockResolvedValue('quit');
 
       await refineCommand('plan-abc-v1', {});
 
@@ -142,7 +154,7 @@ describe('refine command', () => {
 
       vi.mocked(mockStorage.parsePlanId!).mockReturnValue({ basePlanId: 'plan-abc', version: undefined });
       vi.mocked(mockStorage.loadLatestPlanVersion!).mockResolvedValue({ plan: mockPlan, version: 2 });
-      inquirerPromptSpy.mockResolvedValue({ instruction: 'quit' });
+      if (inquirerPromptInput) inquirerPromptInput.mockResolvedValue('quit');
 
       await refineCommand('plan-abc', {});
 
@@ -163,7 +175,7 @@ describe('refine command', () => {
       vi.mocked(mockStorage.parsePlanId!).mockReturnValue({ basePlanId: 'plan-legacy', version: undefined });
       vi.mocked(mockStorage.loadLatestPlanVersion!).mockResolvedValue(null);
       vi.mocked(mockStorage.loadPlan!).mockResolvedValue(mockLegacyPlan);
-      inquirerPromptSpy.mockResolvedValue({ instruction: 'quit' });
+      if (inquirerPromptInput) inquirerPromptInput.mockResolvedValue('quit');
 
       await refineCommand('plan-legacy', {});
 
@@ -184,7 +196,7 @@ describe('refine command', () => {
       };
 
       vi.mocked(mockStorage.loadPlanVersion!).mockResolvedValue(mockPlan);
-      inquirerPromptSpy.mockResolvedValue({ instruction: 'quit' });
+      if (inquirerPromptInput) inquirerPromptInput.mockResolvedValue('quit');
 
       await refineCommand('plan-abc-v1', {});
 
@@ -192,7 +204,7 @@ describe('refine command', () => {
     });
 
     it('should exit on "done" command', async () => {
-      inquirerPromptSpy.mockResolvedValue({ instruction: 'done' });
+      if (inquirerPromptInput) inquirerPromptInput.mockResolvedValue('done');
 
       const mockPlan: ExecutionPlan = {
         id: 'plan-abc-v1',
@@ -210,7 +222,7 @@ describe('refine command', () => {
     });
 
     it('should exit on "quit" command', async () => {
-      inquirerPromptSpy.mockResolvedValue({ instruction: 'quit' });
+      if (inquirerPromptInput) inquirerPromptInput.mockResolvedValue('quit');
 
       const mockPlan: ExecutionPlan = {
         id: 'plan-abc-v1',
@@ -236,9 +248,9 @@ describe('refine command', () => {
       };
 
       vi.mocked(mockStorage.loadPlanVersion!).mockResolvedValue(mockPlan);
-      inquirerPromptSpy
-        .mockResolvedValueOnce({ instruction: '' })
-        .mockResolvedValue({ instruction: 'quit' });
+      if (inquirerPromptInput) inquirerPromptInput
+        .mockResolvedValueOnce('')
+        .mockResolvedValue('quit');
 
       await refineCommand('plan-abc-v1', {});
 

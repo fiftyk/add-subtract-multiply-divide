@@ -1,14 +1,13 @@
 /**
  * CLI Renderer - A2UI implementation for terminal
- * 
+ *
  * Renders A2UI components using chalk for styling
- * and inquirer for user input.
+ * and @inquirer/prompts for user input.
  */
 
 import 'reflect-metadata';
 import { injectable } from 'inversify';
 import chalk from 'chalk';
-import inquirer from 'inquirer';
 import type { A2UIRenderer } from '../A2UIRenderer.js';
 import type {
   A2UIComponent,
@@ -26,6 +25,7 @@ import type {
   RowProps,
   TableProps,
 } from '../types.js';
+import { getPromptAdapter, type PromptAdapter, type ConfirmProps } from './InquirerPromptsAdapter.js';
 
 interface Surface {
   rootId: string;
@@ -36,6 +36,11 @@ interface Surface {
 export class CLIRenderer implements A2UIRenderer {
   private surfaces = new Map<string, Surface>();
   private actionHandler?: (action: A2UIUserAction) => void;
+  private promptAdapter: PromptAdapter;
+
+  constructor() {
+    this.promptAdapter = getPromptAdapter();
+  }
 
   begin(surfaceId: string, rootId: string): void {
     this.surfaces.set(surfaceId, {
@@ -94,12 +99,12 @@ export class CLIRenderer implements A2UIRenderer {
     switch (type) {
       case 'TextField': {
         const tfProps = p as TextFieldProps;
-        const { value } = await inquirer.prompt([{
-          type: tfProps.multiline ? 'editor' : 'input',
-          name: 'value',
-          message: tfProps.label,
-          default: tfProps.placeholder,
-        }]);
+        const value = await this.promptAdapter.text({
+          label: tfProps.label,
+          placeholder: tfProps.placeholder,
+          required: tfProps.required,
+          name: tfProps.name,
+        });
         return {
           name: 'submit',
           surfaceId,
@@ -110,12 +115,7 @@ export class CLIRenderer implements A2UIRenderer {
 
       case 'Button': {
         const btnProps = p as ButtonProps;
-        const { confirmed } = await inquirer.prompt([{
-          type: 'confirm',
-          name: 'confirmed',
-          message: btnProps.label,
-          default: true,
-        }]);
+        const confirmed = await this.promptAdapter.confirm({ label: btnProps.label });
         return {
           name: confirmed ? btnProps.action : 'cancel',
           surfaceId,
@@ -125,25 +125,11 @@ export class CLIRenderer implements A2UIRenderer {
 
       case 'DateField': {
         const dateProps = p as DateFieldProps;
-        const { value } = await inquirer.prompt([{
-          type: 'input',
-          name: 'value',
-          message: dateProps.label,
-          default: new Date().toISOString().split('T')[0],
-          validate: (input: string) => {
-            const date = new Date(input);
-            if (isNaN(date.getTime())) {
-              return 'Please enter a valid date (YYYY-MM-DD)';
-            }
-            if (dateProps.minDate && date < new Date(dateProps.minDate)) {
-              return `Date must be after ${dateProps.minDate}`;
-            }
-            if (dateProps.maxDate && date > new Date(dateProps.maxDate)) {
-              return `Date must be before ${dateProps.maxDate}`;
-            }
-            return true;
-          },
-        }]);
+        const value = await this.promptAdapter.date({
+          label: dateProps.label,
+          minDate: dateProps.minDate,
+          maxDate: dateProps.maxDate,
+        });
         return {
           name: 'submit',
           surfaceId,
@@ -154,17 +140,17 @@ export class CLIRenderer implements A2UIRenderer {
 
       case 'SelectField': {
         const selectProps = p as SelectFieldProps;
-        const inquirerType = selectProps.multiSelect ? 'checkbox' : 'list';
-        const { value } = await inquirer.prompt([{
-          type: inquirerType,
-          name: 'value',
-          message: selectProps.label,
-          choices: selectProps.options.map(opt => ({
-            name: opt.label,
-            value: opt.value,
-            short: opt.label,
-          })),
-        }]);
+        const value = selectProps.multiSelect
+          ? await this.promptAdapter.multiSelect({
+              label: selectProps.label,
+              name: selectProps.name,
+              options: selectProps.options,
+            })
+          : await this.promptAdapter.select({
+              label: selectProps.label,
+              name: selectProps.name,
+              options: selectProps.options,
+            });
         return {
           name: 'submit',
           surfaceId,

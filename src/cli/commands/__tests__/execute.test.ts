@@ -52,12 +52,8 @@ vi.mock('../../utils.js', () => ({
   loadFunctions: vi.fn(),
 }));
 
-// Mock inquirer
-vi.mock('inquirer', () => ({
-  default: {
-    prompt: vi.fn(),
-  },
-}));
+// Mock @inquirer/prompts - use vi.doMock in beforeEach to avoid hoisting issues
+vi.mock('@inquirer/prompts');
 
 // Mock executors - use shared mock reference
 vi.mock('../../../executor/implementations/ExecutorImpl.js', async (importOriginal) => {
@@ -79,7 +75,6 @@ vi.mock('../../../executor/implementations/ConditionalExecutor.js', async (impor
 // Import after mocks
 import container from '../../../container/cli-container.js';
 import { loadFunctions } from '../../utils.js';
-import inquirer from 'inquirer';
 import { A2UIService } from '../../../a2ui/A2UIService.js';
 import { A2UIRenderer } from '../../../a2ui/A2UIRenderer.js';
 
@@ -90,13 +85,20 @@ describe('execute command', () => {
   let mockPlanner: Partial<Planner>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let inquirerPromptSpy: ReturnType<typeof vi.spyOn>;
+  let mockConfirmFn: ReturnType<typeof vi.fn>;
 
   const defaultOptions = { functions: './dist/functions/index.js', yes: false };
 
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
+
+    // Set up inquirer.prompts mock
+    mockConfirmFn = vi.fn().mockResolvedValue(true);
+    vi.doMock('@inquirer/prompts', async () => ({
+      confirm: mockConfirmFn,
+      input: vi.fn(),
+    }));
 
     // Reset shared mock executor functions
     sharedMockExecutor.execute.mockReset();
@@ -134,9 +136,6 @@ describe('execute command', () => {
     mockPlanner = {
       formatPlanForDisplay: vi.fn(),
     };
-
-    // Mock inquirer.prompt
-    inquirerPromptSpy = vi.spyOn(inquirer, 'prompt').mockResolvedValue({ confirm: true });
 
     // Setup container mock
     vi.mocked(container.get).mockImplementation(<T,>(token: any): T => {
@@ -295,7 +294,7 @@ describe('execute command', () => {
       await executeCommand('plan-123', { functions: './dist/functions/index.js', yes: true });
 
       // Should not prompt for confirmation
-      expect(inquirerPromptSpy).not.toHaveBeenCalled();
+      expect(mockConfirmFn).not.toHaveBeenCalled();
     });
 
     it('should cancel execution when user declines', async () => {
@@ -316,7 +315,7 @@ describe('execute command', () => {
 
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      inquirerPromptSpy.mockResolvedValue({ confirm: false });
+      mockConfirmFn.mockResolvedValue(false);
 
       await executeCommand('plan-123', defaultOptions);
 

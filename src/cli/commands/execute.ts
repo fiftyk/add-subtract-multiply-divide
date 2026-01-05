@@ -1,4 +1,4 @@
-import inquirer from 'inquirer';
+import { input, confirm } from '@inquirer/prompts';
 import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Executor } from '../../executor/index.js';
@@ -131,18 +131,14 @@ export async function executeCommand(
 
     ui.endSurface();
 
-    // 确认执行 (使用 inquirer - 交互式输入暂不迁移到 A2UI)
+    // 确认执行 (使用 @inquirer/prompts)
     if (!options.yes) {
-      const { confirm } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: '确认执行此计划?',
-          default: false,
-        },
-      ]);
+      const confirmed = await confirm({
+        message: '确认执行此计划?',
+        default: false,
+      });
 
-      if (!confirm) {
+      if (!confirmed) {
         ui.startSurface('execute-cancelled');
         ui.caption('已取消执行');
         ui.endSurface();
