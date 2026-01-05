@@ -1,7 +1,6 @@
 import type { AppConfig, PartialAppConfig } from './types.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 import * as path from 'path';
-import * as fs from 'fs';
 import { config as dotenvConfig } from 'dotenv';
 
 /**
@@ -104,39 +103,10 @@ function loadFunctionCompletionConfig(): PartialAppConfig['functionCompletion'] 
 }
 
 /**
- * Load MCP configuration from fn-orchestrator.mcp.json file
- * File should be in project root directory
- *
- * NOTE: MCP servers can ONLY be configured via this JSON file, not through environment variables
- */
-function loadMCPConfigFromFile(): PartialAppConfig['mcp'] {
-  const configPath = path.resolve(process.cwd(), 'fn-orchestrator.mcp.json');
-
-  // Skip in test environment or if file doesn't exist
-  if (process.env.NODE_ENV === 'test' || !fs.existsSync(configPath)) {
-    return undefined;
-  }
-
-  try {
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const json = JSON.parse(content);
-
-    // Validate basic structure
-    if (typeof json !== 'object' || json === null) {
-      console.warn('Warning: fn-orchestrator.mcp.json must be an object');
-      return undefined;
-    }
-
-    return json as PartialAppConfig['mcp'];
-  } catch (error) {
-    console.warn(`Warning: Failed to load fn-orchestrator.mcp.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return undefined;
-  }
-}
-
-/**
  * Load configuration from environment variables
  * Automatically loads .env file from project root
+ *
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
  */
 function loadFromEnv(): PartialAppConfig {
   // Load .env file if it exists (skip in test to avoid pollution)
@@ -163,32 +133,18 @@ function loadFromEnv(): PartialAppConfig {
   if (functionCompletionConfig) config.functionCompletion = functionCompletionConfig;
   if (functionCodeGeneratorConfig) config.functionCodeGenerator = functionCodeGeneratorConfig;
   if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
-  // NOTE: MCP config is NOT loaded from environment variables, only from JSON file
 
   return config;
 }
 
 /**
  * Deep merge configuration objects
- * Special handling for MCP servers: merge arrays instead of replacing
  */
 function mergeConfig(
   base: Omit<AppConfig, 'api'>,
   override?: PartialAppConfig
 ): Omit<AppConfig, 'api'> {
   if (!override) return base;
-
-  // Special handling for MCP config: merge servers arrays
-  let mcpConfig = { ...base.mcp };
-  if (override.mcp) {
-    mcpConfig = {
-      enabled: override.mcp.enabled !== undefined ? override.mcp.enabled : base.mcp.enabled,
-      servers: [
-        ...(base.mcp.servers || []),
-        ...(override.mcp.servers || []),
-      ],
-    };
-  }
 
   return {
     llm: { ...base.llm, ...override.llm },
@@ -203,7 +159,6 @@ function mergeConfig(
       ...base.plannerGenerator,
       ...override.plannerGenerator,
     },
-    mcp: mcpConfig,
   };
 }
 
@@ -226,27 +181,17 @@ function validateAPIConfig(api: PartialAppConfig['api']): void {
  * 2. Environment variables (.env file or process.env)
  * 3. Default values
  *
- * Special: MCP servers are ONLY loaded from fn-orchestrator.mcp.json file
- *
- * Note: CLI args must take highest priority to allow users to override
- * .env settings (e.g., --no-auto-mock should disable even if AUTO_GENERATE_MOCK=true)
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
+ * and loaded from fn-orchestrator.mcp.json file
  */
 export function loadConfig(overrides?: PartialAppConfig): AppConfig {
-  // Load MCP config from JSON file (separate from env vars)
-  const mcpFileConfig = loadMCPConfigFromFile();
-
-  // Load from environment variables (excluding MCP)
+  // Load from environment variables
   const envConfig = loadFromEnv();
 
   // Merge order: defaults <- env <- CLI overrides
   // This ensures CLI args (overrides) have highest priority
   let baseConfig = mergeConfig(DEFAULT_CONFIG, envConfig);
   const finalBaseConfig = mergeConfig(baseConfig, overrides);
-
-  // Override MCP config with JSON file config (if exists)
-  if (mcpFileConfig) {
-    finalBaseConfig.mcp = mcpFileConfig;
-  }
 
   // CRITICAL: Handle explicit CLI boolean overrides
   // When CLI explicitly sets a boolean (true/false), it must override env/default
