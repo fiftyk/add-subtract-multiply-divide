@@ -216,4 +216,46 @@ export class A2UIService {
     const action = await this.renderer.requestInput(this.currentSurfaceId!, id);
     return (action.payload?.[name] as string) || '';
   }
+
+  /**
+   * Request single select input (blocking)
+   */
+  async select(
+    label: string,
+    name: string,
+    options: Array<{ value: string | number; label: string; description?: string }>
+  ): Promise<string | number> {
+    if (!this.currentSurfaceId) {
+      this.startSurface();
+    }
+
+    const id = this.nextId('select');
+    this.renderer.update(this.currentSurfaceId!, [
+      { id, component: { SelectField: { label, name, options, multiSelect: false } } }
+    ]);
+
+    const action = await this.renderer.requestInput(this.currentSurfaceId!, id);
+    return action.payload?.[name] as string | number;
+  }
+
+  /**
+   * Request multi-select input (blocking)
+   */
+  async multiSelect(
+    label: string,
+    name: string,
+    options: Array<{ value: string | number; label: string; description?: string }>
+  ): Promise<(string | number)[]> {
+    if (!this.currentSurfaceId) {
+      this.startSurface();
+    }
+
+    const id = this.nextId('multiselect');
+    this.renderer.update(this.currentSurfaceId!, [
+      { id, component: { SelectField: { label, name, options, multiSelect: true } } }
+    ]);
+
+    const action = await this.renderer.requestInput(this.currentSurfaceId!, id);
+    return (action.payload?.[name] as (string | number)[]) || [];
+  }
 }

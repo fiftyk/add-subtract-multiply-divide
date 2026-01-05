@@ -390,7 +390,15 @@ export class ExecutorImpl implements Executor {
               }
               value = date.toISOString().split('T')[0];
               break;
-            // 'text', 'single_select', 'multi_select' keep as-is
+            case 'single_select':
+              // single_select returns a single value
+              // Value is already in correct format from CLIRenderer
+              break;
+            case 'multi_select':
+              // multi_select returns an array of values
+              // Value is already in correct format from CLIRenderer
+              break;
+            // 'text' keeps as-is
           }
 
           values[field.id] = value;

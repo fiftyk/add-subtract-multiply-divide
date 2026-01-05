@@ -22,6 +22,7 @@ import type {
   BadgeProps,
   ColumnProps,
   DateFieldProps,
+  SelectFieldProps,
 } from '../types.js';
 
 interface Surface {
@@ -146,6 +147,27 @@ export class CLIRenderer implements A2UIRenderer {
           surfaceId,
           componentId,
           payload: { [dateProps.name]: value },
+        };
+      }
+
+      case 'SelectField': {
+        const selectProps = p as SelectFieldProps;
+        const inquirerType = selectProps.multiSelect ? 'checkbox' : 'list';
+        const { value } = await inquirer.prompt([{
+          type: inquirerType,
+          name: 'value',
+          message: selectProps.label,
+          choices: selectProps.options.map(opt => ({
+            name: opt.label,
+            value: opt.value,
+            short: opt.label,
+          })),
+        }]);
+        return {
+          name: 'submit',
+          surfaceId,
+          componentId,
+          payload: { [selectProps.name]: value },
         };
       }
 
