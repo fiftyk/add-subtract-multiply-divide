@@ -24,6 +24,7 @@ import type {
   DateFieldProps,
   SelectFieldProps,
   RowProps,
+  TableProps,
 } from '../types.js';
 
 interface Surface {
@@ -239,6 +240,10 @@ export class CLIRenderer implements A2UIRenderer {
         console.log(pad + chalk.dim('─'.repeat(40)));
         break;
 
+      case 'Table':
+        this.renderTable(props as TableProps, pad);
+        break;
+
       default:
         console.log(pad + chalk.yellow(`[Unknown: ${type}]`));
     }
@@ -370,9 +375,51 @@ export class CLIRenderer implements A2UIRenderer {
   }
 
   private renderButton(props: ButtonProps, pad: string): void {
-    const label = props.disabled 
+    const label = props.disabled
       ? chalk.dim(`[ ${props.label} ]`)
       : chalk.cyan(`[ ${props.label} ]`);
     console.log(pad + label);
+  }
+
+  private renderTable(props: TableProps, pad: string): void {
+    if (props.headers.length === 0) return;
+
+    // Calculate column widths
+    const colWidths = props.headers.map((h, i) => {
+      const maxRowLength = Math.max(
+        h.length,
+        ...props.rows.map(row => String(row[i] ?? '').length)
+      );
+      return maxRowLength + 2; // Add padding
+    });
+
+    // Helper to truncate/pad cell content
+    const formatCell = (content: string | number | boolean | null, width: number): string => {
+      const str = String(content ?? '');
+      if (str.length > width - 2) {
+        return ' ' + str.slice(0, width - 3) + '..';
+      }
+      return ' ' + str.padEnd(width - 1);
+    };
+
+    // Render header separator
+    const separator = pad + colWidths.map(w => '─'.repeat(w)).join('─┼─');
+    console.log(pad + '┌' + colWidths.map(w => '─'.repeat(w)).join('─┬─') + '┐');
+
+    // Render header
+    const headerLine = pad + '│' + props.headers.map((h, i) => formatCell(h, colWidths[i])).join('│') + '│';
+    console.log(headerLine);
+
+    // Render header-row separator
+    console.log(separator);
+
+    // Render rows
+    for (const row of props.rows) {
+      const rowLine = pad + '│' + row.map((cell, i) => formatCell(cell, colWidths[i])).join('│') + '│';
+      console.log(rowLine);
+    }
+
+    // Render bottom separator
+    console.log(pad + '└' + colWidths.map(w => '─'.repeat(w)).join('─┴─') + '┘');
   }
 }

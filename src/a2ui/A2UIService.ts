@@ -292,4 +292,18 @@ export class A2UIService {
       ...children,
     ]);
   }
+
+  /**
+   * Display a table with headers and rows
+   */
+  table(headers: string[], rows: Array<Array<string | number | boolean | null>>): void {
+    if (!this.currentSurfaceId) {
+      this.startSurface();
+    }
+
+    const tableId = this.nextId('table');
+    this.renderer.update(this.currentSurfaceId!, [
+      { id: tableId, component: { Table: { headers, rows } } },
+    ]);
+  }
 }

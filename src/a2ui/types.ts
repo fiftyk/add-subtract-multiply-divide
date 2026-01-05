@@ -216,3 +216,8 @@ export interface SelectFieldProps {
   options: Array<{ value: string | number; label: string; description?: string }>;
   multiSelect?: boolean;
 }
+
+export interface TableProps {
+  headers: string[];
+  rows: Array<Array<string | number | boolean | null>>;
+}
