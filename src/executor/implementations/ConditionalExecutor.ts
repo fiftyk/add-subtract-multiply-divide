@@ -26,7 +26,7 @@ import { JSConditionEvaluator } from './JSConditionEvaluator.js';
 import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import { UserInputProvider } from '../../user-input/interfaces/UserInputProvider.js';
+import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
 
 export interface ConditionalExecutorConfig {
   /**
@@ -87,9 +87,9 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
   constructor(
     @inject(FunctionProvider) functionProvider: FunctionProvider,
     @unmanaged() config?: ConditionalExecutorConfig,
-    @inject(UserInputProvider) userInputProvider?: UserInputProvider
+    @inject(A2UIRenderer) a2uiRenderer?: A2UIRenderer
   ) {
-    super(functionProvider, config, userInputProvider);
+    super(functionProvider, config, a2uiRenderer);
 
     // 初始化条件求值器
     this.conditionEvaluator = config?.conditionEvaluator ?? new JSConditionEvaluator();

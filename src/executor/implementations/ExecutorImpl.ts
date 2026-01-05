@@ -21,7 +21,8 @@ import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import { PlanValidator } from '../../validation/index.js';
 import { ConfigManager } from '../../config/index.js';
-import { UserInputProvider } from '../../user-input/interfaces/UserInputProvider.js';
+import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
+import type { A2UIRenderer as A2UIRendererType } from '../../a2ui/A2UIRenderer.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 
 /**
@@ -48,17 +49,17 @@ export interface ExecutorConfig {
 @injectable()
 export class ExecutorImpl implements Executor {
   protected functionProvider: FunctionProvider;
-  protected userInputProvider?: UserInputProvider;
+  protected a2uiRenderer?: A2UIRendererType;
   protected config: Required<ExecutorConfig>;
   protected logger: ILogger;
 
   constructor(
     @inject(FunctionProvider) functionProvider: FunctionProvider,
     @unmanaged() config?: ExecutorConfig,
-    @inject(UserInputProvider) @optional() userInputProvider?: UserInputProvider
+    @inject(A2UIRenderer) @optional() a2uiRenderer?: A2UIRendererType
   ) {
     this.functionProvider = functionProvider;
-    this.userInputProvider = userInputProvider;
+    this.a2uiRenderer = a2uiRenderer;
     const appConfig = ConfigManager.get();
     this.config = {
       stepTimeout: config?.stepTimeout ?? appConfig.executor.stepTimeout,
@@ -290,37 +291,57 @@ export class ExecutorImpl implements Executor {
     const executedAt = new Date().toISOString();
 
     try {
-      // 检查是否有 UserInputProvider
-      if (!this.userInputProvider) {
+      // 检查是否有 A2UIRenderer
+      if (!this.a2uiRenderer) {
         throw new Error(
-          'User input step requires a UserInputProvider, but none was provided to Executor'
+          'User input step requires an A2UIRenderer, but none was provided to Executor'
         );
       }
 
       this.logger.info('Requesting user input', { stepId: step.stepId });
 
-      // 检查所有字段类型是否支持
-      for (const field of step.schema.fields) {
-        if (!this.userInputProvider.supportsFieldType(field.type)) {
-          throw new UnsupportedFieldTypeError(field.type, 'CLIUserInputProvider');
+      // TODO: Implement user input via A2UIRenderer
+      // For now, create a simple surface with the schema fields
+      const surfaceId = `user-input-${step.stepId}`;
+      this.a2uiRenderer.begin(surfaceId, 'root');
+      
+      // Render form fields
+      const components = step.schema.fields.map((field, index) => ({
+        id: `field-${index}`,
+        component: {
+          TextField: {
+            label: field.label,
+            name: field.id,
+            placeholder: field.description,
+            required: field.required,
+          }
         }
-      }
+      }));
+      
+      this.a2uiRenderer.update(surfaceId, [{
+        id: 'root',
+        component: { Column: { children: components.map(c => c.id) } }
+      }, ...components]);
+      
+      // Request input from first field (simplified)
+      const result = await this.a2uiRenderer.requestInput(surfaceId, 'field-0');
+      
+      this.a2uiRenderer.end(surfaceId);
 
-      // 请求用户输入
-      const result = await this.userInputProvider.requestInput(step.schema);
+      // Extract values from A2UIUserAction payload
+      const values = result.payload || {};
 
       this.logger.info('User input received', {
         stepId: step.stepId,
-        skipped: result.skipped,
-        fieldCount: Object.keys(result.values).length,
+        fieldCount: Object.keys(values).length,
       });
 
       return {
         stepId: step.stepId,
         type: StepType.USER_INPUT,
-        values: result.values,
-        skipped: result.skipped,
-        timestamp: result.timestamp,
+        values,
+        skipped: false,
+        timestamp: Date.now(),
         success: true,
         executedAt,
       };

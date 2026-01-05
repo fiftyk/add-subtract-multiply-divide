@@ -18,8 +18,8 @@ import { Storage } from './storage/interfaces/Storage.js';
 import { StorageImpl } from './storage/StorageImpl.js';
 import { Executor } from './executor/interfaces/Executor.js';
 import { ExecutorImpl } from './executor/implementations/ExecutorImpl.js';
-import { UserInputProvider } from './user-input/interfaces/UserInputProvider.js';
-import { CLIUserInputProvider } from './user-input/adapters/CLIUserInputProvider.js';
+import { A2UIRenderer } from './a2ui/A2UIRenderer.js';
+import { CLIRenderer } from './a2ui/adapters/CLIRenderer.js';
 import { LLMAdapter } from './function-completion/interfaces/LLMAdapter.js';
 import { AnthropicLLMAdapter } from './function-completion/adapters/AnthropicLLMAdapter.js';
 import { CLILLMAdapter } from './function-completion/adapters/CLILLMAdapter.js';
@@ -137,9 +137,9 @@ container.bind(SessionStorage).toDynamicValue(() => {
 });
 
 // ============================================
-// UserInputProvider - CLIUserInputProvider 实现
+// A2UIRenderer - CLIRenderer 实现
 // ============================================
-container.bind(UserInputProvider).to(CLIUserInputProvider);
+container.bind(A2UIRenderer).to(CLIRenderer);
 
 // ============================================
 // Executor - ExecutorImpl 实现
