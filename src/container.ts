@@ -20,6 +20,7 @@ import { Executor } from './executor/interfaces/Executor.js';
 import { ExecutorImpl } from './executor/implementations/ExecutorImpl.js';
 import { A2UIRenderer } from './a2ui/A2UIRenderer.js';
 import { CLIRenderer } from './a2ui/adapters/CLIRenderer.js';
+import { A2UIService } from './a2ui/A2UIService.js';
 import { LLMAdapter } from './function-completion/interfaces/LLMAdapter.js';
 import { AnthropicLLMAdapter } from './function-completion/adapters/AnthropicLLMAdapter.js';
 import { CLILLMAdapter } from './function-completion/adapters/CLILLMAdapter.js';
@@ -140,6 +141,12 @@ container.bind(SessionStorage).toDynamicValue(() => {
 // A2UIRenderer - CLIRenderer 实现
 // ============================================
 container.bind(A2UIRenderer).to(CLIRenderer);
+
+// A2UIService - 使用 renderer 的高级 API
+container.bind(A2UIService).toDynamicValue(() => {
+    const renderer = container.get<A2UIRenderer>(A2UIRenderer);
+    return new A2UIService(renderer);
+});
 
 // ============================================
 // Executor - ExecutorImpl 实现
