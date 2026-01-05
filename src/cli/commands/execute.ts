@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import container from '../../container.js';
+import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Executor } from '../../executor/index.js';
 import { ExecutorImpl } from '../../executor/implementations/ExecutorImpl.js';

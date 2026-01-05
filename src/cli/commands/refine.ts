@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import container from '../../container.js';
+import container from '../../container/cli-container.js';
 import {
   InteractivePlanService,
   SessionStorage,

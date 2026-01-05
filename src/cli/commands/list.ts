@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import container from '../../container.js';
+import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';

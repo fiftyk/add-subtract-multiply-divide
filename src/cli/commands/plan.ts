@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { v4 as uuidv4 } from 'uuid';
-import container, { MockServiceFactory } from '../../container.js';
+import container, { MockServiceFactory } from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Planner } from '../../planner/index.js';
 import { Storage } from '../../storage/index.js';
