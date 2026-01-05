@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import inquirer from 'inquirer';
 import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
@@ -8,6 +7,7 @@ import { ConditionalExecutor } from '../../executor/implementations/ConditionalE
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { StepType } from '../../planner/types.js';
+import { A2UIService } from '../../a2ui/A2UIService.js';
 import { loadFunctions } from '../utils.js';
 
 interface ExecuteOptions {
@@ -19,46 +19,43 @@ export async function executeCommand(
   planId: string,
   options: ExecuteOptions
 ): Promise<void> {
+  const ui = container.get<A2UIService>(A2UIService);
+  
   try {
+    ui.startSurface('execute');
+    
     // 加载计划
     const storage = container.get<Storage>(Storage);
     const plan = await storage.loadPlan(planId);
 
     if (!plan) {
-      console.log(chalk.red(`❌ 找不到计划: ${planId}`));
-      console.log(chalk.gray('使用 "npx fn-orchestrator list plans" 查看所有计划'));
+      ui.badge(`❌ 找不到计划: ${planId}`, 'error');
+      ui.caption('使用 "npx fn-orchestrator list plans" 查看所有计划');
+      ui.endSurface();
       return;
     }
 
-    // 加载函数（先加载，以便显示已加载的函数列表）
+    // 加载函数
     const functionProvider = container.get<FunctionProvider>(FunctionProvider);
     await loadFunctions(functionProvider, options.functions);
 
-    // 加载 Plan 的 mock 函数（新架构：从 plan-specific 目录加载）
+    // 加载 Plan 的 mock 函数
     if (plan.metadata?.usesMocks) {
       try {
         const planMocks = await storage.loadPlanMocks(planId);
         planMocks.forEach((fn) => {
-          // Type assertion: the loaded modules conform to FunctionDefinition at runtime
           functionProvider.register?.(fn as any);
         });
-        console.log(
-          chalk.gray(`已加载 ${planMocks.length} 个 plan-specific mock 函数`)
-        );
+        ui.caption(`已加载 ${planMocks.length} 个 plan-specific mock 函数`);
       } catch (error) {
-        console.log(
-          chalk.yellow(
-            `⚠️ 无法加载 plan-specific mocks: ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
-        );
+        ui.badge(`⚠️ 无法加载 plan-specific mocks: ${error instanceof Error ? error.message : 'Unknown error'}`, 'warning');
       }
     }
 
     // 打印所有加载的函数
     const allFunctions = await functionProvider.list();
-    console.log(chalk.blue('📦 已加载的函数:'));
-    console.log(chalk.gray(`总共 ${allFunctions.length} 个函数`));
-    console.log();
+    ui.heading('📦 已加载的函数:');
+    ui.caption(`总共 ${allFunctions.length} 个函数`);
 
     // 区分 mock 函数和普通函数
     const mockFunctions = plan.metadata?.mockFunctions || [];
@@ -71,28 +68,26 @@ export async function executeCommand(
     );
 
     if (normalFunctions.length > 0) {
-      console.log(chalk.cyan('普通函数:'));
+      ui.text('普通函数:', 'subheading');
       normalFunctions.forEach(f => {
-        console.log(chalk.gray(`  • ${f.name}`));
+        ui.caption(`  • ${f.name}`);
       });
-      console.log();
     }
 
     if (loadedMocks.length > 0) {
-      console.log(chalk.yellow('Mock 函数:'));
+      ui.text('Mock 函数:', 'subheading');
       loadedMocks.forEach(f => {
-        console.log(chalk.gray(`  • ${f.name} (mock)`));
+        ui.caption(`  • ${f.name} (mock)`);
       });
-      console.log();
     }
 
     // 检查计划状态
     if (plan.status !== 'executable') {
-      console.log(chalk.yellow('⚠️ 该计划不可执行'));
+      ui.badge('⚠️ 该计划不可执行', 'warning');
       if (plan.missingFunctions && plan.missingFunctions.length > 0) {
-        console.log(chalk.gray('缺少以下函数:'));
+        ui.caption('缺少以下函数:');
         for (const fn of plan.missingFunctions) {
-          console.log(chalk.gray(`  - ${fn.name}: ${fn.description}`));
+          ui.caption(`  - ${fn.name}: ${fn.description}`);
         }
       }
 
@@ -103,15 +98,14 @@ export async function executeCommand(
         );
 
         if (missingMocks.length > 0) {
-          console.log();
-          console.log(chalk.red('⚠️ 计划需要但未加载的 mock 函数:'));
+          ui.badge('⚠️ 计划需要但未加载的 mock 函数:', 'error');
           missingMocks.forEach((mockRef) => {
-            console.log(chalk.gray(`  • ${mockRef.name} (v${mockRef.version})`));
+            ui.caption(`  • ${mockRef.name} (v${mockRef.version})`);
           });
-          console.log();
-          console.log(chalk.yellow('提示: 请重新运行 plan 命令生成这些 mock 函数'));
+          ui.caption('提示: 请重新运行 plan 命令生成这些 mock 函数');
         }
       }
+      ui.endSurface();
       return;
     }
 
@@ -119,12 +113,12 @@ export async function executeCommand(
     const planner = container.get<Planner>(Planner);
 
     // 显示计划
-    console.log(chalk.blue('📋 执行计划:'));
-    console.log();
-    console.log(planner.formatPlanForDisplay(plan));
-    console.log();
+    ui.heading('📋 执行计划:');
+    ui.text(planner.formatPlanForDisplay(plan));
 
-    // 确认执行
+    ui.endSurface();
+
+    // 确认执行 (使用 inquirer - 交互式输入暂不迁移到 A2UI)
     if (!options.yes) {
       const { confirm } = await inquirer.prompt([
         {
@@ -136,14 +130,15 @@ export async function executeCommand(
       ]);
 
       if (!confirm) {
-        console.log(chalk.gray('已取消执行'));
+        ui.startSurface('execute-cancelled');
+        ui.caption('已取消执行');
+        ui.endSurface();
         return;
       }
     }
 
-    console.log();
-    console.log(chalk.blue('🚀 开始执行...'));
-    console.log();
+    ui.startSurface('execute-running');
+    ui.heading('🚀 开始执行...');
 
     // 根据计划内容选择执行器
     const hasConditionSteps = plan.steps.some(step => step.type === StepType.CONDITION);
@@ -152,7 +147,7 @@ export async function executeCommand(
       : new ExecutorImpl(functionProvider);
 
     if (hasConditionSteps) {
-      console.log(chalk.gray('ℹ️  检测到条件分支步骤，使用条件执行器'));
+      ui.caption('ℹ️  检测到条件分支步骤，使用条件执行器');
     }
 
     const result = await executor.execute(plan);
@@ -161,22 +156,22 @@ export async function executeCommand(
     const execId = await storage.saveExecution(result);
 
     // 显示结果
-    console.log(executor.formatResultForDisplay(result));
-    console.log();
+    ui.text(executor.formatResultForDisplay(result));
 
     if (result.success) {
-      console.log(chalk.green('✅ 执行成功!'));
-      console.log(chalk.gray(`执行记录 ID: ${execId}`));
+      ui.badge('✅ 执行成功!', 'success');
+      ui.caption(`执行记录 ID: ${execId}`);
+      ui.endSurface();
       process.exit(0);
     } else {
-      console.log(chalk.red('❌ 执行失败'));
-      console.log(chalk.gray(`执行记录 ID: ${execId}`));
+      ui.badge('❌ 执行失败', 'error');
+      ui.caption(`执行记录 ID: ${execId}`);
+      ui.endSurface();
       process.exit(1);
     }
   } catch (error) {
-    console.error(
-      chalk.red(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`)
-    );
+    ui.badge(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+    ui.endSurface();
     process.exit(1);
   }
 }

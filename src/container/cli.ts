@@ -8,6 +8,9 @@ import type { Container } from 'inversify';
 import { A2UIRenderer } from '../a2ui/A2UIRenderer.js';
 import { CLIRenderer } from '../a2ui/adapters/CLIRenderer.js';
 import { A2UIService } from '../a2ui/A2UIService.js';
+import { ListCommand } from '../cli/commands/list.js';
+import { RefineCommand } from '../cli/commands/refine.js';
+import { PlanCommand } from '../cli/commands/plan.js';
 
 /**
  * 注册 CLI 端特有的服务绑定
@@ -25,4 +28,11 @@ export function registerCLIBindings(container: Container): void {
     const renderer = container.get<A2UIRenderer>(A2UIRenderer);
     return new A2UIService(renderer);
   });
+
+  // ============================================
+  // CLI Commands
+  // ============================================
+  container.bind(ListCommand).toSelf();
+  container.bind(RefineCommand).toSelf();
+  container.bind(PlanCommand).toSelf();
 }

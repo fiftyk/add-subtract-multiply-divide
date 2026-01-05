@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { injectable, inject } from 'inversify';
 import inquirer from 'inquirer';
 import container from '../../container/cli-container.js';
 import {
@@ -8,215 +8,189 @@ import {
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import { ConfigManager } from '../../config/index.js';
 import { PlanRefinementLLMClient } from '../../services/interfaces/IPlanRefinementLLMClient.js';
+import { A2UIService } from '../../a2ui/A2UIService.js';
+import type { ExecutionPlan } from '../../planner/types.js';
+import { isFunctionCallStep } from '../../planner/type-guards.js';
 
 interface RefineOptions {
-  prompt?: string;  // 单次改进指令
-  session?: string;      // 继续现有 session
+  prompt?: string;
+  session?: string;
 }
 
 /**
- * 交互式改进 plan 的命令
- *
- * 用法：
- *   npx fn-orchestrator refine plan-abc-v1
- *   npx fn-orchestrator refine plan-abc     # 默认使用最新版��
- *   npx fn-orchestrator refine plan-abc -p "把第2步改成除以2"
+ * Refine Command - 交互式改进 plan
  */
-export async function refineCommand(
-  planId: string,
-  options: RefineOptions
-): Promise<void> {
-  try {
-    const config = ConfigManager.get();
+@injectable()
+export class RefineCommand {
+  private service: InteractivePlanService;
 
-    // 创建 service
-    const functionProvider = container.get<FunctionProvider>(FunctionProvider);
-    const storage = container.get<Storage>(Storage);
-    const sessionStorage = container.get<SessionStorage>(SessionStorage);
-
-    const planner = container.get<Planner>(Planner);
-    const refinementLLMClient = container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient);
-
-    const service = new InteractivePlanService(
+  constructor(
+    @inject(A2UIService) private ui: A2UIService,
+    @inject(Storage) private storage: Storage,
+    @inject(SessionStorage) private sessionStorage: SessionStorage,
+    @inject(Planner) private planner: Planner,
+    @inject(PlanRefinementLLMClient) private refinementLLMClient: PlanRefinementLLMClient,
+    @inject(FunctionProvider) private functionProvider: FunctionProvider
+  ) {
+    this.service = new InteractivePlanService(
       planner,
       storage,
       sessionStorage,
       refinementLLMClient,
       functionProvider
     );
+  }
 
-    // 解析 plan ID
-    const { basePlanId, version } = storage.parsePlanId(planId);
+  async execute(planId: string, options: RefineOptions): Promise<void> {
+    try {
+      this.ui.startSurface('refine');
 
-    // 加载 plan
-    let currentPlanId = planId;
-    let currentVersion: number;
-    let currentPlan;
+      const { basePlanId, version } = this.storage.parsePlanId(planId);
+      let currentPlanId = planId;
+      let currentVersion: number;
+      let currentPlan: ExecutionPlan | undefined;
 
-    if (version) {
-      currentPlan = await storage.loadPlanVersion(basePlanId, version);
-      currentVersion = version;
-    } else {
-      // 尝试加载最新版本
-      const latest = await storage.loadLatestPlanVersion(basePlanId);
-      if (latest) {
-        currentPlan = latest.plan;
-        currentVersion = latest.version;
-        currentPlanId = `${basePlanId}-v${currentVersion}`;
+      if (version) {
+        currentPlan = await this.storage.loadPlanVersion(basePlanId, version);
+        currentVersion = version;
       } else {
-        // 如果没有版本化的 plan，尝试加载旧格式的 plan
-        const legacyPlan = await storage.loadPlan(basePlanId);
-        if (legacyPlan) {
-          // 将旧 plan 迁移到版本化格式（保存为 v1）
-          await storage.savePlanVersion(legacyPlan, basePlanId, 1);
-          currentPlan = legacyPlan;
-          currentVersion = 1;
-          currentPlanId = `${basePlanId}-v1`;
-          console.log(chalk.yellow(`📦 已将旧格式计划迁移为版本化格式: ${currentPlanId}`));
-          console.log();
+        const latest = await this.storage.loadLatestPlanVersion(basePlanId);
+        if (latest) {
+          currentPlan = latest.plan;
+          currentVersion = latest.version;
+          currentPlanId = `${basePlanId}-v${currentVersion}`;
         } else {
-          console.log(chalk.red(`❌ 找不到计划: ${planId}`));
-          console.log(chalk.gray('使用 "npx fn-orchestrator list plans" 查看所有计划'));
-          process.exit(1);
+          const legacyPlan = await this.storage.loadPlan(basePlanId);
+          if (legacyPlan) {
+            await this.storage.savePlanVersion(legacyPlan, basePlanId, 1);
+            currentPlan = legacyPlan;
+            currentVersion = 1;
+            currentPlanId = `${basePlanId}-v1`;
+            this.ui.badge(`📦 已将旧格式计划迁移为版本化格式: ${currentPlanId}`, 'info');
+          } else {
+            this.ui.badge(`❌ 找不到计划: ${planId}`, 'error');
+            this.ui.caption('使用 "npx fn-orchestrator list plans" 查看所有计划');
+            this.ui.endSurface();
+            process.exit(1);
+          }
         }
       }
-    }
 
-    if (!currentPlan) {
-      console.log(chalk.red(`❌ 找不到计划: ${planId}`));
+      if (!currentPlan) {
+        this.ui.badge(`❌ 找不到计划: ${planId}`, 'error');
+        this.ui.endSurface();
+        process.exit(1);
+      }
+
+      // 单次改进模式
+      if (options.prompt) {
+        const result = await this.service.refinePlan(currentPlanId, options.prompt, options.session);
+        
+        this.ui.badge(`✅ Plan 已更新：${result.newPlan.fullId}`, 'success');
+        this.ui.heading('📋 改动说明：');
+        for (const change of result.changes) {
+          this.ui.caption(`  • ${change.description}`);
+        }
+        this.ui.text(`💾 执行命令: npx fn-orchestrator execute ${result.newPlan.fullId}`);
+        this.ui.endSurface();
+        process.exit(0);
+      }
+
+      // 交互模式
+      this.ui.heading('📝 交互式 Plan 改进模式');
+      this.ui.text(`📋 当前计划：${currentPlanId}`, 'subheading');
+      this.ui.text(this.formatPlanForDisplay(currentPlan));
+      this.ui.endSurface();
+
+      let sessionId = options.session;
+
+      while (true) {
+        const { instruction } = await inquirer.prompt([{
+          type: 'input',
+          name: 'instruction',
+          message: '请描述你想做的修改（输入 "done" 完成，"quit" 退出）：',
+        }]);
+
+        if (instruction.toLowerCase() === 'done' || instruction.toLowerCase() === 'quit') {
+          this.ui.startSurface('refine-done');
+          this.ui.badge(`✅ 改进完成！最终计划：${currentPlanId}`, 'success');
+          this.ui.text(`💾 执行命令: npx fn-orchestrator execute ${currentPlanId}`);
+          this.ui.endSurface();
+          break;
+        }
+
+        if (!instruction.trim()) {
+          this.ui.startSurface('refine-warning');
+          this.ui.badge('⚠️ 请输入有效的修改指令', 'warning');
+          this.ui.endSurface();
+          continue;
+        }
+
+        this.ui.startSurface('refine-processing');
+        this.ui.caption('🤖 正在处理修改...');
+
+        try {
+          const result = await this.service.refinePlan(currentPlanId, instruction, sessionId);
+          currentPlanId = result.newPlan.fullId;
+          currentPlan = result.newPlan.plan;
+          sessionId = result.session.sessionId;
+
+          this.ui.badge(`✅ Plan 已更新：${result.newPlan.fullId}`, 'success');
+          this.ui.heading('📋 改动说明：');
+          for (const change of result.changes) {
+            this.ui.caption(`  • ${change.description}`);
+          }
+          this.ui.text('📋 更新后的计划：', 'subheading');
+          this.ui.text(this.formatPlanForDisplay(currentPlan));
+          this.ui.endSurface();
+        } catch (error) {
+          this.ui.badge(`❌ 改进失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+          this.ui.caption('💡 提示：请尝试更具体的描述，或输入 "done" 退出');
+          this.ui.endSurface();
+        }
+      }
+
+      process.exit(0);
+    } catch (error) {
+      this.ui.badge(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+      this.ui.endSurface();
       process.exit(1);
     }
+  }
 
-    // 如果提供了单次改进指令，直接执行
-    if (options.prompt) {
-      const result = await service.refinePlan(
-        currentPlanId,
-        options.prompt,
-        options.session
-      );
+  private formatPlanForDisplay(plan: ExecutionPlan): string {
+    const lines: string[] = [];
+    lines.push(`用户需求: ${plan.userRequest}`);
+    lines.push(`状态: ${plan.status === 'executable' ? '✅ 可执行' : '⚠️ 不完整'}`);
+    lines.push('');
+    lines.push('步骤:');
 
-      console.log(chalk.green(`✅ Plan 已更新：${result.newPlan.fullId}`));
-      console.log();
-      console.log(chalk.cyan('📋 改动说明：'));
-      for (const change of result.changes) {
-        console.log(chalk.gray(`  • ${change.description}`));
+    for (const step of plan.steps) {
+      if (isFunctionCallStep(step)) {
+        const params = Object.entries(step.parameters)
+          .map(([k, v]: [string, any]) => {
+            if (v.type === 'reference') {
+              return `${k}=\${${v.value}}`;
+            }
+            return `${k}=${JSON.stringify(v.value)}`;
+          })
+          .join(', ');
+        lines.push(`  Step ${step.stepId}: ${step.functionName}(${params})`);
+      } else {
+        lines.push(`  Step ${step.stepId}: [User Input]`);
       }
-      console.log();
-      console.log(chalk.blue(`💾 执行命令: npx fn-orchestrator execute ${result.newPlan.fullId}`));
-      process.exit(0);
-    }
-
-    // 进入交互模式
-    console.log(chalk.blue('📝 交互式 Plan 改进模式'));
-    console.log();
-
-    // 显示当前 plan
-    console.log(chalk.cyan(`📋 当前计划：${currentPlanId}`));
-    console.log();
-    console.log(formatPlanForDisplay(currentPlan));
-    console.log();
-
-    // 多轮改进循环
-    let sessionId = options.session;
-    let iterationCount = 0;
-
-    while (true) {
-      iterationCount++;
-      console.log(chalk.gray(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`));
-      console.log();
-
-      const { instruction } = await inquirer.prompt([{
-        type: 'input',
-        name: 'instruction',
-        message: '请描述你想做的修改（输入 "done" 完成，"quit" 退出）：',
-      }]);
-
-      if (instruction.toLowerCase() === 'done' || instruction.toLowerCase() === 'quit') {
-        console.log();
-        console.log(chalk.green(`✅ 改进完成！最终计划：${currentPlanId}`));
-        console.log(chalk.blue(`💾 执行命令: npx fn-orchestrator execute ${currentPlanId}`));
-        break;
-      }
-
-      if (!instruction.trim()) {
-        console.log(chalk.yellow('⚠️  请输入有效的修改指令'));
-        continue;
-      }
-
-      console.log();
-      console.log(chalk.gray('🤖 正在处理修改...'));
-
-      try {
-        // 调用 service 进行改进
-        const result = await service.refinePlan(currentPlanId, instruction, sessionId);
-
-        // 更新当前信息
-        currentPlanId = result.newPlan.fullId;
-        currentPlan = result.newPlan.plan;
-        sessionId = result.session.sessionId;
-
-        console.log();
-        console.log(chalk.green(`✅ Plan 已更新：${result.newPlan.fullId}`));
-        console.log();
-        console.log(chalk.cyan('📋 改动说明：'));
-        for (const change of result.changes) {
-          console.log(chalk.gray(`  • ${change.description}`));
-        }
-        console.log();
-
-        // 显示更新后的 plan
-        console.log(chalk.cyan(`📋 更新后的计划：`));
-        console.log();
-        console.log(formatPlanForDisplay(currentPlan));
-        console.log();
-
-      } catch (error) {
-        console.log();
-        console.log(chalk.red(`❌ 改进失败: ${error instanceof Error ? error.message : '未知错误'}`));
-        console.log();
-        console.log(chalk.yellow('💡 提示：请尝试更具体的描述，或输入 "done" 退出'));
-        console.log();
+      if (step.description) {
+        lines.push(`    → ${step.description}`);
       }
     }
 
-    process.exit(0);
-
-  } catch (error) {
-    console.error(
-      chalk.red(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`)
-    );
-    process.exit(1);
+    return lines.join('\n');
   }
 }
 
-/**
- * 格式化 plan 用于显示
- */
-function formatPlanForDisplay(plan: any): string {
-  const lines: string[] = [];
-
-  lines.push(chalk.gray(`用户需求: ${plan.userRequest}`));
-  lines.push(chalk.gray(`状态: ${plan.status === 'executable' ? '✅ 可执行' : '⚠️  不完整'}`));
-  lines.push('');
-  lines.push(chalk.white('步骤:'));
-
-  for (const step of plan.steps) {
-    const params = Object.entries(step.parameters)
-      .map(([k, v]: [string, any]) => {
-        if (v.type === 'reference') {
-          return `${k}=\${${v.value}}`;
-        }
-        return `${k}=${JSON.stringify(v.value)}`;
-      })
-      .join(', ');
-
-    lines.push(chalk.white(`  Step ${step.stepId}: ${step.functionName}(${params})`));
-    if (step.description) {
-      lines.push(chalk.gray(`    → ${step.description}`));
-    }
-  }
-
-  return lines.join('\n');
+// 便捷导出
+export async function refineCommand(planId: string, options: RefineOptions): Promise<void> {
+  const cmd = container.get(RefineCommand);
+  return cmd.execute(planId, options);
 }
