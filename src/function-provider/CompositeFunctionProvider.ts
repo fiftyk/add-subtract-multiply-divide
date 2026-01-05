@@ -4,11 +4,11 @@
  */
 
 import 'reflect-metadata';
-import { injectable, inject, optional, unmanaged } from 'inversify';
+import { injectable, inject, optional, unmanaged, multiInject } from 'inversify';
 import type { FunctionMetadata, FunctionExecutionResult } from './types.js';
 import type { FunctionDefinition } from '../registry/types.js';
 import { FunctionProvider } from './interfaces/FunctionProvider.js';
-import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol } from './symbols.js';
+import { LocalFunctionProviderSymbol, AllRemoteFunctionProvidersSymbol } from './symbols.js';
 import { LocalFunctionProvider } from './LocalFunctionProvider.js';
 import { MCPFunctionProvider } from './implementations/MCPFunctionProvider.js';
 
@@ -52,7 +52,7 @@ export class CompositeFunctionProvider implements FunctionProvider {
 
   constructor(
     @inject(LocalFunctionProviderSymbol) @optional() localProvider?: LocalFunctionProvider | FunctionProvider[],
-    @inject(RemoteFunctionProviderSymbol) @optional() remoteProvider?: MCPFunctionProvider,
+    @multiInject(AllRemoteFunctionProvidersSymbol) @optional() remoteProviders?: MCPFunctionProvider[],
     @unmanaged() config?: CompositeFunctionProviderConfig
   ) {
     // 检测是否是直接实例化（测试场景）：第一个参数是数组
@@ -61,7 +61,7 @@ export class CompositeFunctionProvider implements FunctionProvider {
       this.providers = localProvider;
       this.localProvider = null;
     } else {
-      // 容器注入时：组合本地和远程 Provider
+      // 容器注入时：组合本地和多个远程 Providers
       this.providers = [];
       if (localProvider) {
         this.providers.push(localProvider);
@@ -69,8 +69,9 @@ export class CompositeFunctionProvider implements FunctionProvider {
       } else {
         this.localProvider = null;
       }
-      if (remoteProvider) {
-        this.providers.push(remoteProvider);
+      // 添加所有远程 Providers（支持多个 MCP servers）
+      if (remoteProviders && remoteProviders.length > 0) {
+        this.providers.push(...remoteProviders);
       }
     }
     this.config = {

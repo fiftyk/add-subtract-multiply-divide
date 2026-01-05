@@ -7,6 +7,9 @@ dist/
 .env
 .DS_Store
 
+# MCP configuration (may contain sensitive tokens)
+fn-orchestrator.mcp.json
+
 # Auto-generated mock functions
 functions/generated/*.js
 !functions/generated/.gitkeep

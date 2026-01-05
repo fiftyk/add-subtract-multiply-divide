@@ -31,43 +31,74 @@ import { MockServiceFactoryImpl } from '../function-completion/factory/MockServi
 import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 import { LocalFunctionProvider } from '../function-provider/LocalFunctionProvider.js';
 import { CompositeFunctionProvider } from '../function-provider/CompositeFunctionProvider.js';
-import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol } from '../function-provider/symbols.js';
+import { LocalFunctionProviderSymbol, RemoteFunctionProviderSymbol, AllRemoteFunctionProvidersSymbol } from '../function-provider/symbols.js';
 import { MCPFunctionProvider } from '../function-provider/implementations/MCPFunctionProvider.js';
 import { MCPClient } from '../function-provider/transports/MCPClient.js';
+import { MCPServerConfigProvider } from '../mcp/interfaces/MCPServerConfigProvider.js';
+import { MCPServerConfigProviderImpl } from '../mcp/MCPServerConfigProviderImpl.js';
+import type { MCPServerConfig } from '../config/types.js';
 
 /**
  * 注册核心服务绑定（跨端共享）
  */
 export function registerCoreBindings(container: Container): void {
   // ============================================
+  // MCPServerConfigProvider - MCP 配置管理
+  // ============================================
+  container.bind(MCPServerConfigProvider).to(MCPServerConfigProviderImpl);
+
+  // ============================================
   // FunctionProvider - 统一的函数发现和执行接口
   // ============================================
   container.bind(LocalFunctionProviderSymbol).to(LocalFunctionProvider);
 
   // MCPFunctionProvider - 动态创建（根据 MCP 配置）
+  // 向后兼容：使用第一个配置的 server
   container.bind(MCPFunctionProvider).toDynamicValue(() => {
-    const config = ConfigManager.get();
-    
+    const mcpConfig = container.get<MCPServerConfigProvider>(MCPServerConfigProvider);
+    const servers = mcpConfig.getServers();
+
     // 没有配置服务器时使用默认配置
-    const serverConfig = config.mcp.servers[0] ?? {
+    const serverConfig = servers[0] ?? {
       name: 'noop',
       type: 'stdio' as const,
       command: 'echo',
       args: [],
     };
 
-    const mcpConfig = {
+    const config = {
       name: serverConfig.name,
       transportType: serverConfig.type,
       transportConfig: serverConfig,
     };
 
-    const client = new MCPClient(mcpConfig);
+    const client = new MCPClient(config);
     return new MCPFunctionProvider(client);
   });
 
-  // RemoteFunctionProviderSymbol - 指向 MCPFunctionProvider
+  // RemoteFunctionProviderSymbol - 指向 MCPFunctionProvider（向后兼容）
   container.bind(RemoteFunctionProviderSymbol).toService(MCPFunctionProvider);
+
+  // AllRemoteFunctionProvidersSymbol - 为每个配置的 MCP server 创建 provider
+  container.bind(AllRemoteFunctionProvidersSymbol).toDynamicValue(() => {
+    const mcpConfig = container.get<MCPServerConfigProvider>(MCPServerConfigProvider);
+
+    // 如果 MCP 未启用或没有配置 servers，返回空数组
+    if (!mcpConfig.isEnabled() || mcpConfig.getServers().length === 0) {
+      return [];
+    }
+
+    // 为每个 server 创建 MCPFunctionProvider
+    return mcpConfig.getServers().map((serverConfig: MCPServerConfig) => {
+      const config = {
+        name: serverConfig.name,
+        transportType: serverConfig.type,
+        transportConfig: serverConfig,
+      };
+      const client = new MCPClient(config);
+      return new MCPFunctionProvider(client);
+    });
+  });
 
   // CompositeFunctionProvider - 组合本地和远程函数提供者
   container.bind(FunctionProvider).to(CompositeFunctionProvider);

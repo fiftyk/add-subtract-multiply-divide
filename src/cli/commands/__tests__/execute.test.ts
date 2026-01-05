@@ -30,6 +30,16 @@ const mockA2UIService = {
   confirm: vi.fn(),
 };
 
+// Mock A2UIRenderer
+const mockA2UIRenderer = {
+  begin: vi.fn(),
+  update: vi.fn(),
+  remove: vi.fn(),
+  end: vi.fn(),
+  onUserAction: vi.fn(),
+  requestInput: vi.fn(),
+};
+
 // Mock container
 vi.mock('../../../container/cli-container.js', () => ({
   default: {
@@ -71,6 +81,7 @@ import container from '../../../container/cli-container.js';
 import { loadFunctions } from '../../utils.js';
 import inquirer from 'inquirer';
 import { A2UIService } from '../../../a2ui/A2UIService.js';
+import { A2UIRenderer } from '../../../a2ui/A2UIRenderer.js';
 
 describe('execute command', () => {
   let mockFunctionProvider: Partial<FunctionProvider>;
@@ -143,6 +154,9 @@ describe('execute command', () => {
       }
       if (token === A2UIService) {
         return mockA2UIService as T;
+      }
+      if (token === A2UIRenderer) {
+        return mockA2UIRenderer as T;
       }
       throw new Error(`Unexpected token: ${token?.toString()}`);
     });

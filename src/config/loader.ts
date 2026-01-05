@@ -1,6 +1,7 @@
 import type { AppConfig, PartialAppConfig } from './types.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 import * as path from 'path';
+import * as fs from 'fs';
 import { config as dotenvConfig } from 'dotenv';
 
 /**
@@ -103,50 +104,34 @@ function loadFunctionCompletionConfig(): PartialAppConfig['functionCompletion'] 
 }
 
 /**
- * Load MCP configuration from environment variables
- * Supports stdio and http transport configurations
+ * Load MCP configuration from fn-orchestrator.mcp.json file
+ * File should be in project root directory
+ *
+ * NOTE: MCP servers can ONLY be configured via this JSON file, not through environment variables
  */
-function loadMCPConfig(): PartialAppConfig['mcp'] {
-  const enabled = process.env.MCP_ENABLED;
-  const stdioCommand = process.env.MCP_STDIO_COMMAND;
-  const stdioArgs = process.env.MCP_STDIO_ARGS;
-  const httpUrl = process.env.MCP_HTTP_URL;
-  const httpToken = process.env.MCP_HTTP_ACCESS_TOKEN;
+function loadMCPConfigFromFile(): PartialAppConfig['mcp'] {
+  const configPath = path.resolve(process.cwd(), 'fn-orchestrator.mcp.json');
 
-  // If no MCP env vars are set, return undefined to use defaults
-  if (!enabled && !stdioCommand && !httpUrl) {
+  // Skip in test environment or if file doesn't exist
+  if (process.env.NODE_ENV === 'test' || !fs.existsSync(configPath)) {
     return undefined;
   }
 
-  const mcp: PartialAppConfig['mcp'] = {
-    enabled: enabled ? parseBoolean(enabled) : true,
-    servers: [],
-  };
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const json = JSON.parse(content);
 
-  // Add stdio server if configured
-  if (stdioCommand) {
-    const stdioArgsList = stdioArgs
-      ? stdioArgs.split(',').map((arg) => arg.trim())
-      : [];
-    mcp.servers!.push({
-      name: 'stdio-server',
-      type: 'stdio',
-      command: stdioCommand,
-      args: stdioArgsList.length > 0 ? stdioArgsList : undefined,
-    });
+    // Validate basic structure
+    if (typeof json !== 'object' || json === null) {
+      console.warn('Warning: fn-orchestrator.mcp.json must be an object');
+      return undefined;
+    }
+
+    return json as PartialAppConfig['mcp'];
+  } catch (error) {
+    console.warn(`Warning: Failed to load fn-orchestrator.mcp.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return undefined;
   }
-
-  // Add http server if configured
-  if (httpUrl) {
-    mcp.servers!.push({
-      name: 'http-server',
-      type: 'http',
-      url: httpUrl,
-      ...(httpToken && { accessToken: httpToken }),
-    });
-  }
-
-  return mcp;
 }
 
 /**
@@ -169,7 +154,6 @@ function loadFromEnv(): PartialAppConfig {
   const functionCompletionConfig = loadFunctionCompletionConfig();
   const functionCodeGeneratorConfig = loadGeneratorConfig('FUNCTION_GENERATOR_CMD', 'FUNCTION_GENERATOR_ARGS');
   const plannerGeneratorConfig = loadGeneratorConfig('PLANNER_GENERATOR_CMD', 'PLANNER_GENERATOR_ARGS');
-  const mcpConfig = loadMCPConfig();
 
   // Assign to config object (only if defined)
   if (apiConfig) config.api = apiConfig;
@@ -179,19 +163,32 @@ function loadFromEnv(): PartialAppConfig {
   if (functionCompletionConfig) config.functionCompletion = functionCompletionConfig;
   if (functionCodeGeneratorConfig) config.functionCodeGenerator = functionCodeGeneratorConfig;
   if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
-  if (mcpConfig) config.mcp = mcpConfig;
+  // NOTE: MCP config is NOT loaded from environment variables, only from JSON file
 
   return config;
 }
 
 /**
  * Deep merge configuration objects
+ * Special handling for MCP servers: merge arrays instead of replacing
  */
 function mergeConfig(
   base: Omit<AppConfig, 'api'>,
   override?: PartialAppConfig
 ): Omit<AppConfig, 'api'> {
   if (!override) return base;
+
+  // Special handling for MCP config: merge servers arrays
+  let mcpConfig = { ...base.mcp };
+  if (override.mcp) {
+    mcpConfig = {
+      enabled: override.mcp.enabled !== undefined ? override.mcp.enabled : base.mcp.enabled,
+      servers: [
+        ...(base.mcp.servers || []),
+        ...(override.mcp.servers || []),
+      ],
+    };
+  }
 
   return {
     llm: { ...base.llm, ...override.llm },
@@ -206,10 +203,7 @@ function mergeConfig(
       ...base.plannerGenerator,
       ...override.plannerGenerator,
     },
-    mcp: {
-      ...base.mcp,
-      ...override.mcp,
-    },
+    mcp: mcpConfig,
   };
 }
 
@@ -229,20 +223,30 @@ function validateAPIConfig(api: PartialAppConfig['api']): void {
  *
  * Priority (highest to lowest):
  * 1. Provided overrides (CLI args)
- * 2. Environment variables
+ * 2. Environment variables (.env file or process.env)
  * 3. Default values
+ *
+ * Special: MCP servers are ONLY loaded from fn-orchestrator.mcp.json file
  *
  * Note: CLI args must take highest priority to allow users to override
  * .env settings (e.g., --no-auto-mock should disable even if AUTO_GENERATE_MOCK=true)
  */
 export function loadConfig(overrides?: PartialAppConfig): AppConfig {
-  // Load from environment
+  // Load MCP config from JSON file (separate from env vars)
+  const mcpFileConfig = loadMCPConfigFromFile();
+
+  // Load from environment variables (excluding MCP)
   const envConfig = loadFromEnv();
 
-  // Merge order: defaults <- env <- overrides
+  // Merge order: defaults <- env <- CLI overrides
   // This ensures CLI args (overrides) have highest priority
-  const baseConfig = mergeConfig(DEFAULT_CONFIG, envConfig);
+  let baseConfig = mergeConfig(DEFAULT_CONFIG, envConfig);
   const finalBaseConfig = mergeConfig(baseConfig, overrides);
+
+  // Override MCP config with JSON file config (if exists)
+  if (mcpFileConfig) {
+    finalBaseConfig.mcp = mcpFileConfig;
+  }
 
   // CRITICAL: Handle explicit CLI boolean overrides
   // When CLI explicitly sets a boolean (true/false), it must override env/default

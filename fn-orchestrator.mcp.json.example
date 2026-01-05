@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "servers": [
+    {
+      "name": "filesystem",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/username/projects"]
+    },
+    {
+      "name": "github",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    },
+    {
+      "name": "brave-search",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"]
+    },
+    {
+      "name": "custom-http-server",
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "accessToken": "optional-token-for-auth"
+    }
+  ]
+}
