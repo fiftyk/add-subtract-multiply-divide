@@ -157,6 +157,20 @@ export interface Storage {
 export const Storage = Symbol('Storage');
 ```
 
+### 同名接口与 Symbol 导入方式
+当接口和 Symbol 同名时，可以一行导入两者（TypeScript 会正确解析）：
+
+```typescript
+// 正确写法
+import { Storage } from './storage/interfaces/Storage.js';
+
+// 错误写法 - 会导致命名冲突
+import type { Storage } from './storage/interfaces/Storage.js';
+import { Storage } from './storage/interfaces/Storage.js';
+```
+
+在 InversifyJS 中，`@inject(Storage)` 会自动解析为 Symbol，不需要额外处理。
+
 ### 实现类模式
 ```typescript
 // src/storage/StorageImpl.ts

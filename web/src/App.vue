@@ -28,19 +28,32 @@
 
       <!-- A2UI Components from SSE -->
       <A2UISurface
-        v-for="surface in surfaces"
-        :key="surface.id"
+        v-for="[id, surface] in Array.from(surfaces.entries())"
+        :key="id"
         :surface="surface"
         @action="handleAction"
       />
+
+      <!-- Form Request Modal -->
+      <div v-if="pendingForm" class="form-modal-overlay" @click.self="handleFormCancel">
+        <div class="form-modal">
+          <A2UIForm
+            :schema="pendingForm.schema"
+            submit-label="确认"
+            @submit="handleFormSubmit"
+            @cancel="handleFormCancel"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import type { A2UIComponent, A2UIUserAction, A2UIServerMessage } from '../../../src/a2ui/types';
+import type { A2UIComponent, A2UIUserAction, A2UIServerMessage, A2UISchema } from '../../../src/a2ui/types';
 import A2UISurface from './components/a2ui/A2UISurface.vue';
+import A2UIForm from './components/a2ui/A2UIForm.vue';
 import router from './router';
 
 interface Surface {
@@ -50,9 +63,36 @@ interface Surface {
   order: string[];
 }
 
+interface PendingForm {
+  sessionId: string;
+  stepId: number;
+  schema: A2UISchema;
+}
+
+// Expose session connection methods to child components
+import { provide, reactive } from 'vue';
+
+const sessionState = reactive({
+  sessionId: null as string | null,
+  isConnected: false,
+});
+
+provide('sessionState', sessionState);
+
 const surfaces = ref<Map<string, Surface>>(new Map());
 const connected = ref(false);
+const pendingForm = ref<PendingForm | null>(null);
+const currentSessionId = ref<string | null>(null);
 let eventSource: EventSource | null = null;
+let sessionEventSource: EventSource | null = null;
+
+// Provide method to start session SSE
+function startSession(sessionId: string) {
+  sessionState.sessionId = sessionId;
+  connectSessionSSE(sessionId);
+}
+
+provide('startSession', startSession);
 
 onMounted(() => {
   connectSSE();
@@ -93,6 +133,52 @@ function connectSSE() {
   };
 }
 
+function connectSessionSSE(sessionId: string) {
+  if (sessionEventSource) {
+    sessionEventSource.close();
+  }
+
+  currentSessionId.value = sessionId;
+  sessionEventSource = new EventSource(`/sse/session/${sessionId}`);
+
+  sessionEventSource.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      handleSessionMessage(message);
+    } catch (error) {
+      console.error('Failed to parse session SSE message:', error);
+    }
+  };
+
+  sessionEventSource.onerror = () => {
+    // Silently retry connection
+    sessionEventSource?.close();
+    if (currentSessionId.value) {
+      sessionEventSource = new EventSource(`/sse/session/${currentSessionId.value}`);
+    }
+  };
+}
+
+function handleSessionMessage(message: any) {
+  switch (message.type) {
+    case 'formRequest':
+      pendingForm.value = {
+        sessionId: message.sessionId,
+        stepId: message.stepId,
+        schema: message.schema,
+      };
+      break;
+
+    case 'executionComplete':
+    case 'executionError':
+      // Clear form if still open
+      if (pendingForm.value?.sessionId === message.sessionId) {
+        pendingForm.value = null;
+      }
+      break;
+  }
+}
+
 function handleMessage(message: A2UIServerMessage) {
   switch (message.type) {
     case 'surfaceUpdate':
@@ -114,6 +200,25 @@ function handleMessage(message: A2UIServerMessage) {
       }
       break;
   }
+}
+
+async function handleFormSubmit(values: Record<string, unknown>) {
+  if (!pendingForm.value) return;
+
+  try {
+    await fetch(`/api/session/${pendingForm.value.sessionId}/input`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values }),
+    });
+    pendingForm.value = null;
+  } catch (error) {
+    console.error('Failed to submit form:', error);
+  }
+}
+
+function handleFormCancel() {
+  pendingForm.value = null;
 }
 
 function handleAction(action: A2UIUserAction) {
@@ -201,5 +306,24 @@ function handleAction(action: A2UIUserAction) {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.form-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.form-modal {
+  width: 100%;
+  max-width: 500px;
 }
 </style>

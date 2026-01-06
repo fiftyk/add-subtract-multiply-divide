@@ -8,19 +8,50 @@ import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import staticPlugin from '@fastify/static';
 import { WebRendererImpl } from './WebA2UIRenderer.js';
-import type { A2UIUserAction } from '../a2ui/types.js';
+import type { A2UIUserAction, ExecutionStatus } from '../a2ui/types.js';
 import { webContainer } from '../container/index.js';
 import { Planner } from '../planner/interfaces/IPlanner.js';
 import { Executor } from '../executor/interfaces/Executor.js';
 import { ConfigManager } from '../config/index.js';
 import { Storage } from '../storage/interfaces/Storage.js';
 import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
-import { LocalFunctionProvider } from '../function-provider/LocalFunctionProvider.js';
+import type { LocalFunctionProvider } from '../function-provider/LocalFunctionProvider.js';
+import { LocalFunctionProviderSymbol } from '../function-provider/symbols.js';
+import { ExecutionSessionStore } from '../executor/session/interfaces/SessionStore.js';
+import { InterruptibleExecutor } from '../executor/interfaces/InterruptibleExecutor.js';
+import type { ExecutionSession } from '../executor/session/types.js';
+import type { ExecutionResult, UserInputResult } from '../executor/types.js';
+import { StepType } from '../planner/types.js';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
-import { promises as fs } from 'fs';
+import { promises as fsP, existsSync } from 'fs';
+import { randomUUID } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Use project root for static files - works both in dev (tsx) and production (compiled)
+function getWebDistPath(): string {
+  // In production: __dirname is dist/src/web, go up 3 levels to project root
+  // dist/src/web -> dist/src -> dist -> project root
+  const projectRoot = resolve(__dirname, '../../..');
+  const prodPath = join(projectRoot, 'web/dist');
+
+  // In dev mode: use cwd (should be project root when running tsx from project root)
+  const devPath = join(process.cwd(), 'web/dist');
+
+  // Prefer prod path first (more reliable)
+  if (existsSync(join(prodPath, 'index.html'))) {
+    return prodPath;
+  }
+
+  // Fall back to dev path
+  if (existsSync(join(devPath, 'index.html'))) {
+    return devPath;
+  }
+
+  // Last resort: try projectRoot/web/dist
+  return prodPath;
+}
 
 let app: FastifyInstance;
 
@@ -34,19 +65,19 @@ async function createApp(): Promise<FastifyInstance> {
   });
 
   // Serve Vue app static files (only actual files with extensions)
-  // This should NOT match /plans, /tools, etc.
   await instance.register(staticPlugin, {
-    root: join(__dirname, '../../../web/dist'),
+    root: getWebDistPath(),
     prefix: '/',
     wildcard: false,
-    // Only serve files that are actual assets (not API routes)
+    // Only serve files that exist (extensions must be valid)
     allowedPath: (pathname) => {
-      // Exclude API routes and SSE endpoints
+      // API routes and SSE endpoints should not be served as static files
       if (pathname.startsWith('/api/') || pathname.startsWith('/sse/')) {
         return false;
       }
-      // Allow all other paths (static files will return 404 if not found)
-      return true;
+      // Check if it looks like a file path (has extension)
+      const hasExtension = /\.[a-zA-Z0-9]+$/.test(pathname);
+      return hasExtension;
     },
   });
 
@@ -74,7 +105,7 @@ async function loadLocalFunctions(): Promise<void> {
     const functionsPath = resolve(process.cwd(), 'dist/functions/index.js');
 
     try {
-      await fs.access(functionsPath);
+      await fsP.access(functionsPath);
     } catch {
       // Functions not built yet, skip loading
       console.log('Local functions not found (dist/functions/index.js not built)');
@@ -84,8 +115,8 @@ async function loadLocalFunctions(): Promise<void> {
     // Dynamic import functions
     const module = await import(functionsPath);
 
-    // Get LocalFunctionProvider from container
-    const localProvider = webContainer.get<LocalFunctionProvider>(LocalFunctionProvider);
+    // Get LocalFunctionProvider from container using the correct Symbol
+    const localProvider = webContainer.get<LocalFunctionProvider>(LocalFunctionProviderSymbol);
 
     // Register all exported functions
     for (const key of Object.keys(module)) {
@@ -101,7 +132,7 @@ async function loadLocalFunctions(): Promise<void> {
       }
     }
 
-    const count = (await localProvider.list()).filter(f => f.type === 'local').length;
+    const count = (await localProvider.list()).filter((f: { type: string }) => f.type === 'local').length;
     console.log(`Loaded ${count} local functions`);
   } catch (error) {
     console.warn('Failed to load local functions:', error);
@@ -370,6 +401,269 @@ export async function startWebServer(port: number = 3001): Promise<void> {
     }
   });
 
+  // ========== Session API (for interruptible execution) ==========
+
+  // Session SSE endpoint - dedicated stream for a session
+  const sessionStreams = new Map<string, Set<(message: string) => void>>();
+
+  function broadcastToSession(sessionId: string, message: object): void {
+    const streams = sessionStreams.get(sessionId);
+    if (streams) {
+      const data = JSON.stringify(message);
+      for (const send of streams) {
+        try {
+          send(data);
+        } catch {
+          // Stream closed, remove it
+          streams.delete(send);
+        }
+      }
+    }
+  }
+
+  app.get('/sse/session/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const rawResponse = reply.raw;
+
+    // Set SSE headers
+    rawResponse.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    // Send initial connection message
+    rawResponse.write(`data: ${JSON.stringify({ type: 'connected', sessionId: id })}\n\n`);
+
+    // Add this stream to the session's broadcast set
+    if (!sessionStreams.has(id)) {
+      sessionStreams.set(id, new Set());
+    }
+    const streams = sessionStreams.get(id)!;
+    const send = (data: string) => rawResponse.write(`data: ${data}\n\n`);
+    streams.add(send);
+
+    // Remove stream on close
+    request.raw.on('close', () => {
+      streams.delete(send);
+      if (streams.size === 0) {
+        sessionStreams.delete(id);
+      }
+    });
+
+    // Keep connection open
+  });
+
+  // Start a new execution session
+  app.post('/api/session/start', async (request, reply) => {
+    const { planData } = request.body as { planData: any };
+
+    try {
+      const sessionStore = webContainer.get<ExecutionSessionStore>(ExecutionSessionStore);
+      const executor = webContainer.get<InterruptibleExecutor>(InterruptibleExecutor);
+
+      const sessionId = `session-${randomUUID().slice(0, 8)}`;
+
+      const session: ExecutionSession = {
+        id: sessionId,
+        plan: planData,
+        status: 'running',
+        currentStepId: 0,
+        stepResults: [],
+        context: {},
+        pendingInput: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await sessionStore.saveSession(session);
+
+      // Notify via session SSE
+      broadcastToSession(sessionId, {
+        type: 'executionStart',
+        sessionId,
+        planId: planData.id,
+      });
+
+      // Execute asynchronously with callbacks
+      executor.execute(session, {
+        onStepComplete: async (stepResult) => {
+          await sessionStore.updateSession(sessionId, {
+            currentStepId: stepResult.stepId + 1,
+            stepResults: [...session.stepResults, stepResult],
+          });
+          broadcastToSession(sessionId, {
+            type: 'stepComplete',
+            sessionId,
+            stepId: stepResult.stepId,
+            success: stepResult.success,
+          });
+        },
+        onInputRequired: async (surfaceId, schema) => {
+          await sessionStore.updateSession(sessionId, {
+            status: 'waiting_input',
+            pendingInput: { surfaceId, stepId: session.currentStepId, schema },
+          });
+          broadcastToSession(sessionId, {
+            type: 'formRequest',
+            sessionId,
+            surfaceId,
+            stepId: session.currentStepId,
+            schema,
+          });
+
+          // Wait for input by polling session state
+          // In a real implementation, this would use a Promise that resolves when input is submitted
+          // For now, we'll use a simple polling mechanism
+          const startTime = Date.now();
+          const timeout = 300000; // 5 minutes
+
+          while (Date.now() - startTime < timeout) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const updated = await sessionStore.loadSession(sessionId);
+            if (updated && updated.pendingInput === null) {
+              // Input was submitted
+              const lastResult = updated.stepResults[updated.stepResults.length - 1];
+              if (lastResult && lastResult.type === StepType.USER_INPUT) {
+                return (lastResult as UserInputResult).values;
+              }
+            }
+            // Check if session failed or completed
+            if (updated && (updated.status === 'completed' || updated.status === 'failed')) {
+              throw new Error('Session ended while waiting for input');
+            }
+          }
+
+          throw new Error('Input timeout');
+        },
+      }).then(async (result) => {
+        await sessionStore.updateSession(sessionId, {
+          status: result.success ? 'completed' : 'failed',
+        });
+        broadcastToSession(sessionId, {
+          type: 'executionComplete',
+          sessionId,
+          success: result.success,
+          result,
+        });
+      }).catch(async (error) => {
+        await sessionStore.updateSession(sessionId, {
+          status: 'failed',
+        });
+        broadcastToSession(sessionId, {
+          type: 'executionError',
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+      return { success: true, sessionId, status: 'running' };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return reply.status(500).send({ success: false, error: errorMessage });
+    }
+  });
+
+  // Submit user input for a session
+  app.post('/api/session/:id/input', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { values } = request.body as { values: Record<string, unknown> };
+
+    try {
+      const sessionStore = webContainer.get<ExecutionSessionStore>(ExecutionSessionStore);
+      const session = await sessionStore.loadSession(id);
+
+      if (!session) {
+        return reply.status(404).send({ success: false, error: 'Session not found' });
+      }
+
+      if (!session.pendingInput) {
+        return reply.status(400).send({ success: false, error: 'No pending input' });
+      }
+
+      // Create input result
+      const inputResult: UserInputResult = {
+        stepId: session.pendingInput.stepId,
+        type: StepType.USER_INPUT,
+        values,
+        success: true,
+        timestamp: Date.now(),
+        executedAt: new Date().toISOString(),
+      };
+
+      // Update session
+      await sessionStore.updateSession(id, {
+        status: 'running',
+        currentStepId: session.pendingInput.stepId + 1,
+        stepResults: [...session.stepResults, inputResult],
+        pendingInput: null,
+      });
+
+      broadcastToSession(id, {
+        type: 'inputReceived',
+        sessionId: id,
+        stepId: session.pendingInput.stepId,
+      });
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return reply.status(500).send({ success: false, error: errorMessage });
+    }
+  });
+
+  // Get session status
+  app.get('/api/session/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const sessionStore = webContainer.get<ExecutionSessionStore>(ExecutionSessionStore);
+      const session = await sessionStore.loadSession(id);
+
+      if (!session) {
+        return reply.status(404).send({ success: false, error: 'Session not found' });
+      }
+
+      return {
+        success: true,
+        session: {
+          id: session.id,
+          status: session.status,
+          currentStepId: session.currentStepId,
+          stepCount: session.plan.steps.length,
+          pendingInput: session.pendingInput,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return reply.status(500).send({ success: false, error: errorMessage });
+    }
+  });
+
+  // List all sessions
+  app.get('/api/sessions', async () => {
+    try {
+      const sessionStore = webContainer.get<ExecutionSessionStore>(ExecutionSessionStore);
+      const sessions = await sessionStore.listSessions();
+      return {
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          status: s.status,
+          currentStepId: s.currentStepId,
+          stepCount: s.plan.steps.length,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+        })),
+      };
+    } catch (error) {
+      console.error('Failed to list sessions:', error);
+      return { sessions: [] };
+    }
+  });
+
   // List all plans
   app.get('/api/plans', async () => {
     try {
@@ -410,19 +704,24 @@ export async function startWebServer(port: number = 3001): Promise<void> {
     }
   });
 
-  // SPA fallback: Serve index.html for any route that doesn't match API or assets
+  // SPA fallback: Serve index.html for frontend routes (not API, SSE, or static files)
   app.setNotFoundHandler(async (request, reply) => {
     const url = request.url || '';
+
     // API routes, SSE should return 404
     if (url.startsWith('/api') || url.startsWith('/sse')) {
       return reply.status(404).send({ error: 'Not found' });
     }
-    // Serve Vue app for all other routes (SPA support)
-    const indexPath = join(__dirname, '../../../web/dist/index.html');
-    // Use reply.type to set content type and send the HTML content directly
-    const fs = await import('fs');
+
+    // Static files (with extensions) should return 404 if not found
+    if (/\.[a-zA-Z0-9]+$/.test(url)) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+
+    // Serve Vue app for frontend routes (SPA support)
+    const indexPath = join(getWebDistPath(), 'index.html');
     try {
-      const content = fs.readFileSync(indexPath, 'utf-8');
+      const content = await fsP.readFile(indexPath, 'utf-8');
       return reply.type('text/html').send(content);
     } catch (error) {
       console.error('Failed to serve index.html:', error);

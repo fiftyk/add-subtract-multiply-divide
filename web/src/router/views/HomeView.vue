@@ -1,7 +1,10 @@
 <template>
   <div class="home-view">
     <header class="header">
-      <h1>fn-orchestrator</h1>
+      <div class="header-top">
+        <h1>fn-orchestrator</h1>
+        <router-link to="/sessions" class="sessions-link">查看会话 →</router-link>
+      </div>
       <p class="subtitle">基于 LLM 的函数编排系统</p>
     </header>
 
@@ -50,14 +53,21 @@
       </A2UICard>
 
       <div class="execute-actions">
-        <button class="btn btn-execute" @click="executePlan">执行计划</button>
+        <button
+          class="btn btn-execute"
+          @click="executePlan"
+          :disabled="executing"
+        >
+          {{ executing ? '执行中...' : '执行计划' }}
+        </button>
+        <span v-if="executing" class="executing-hint">正在建立会话连接...</span>
       </div>
     </div>
 
     <!-- A2UI Components from SSE -->
     <A2UISurface
-      v-for="surface in surfaces"
-      :key="surface.id"
+      v-for="[id, surface] in Array.from(surfaces.entries())"
+      :key="id"
       :surface="surface"
       @action="handleAction"
     />
@@ -65,8 +75,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import type { A2UIComponent, A2UIUserAction, A2UIServerMessage } from '../../../src/a2ui/types';
 import A2UISurface from '../../components/a2ui/A2UISurface.vue';
 import A2UIProgress from '../../components/a2ui/A2UIProgress.vue';
@@ -89,9 +99,15 @@ const loading = ref(false);
 const loadingLabel = ref('');
 const userRequest = ref('');
 const planResult = ref<PlanResult | null>(null);
+const executionStatus = ref<'idle' | 'running' | 'completed' | 'failed'>('idle');
+const executing = ref(false);
 
 let eventSource: EventSource | null = null;
 const route = useRoute();
+const router = useRouter();
+
+// Inject session connection from App.vue
+const startSession = inject<(sessionId: string) => void>('startSession');
 
 onMounted(async () => {
   connectSSE();
@@ -193,15 +209,14 @@ async function createPlan() {
 
 async function executePlan() {
   if (!planResult.value) return;
-  loading.value = true;
-  loadingLabel.value = '正在执行计划...';
+  executing.value = true;
+  executionStatus.value = 'running';
 
   try {
-    const response = await fetch('/api/execute', {
+    const response = await fetch('/api/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        planId: planResult.value.id,
         planData: {
           id: planResult.value.id,
           userRequest: userRequest.value || '计算需求',
@@ -211,15 +226,24 @@ async function executePlan() {
       }),
     });
     const result = await response.json();
-    if (!result.success) {
-      alert(`执行计划失败: ${result.error}`);
+
+    if (result.success) {
+      // Connect to session SSE to receive updates
+      if (startSession) {
+        startSession(result.sessionId);
+      }
+      // Navigate to session detail page
+      router.push(`/sessions/${result.sessionId}`);
+    } else {
+      alert(`启动执行失败: ${result.error}`);
+      executionStatus.value = 'failed';
+      executing.value = false;
     }
   } catch (error) {
     console.error('Failed to execute plan:', error);
     alert('执行计划失败');
-  } finally {
-    loading.value = false;
-    loadingLabel.value = '';
+    executionStatus.value = 'failed';
+    executing.value = false;
   }
 }
 
@@ -265,10 +289,32 @@ async function loadPlanFromId(id: string) {
   margin-bottom: 32px;
 }
 
+.header-top {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
 .header h1 {
   font-size: 2rem;
   font-weight: 600;
   margin: 0;
+}
+
+.sessions-link {
+  font-size: 0.875rem;
+  color: #60a5fa;
+  text-decoration: none;
+  padding: 6px 12px;
+  background: rgba(96, 165, 250, 0.1);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.sessions-link:hover {
+  background: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
 }
 
 .subtitle {
@@ -380,5 +426,13 @@ async function loadPlanFromId(id: string) {
 
 .execute-actions {
   margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.executing-hint {
+  font-size: 0.875rem;
+  color: #9ca3af;
 }
 </style>

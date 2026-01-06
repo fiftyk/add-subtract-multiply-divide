@@ -254,3 +254,71 @@ export interface Surface {
   /** Rendering order of components */
   order: string[];
 }
+
+// ================ Execution Session Status ================
+
+/**
+ * Execution Session Status
+ *
+ * Represents the current state of an execution session.
+ */
+export type ExecutionStatus =
+  | 'pending'    // Session created, not yet started
+  | 'running'    // Actively executing steps
+  | 'waiting_input' // Waiting for user input
+  | 'completed'  // All steps completed successfully
+  | 'failed';    // Execution failed
+
+// ================ Execution Messages ================
+
+/**
+ * Execution message types for SSE streaming
+ */
+export type ExecutionMessageType =
+  | 'connected'
+  | 'executionStart'
+  | 'stepStart'
+  | 'stepComplete'
+  | 'formRequest'
+  | 'inputReceived'
+  | 'executionComplete'
+  | 'executionError';
+
+/**
+ * Base execution message
+ */
+export interface ExecutionMessage {
+  type: ExecutionMessageType;
+  sessionId: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Form request message - sent when user input is required
+ */
+export interface FormRequestMessage extends ExecutionMessage {
+  type: 'formRequest';
+  surfaceId: string;
+  stepId: number;
+  schema: A2UISchema;
+}
+
+/**
+ * Execution complete message
+ */
+export interface ExecutionCompleteMessage extends ExecutionMessage {
+  type: 'executionComplete';
+  success: boolean;
+  result?: {
+    planId: string;
+    steps: Array<{
+      stepId: number;
+      type: string;
+      success: boolean;
+      result?: unknown;
+      error?: string;
+    }>;
+    finalResult?: unknown;
+  };
+}
+
