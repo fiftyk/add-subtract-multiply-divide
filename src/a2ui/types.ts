@@ -92,7 +92,9 @@ export type ComponentProps = Record<string, unknown>;
 export type A2UIServerMessage =
   | BeginRenderingMessage
   | SurfaceUpdateMessage
-  | EndRenderingMessage;
+  | EndRenderingMessage
+  | InputRequestedMessage
+  | ConnectedMessage;
 
 /** Initialize a new rendering surface */
 export interface BeginRenderingMessage {
@@ -113,6 +115,20 @@ export interface SurfaceUpdateMessage {
 export interface EndRenderingMessage {
   type: 'endRendering';
   surfaceId: string;
+}
+
+/** Input requested from user */
+export interface InputRequestedMessage {
+  type: 'inputRequested';
+  surfaceId: string;
+  componentId: string;
+  requestId: string;
+}
+
+/** Client connected */
+export interface ConnectedMessage {
+  type: 'connected';
+  clientId: string;
 }
 
 // ================ Client → Server Messages ================
@@ -220,4 +236,21 @@ export interface SelectFieldProps {
 export interface TableProps {
   headers: string[];
   rows: Array<Array<string | number | boolean | null>>;
+}
+
+// ================ Surface (for Web Renderer) ================
+
+/**
+ * Surface - represents a rendering surface with components
+ * Used by Web and other renderers to manage component state
+ */
+export interface Surface {
+  /** Unique identifier for this surface */
+  id: string;
+  /** ID of the root component */
+  rootId: string;
+  /** Map of component ID to component definition */
+  components: Map<string, A2UIComponent>;
+  /** Rendering order of components */
+  order: string[];
 }

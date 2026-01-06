@@ -15,8 +15,10 @@ import { Executor } from '../executor/interfaces/Executor.js';
 import { ConfigManager } from '../config/index.js';
 import { Storage } from '../storage/interfaces/Storage.js';
 import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
+import { LocalFunctionProvider } from '../function-provider/LocalFunctionProvider.js';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
+import { promises as fs } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -37,9 +39,13 @@ async function createApp(): Promise<FastifyInstance> {
     root: join(__dirname, '../../../web/dist'),
     prefix: '/',
     wildcard: false,
-    // Only serve files with these extensions
+    // Only serve files that are actual assets (not API routes)
     allowedPath: (pathname) => {
-      // Allow all paths - let the notFoundHandler deal with non-files
+      // Exclude API routes and SSE endpoints
+      if (pathname.startsWith('/api/') || pathname.startsWith('/sse/')) {
+        return false;
+      }
+      // Allow all other paths (static files will return 404 if not found)
       return true;
     },
   });
@@ -59,11 +65,85 @@ export function getWebRenderer(): WebRendererImpl {
   return globalRenderer;
 }
 
+/**
+ * Load local functions from the functions directory
+ */
+async function loadLocalFunctions(): Promise<void> {
+  try {
+    // Try to load from the functions index file
+    const functionsPath = resolve(process.cwd(), 'dist/functions/index.js');
+
+    try {
+      await fs.access(functionsPath);
+    } catch {
+      // Functions not built yet, skip loading
+      console.log('Local functions not found (dist/functions/index.js not built)');
+      return;
+    }
+
+    // Dynamic import functions
+    const module = await import(functionsPath);
+
+    // Get LocalFunctionProvider from container
+    const localProvider = webContainer.get<LocalFunctionProvider>(LocalFunctionProvider);
+
+    // Register all exported functions
+    for (const key of Object.keys(module)) {
+      const fn = module[key];
+      if (isFunctionDefinition(fn)) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          localProvider.register(fn as any);
+          console.log(`Loaded local function: ${fn.name}`);
+        } catch (error) {
+          // Ignore duplicate registration errors
+        }
+      }
+    }
+
+    const count = (await localProvider.list()).filter(f => f.type === 'local').length;
+    console.log(`Loaded ${count} local functions`);
+  } catch (error) {
+    console.warn('Failed to load local functions:', error);
+  }
+}
+
+/**
+ * Check if an object is a valid FunctionDefinition (runtime check)
+ */
+function isFunctionDefinition(obj: unknown): obj is {
+  name: string;
+  description: string;
+  scenario: string;
+  parameters: Array<{ name: string; type: string; description: string }>;
+  returns: { type: string; description: string };
+  implementation: Function;
+} {
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+
+  const fn = obj as Record<string, unknown>;
+  return (
+    typeof fn.name === 'string' &&
+    typeof fn.description === 'string' &&
+    typeof fn.scenario === 'string' &&
+    Array.isArray(fn.parameters) &&
+    fn.parameters.length > 0 &&
+    typeof (fn.parameters[0] as Record<string, unknown>).name === 'string' &&
+    typeof fn.returns === 'object' &&
+    typeof fn.implementation === 'function'
+  );
+}
+
 export async function startWebServer(port: number = 3001): Promise<void> {
   app = await createApp();
 
   // Initialize ConfigManager for web mode
   ConfigManager.initialize({});
+
+  // Load local functions
+  await loadLocalFunctions();
 
   // Create web renderer and register routes
   const renderer = getWebRenderer();
@@ -172,6 +252,34 @@ export async function startWebServer(port: number = 3001): Promise<void> {
           }
         }
       ]);
+      return reply.status(500).send({ success: false, error: errorMessage });
+    }
+  });
+
+  // Get single plan by ID
+  app.get('/api/plan/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const storage = webContainer.get<Storage>(Storage);
+      const plan = await storage.loadPlan(id);
+
+      if (!plan) {
+        return reply.status(404).send({ success: false, error: 'Plan not found' });
+      }
+
+      return {
+        success: true,
+        plan: {
+          id: plan.id,
+          userRequest: plan.userRequest,
+          steps: plan.steps,
+          status: plan.status,
+          createdAt: plan.createdAt,
+        },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return reply.status(500).send({ success: false, error: errorMessage });
     }
   });

@@ -1,25 +1,25 @@
 <template>
   <div class="textfield">
     <label class="textfield-label">
-      {{ component.props.label }}
-      <span v-if="component.props.required" class="required">*</span>
+      {{ props.label }}
+      <span v-if="props.required" class="required">*</span>
     </label>
     <textarea
-      v-if="component.props.multiline"
-      :id="component.props.name"
+      v-if="props.multiline"
+      :id="props.name"
       class="textfield-input textfield-textarea"
-      :placeholder="component.props.placeholder"
-      :required="component.props.required"
+      :placeholder="props.placeholder"
+      :required="props.required"
       :value="modelValue"
       @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     ></textarea>
     <input
       v-else
-      :id="component.props.name"
+      :id="props.name"
       type="text"
       class="textfield-input"
-      :placeholder="component.props.placeholder"
-      :required="component.props.required"
+      :placeholder="props.placeholder"
+      :required="props.required"
       :value="modelValue"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
@@ -27,10 +27,16 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: { props: { label: string; name: string; placeholder?: string; required?: boolean; multiline?: boolean } };
+import { computed } from 'vue';
+import type { A2UIComponent, TextFieldProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
   modelValue?: string;
 }>();
+
+const props = computed(() => getProps<TextFieldProps>(componentProp.component));
 
 defineEmits<{
   'update:modelValue': [value: string];

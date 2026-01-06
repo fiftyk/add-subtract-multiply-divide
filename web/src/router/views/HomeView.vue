@@ -66,6 +66,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
 import type { A2UIComponent, A2UIUserAction, A2UIServerMessage } from '../../../src/a2ui/types';
 import A2UISurface from '../../components/a2ui/A2UISurface.vue';
 import A2UIProgress from '../../components/a2ui/A2UIProgress.vue';
@@ -90,8 +91,9 @@ const userRequest = ref('');
 const planResult = ref<PlanResult | null>(null);
 
 let eventSource: EventSource | null = null;
+const route = useRoute();
 
-onMounted(() => {
+onMounted(async () => {
   connectSSE();
   surfaces.value.set('main', {
     id: 'main',
@@ -99,6 +101,11 @@ onMounted(() => {
     components: new Map(),
     order: [],
   });
+
+  // Check for planId in query params
+  if (route.query.planId) {
+    await loadPlanFromId(route.query.planId as string);
+  }
 });
 
 onUnmounted(() => {
@@ -199,6 +206,7 @@ async function executePlan() {
           id: planResult.value.id,
           userRequest: userRequest.value || '计算需求',
           steps: planResult.value.steps,
+          status: 'executable',
         },
       }),
     });
@@ -218,6 +226,32 @@ async function executePlan() {
 function clearResults() {
   userRequest.value = '';
   planResult.value = null;
+}
+
+async function loadPlanFromId(id: string) {
+  loading.value = true;
+  loadingLabel.value = '加载计划...';
+
+  try {
+    const response = await fetch(`/api/plan/${id}`);
+    const result = await response.json();
+
+    if (result.success && result.plan) {
+      planResult.value = {
+        id: result.plan.id,
+        steps: result.plan.steps,
+      };
+      userRequest.value = result.plan.userRequest;
+    } else {
+      alert(`加载计划失败: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Failed to load plan:', error);
+    alert('加载计划失败');
+  } finally {
+    loading.value = false;
+    loadingLabel.value = '';
+  }
 }
 </script>
 

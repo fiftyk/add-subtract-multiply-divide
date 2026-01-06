@@ -1,6 +1,6 @@
 <template>
   <div class="card">
-    <div v-if="component.props.title" class="card-title">{{ component.props.title }}</div>
+    <div v-if="props.title" class="card-title">{{ props.title }}</div>
     <div class="card-content">
       <slot></slot>
     </div>
@@ -8,9 +8,15 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: { props: { title?: string } };
+import { computed } from 'vue';
+import type { A2UIComponent, CardProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
 }>();
+
+const props = computed(() => getProps<CardProps>(componentProp.component));
 </script>
 
 <style scoped>

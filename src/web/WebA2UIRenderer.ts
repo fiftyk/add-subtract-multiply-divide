@@ -7,15 +7,9 @@
 
 import { inject, injectable } from 'inversify';
 import type { A2UIRenderer } from '../a2ui/A2UIRenderer.js';
-import type { A2UIComponent, A2UIUserAction } from '../a2ui/types.js';
+import type { A2UIComponent, A2UIUserAction, Surface } from '../a2ui/types.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { randomUUID } from 'crypto';
-
-interface Surface {
-  id: string;
-  rootId: string;
-  components: Map<string, A2UIComponent>;
-}
 
 interface SSEClient {
   id: string;
@@ -26,11 +20,19 @@ interface SSEClient {
 
 export const WebA2UIRenderer = Symbol('WebA2UIRenderer');
 
+interface PendingInputRequest {
+  resolve: (action: A2UIUserAction) => void;
+  reject: (error: Error) => void;
+  timeout: NodeJS.Timeout;
+}
+
 @injectable()
 export class WebRendererImpl implements A2UIRenderer {
   private clients = new Map<string, SSEClient>();
   private surfaces = new Map<string, Surface>();
   private actionHandler?: (action: A2UIUserAction) => void;
+  private pendingInputs = new Map<string, PendingInputRequest>();
+  private readonly DEFAULT_TIMEOUT = 300000; // 5 minutes
 
   /**
    * Get all active client IDs
@@ -91,6 +93,7 @@ export class WebRendererImpl implements A2UIRenderer {
       id: surfaceId,
       rootId,
       components: new Map(),
+      order: [],
     };
 
     this.surfaces.set(surfaceId, surface);
@@ -112,6 +115,10 @@ export class WebRendererImpl implements A2UIRenderer {
 
     for (const comp of components) {
       surface.components.set(comp.id, comp);
+      // Add to order if not already present
+      if (!surface.order.includes(comp.id)) {
+        surface.order.push(comp.id);
+      }
     }
 
     // Broadcast to all clients
@@ -131,6 +138,8 @@ export class WebRendererImpl implements A2UIRenderer {
 
     for (const id of componentIds) {
       surface.components.delete(id);
+      // Remove from order
+      surface.order = surface.order.filter(orderId => orderId !== id);
     }
 
     // Broadcast to all clients
@@ -164,8 +173,36 @@ export class WebRendererImpl implements A2UIRenderer {
 
   /**
    * Handle user action from web client
+   * Also resolves pending input requests if any
    */
   handleUserAction(action: A2UIUserAction): void {
+    // Check if there's a pending input request for this surface/component
+    const requestId = `${action.surfaceId}:${action.componentId}`;
+    const pending = this.pendingInputs.get(requestId);
+
+    if (pending) {
+      clearTimeout(pending.timeout);
+      pending.resolve(action);
+      this.pendingInputs.delete(requestId);
+      return;
+    }
+
+    // Also handle actions with surfaceId in payload (for button actions)
+    const payloadRequestId = action.payload?.surfaceId
+      ? `${action.payload.surfaceId}:${action.componentId}`
+      : null;
+
+    if (payloadRequestId) {
+      const payloadPending = this.pendingInputs.get(payloadRequestId);
+      if (payloadPending) {
+        clearTimeout(payloadPending.timeout);
+        payloadPending.resolve(action);
+        this.pendingInputs.delete(payloadRequestId);
+        return;
+      }
+    }
+
+    // Call the registered action handler
     if (this.actionHandler) {
       this.actionHandler(action);
     }
@@ -223,11 +260,46 @@ export class WebRendererImpl implements A2UIRenderer {
   }
 
   /**
-   * Request user input - not used in web mode, actions come via HTTP
+   * Request user input in web mode
+   * Creates a pending request and waits for user action via HTTP endpoint
+   *
+   * @param surfaceId - The surface ID requesting input
+   * @param componentId - The component ID requesting input
+   * @param timeoutMs - Optional timeout in milliseconds (default: 5 minutes)
+   * @returns Promise resolving to user action with input values
    */
-  async requestInput(surfaceId: string, componentId: string): Promise<A2UIUserAction> {
-    // In web mode, inputs are handled via SSE + HTTP action endpoint
-    // This method is only for CLI blocking input
-    throw new Error('requestInput not supported in web mode. Use SSE events and /api/action endpoint.');
+  async requestInput(
+    surfaceId: string,
+    componentId: string,
+    timeoutMs?: number
+  ): Promise<A2UIUserAction> {
+    const requestId = `${surfaceId}:${componentId}`;
+    const timeout = timeoutMs || this.DEFAULT_TIMEOUT;
+
+    // Check if there's already a pending request
+    if (this.pendingInputs.has(requestId)) {
+      throw new Error(`Input request already pending for ${requestId}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pendingInputs.delete(requestId);
+        reject(new Error(`Input request timed out after ${timeout}ms`));
+      }, timeout);
+
+      this.pendingInputs.set(requestId, {
+        resolve,
+        reject,
+        timeout: timeoutId,
+      });
+
+      // Notify clients that input is requested
+      this.broadcast({
+        type: 'inputRequested',
+        surfaceId,
+        componentId,
+        requestId,
+      });
+    });
   }
 }

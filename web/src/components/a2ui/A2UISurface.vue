@@ -16,21 +16,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed, h, defineAsyncComponent } from 'vue';
 import type { A2UIComponent, Surface } from '../../../../../src/a2ui/types';
-import A2UIText from './A2UIText.vue';
-import A2UICard from './A2UICard.vue';
-import A2UIRow from './A2UIRow.vue';
-import A2UIColumn from './A2UIColumn.vue';
-import A2UIList from './A2UIList.vue';
-import A2UIButton from './A2UIButton.vue';
-import A2UITextField from './A2UITextField.vue';
-import A2UIProgress from './A2UIProgress.vue';
-import A2UIBadge from './A2UIBadge.vue';
-import A2UIDivider from './A2UIDivider.vue';
-import A2UIDateField from './A2UIDateField.vue';
-import A2UISelectField from './A2UISelectField.vue';
-import A2UITable from './A2UITable.vue';
+
+// 组件映射表 - 在模块级别定义，避免每次渲染都重新创建
+const COMPONENT_MAP: Record<string, any> = {
+  Text: defineAsyncComponent(() => import('./A2UIText.vue')),
+  Card: defineAsyncComponent(() => import('./A2UICard.vue')),
+  Row: defineAsyncComponent(() => import('./A2UIRow.vue')),
+  Column: defineAsyncComponent(() => import('./A2UIColumn.vue')),
+  List: defineAsyncComponent(() => import('./A2UIList.vue')),
+  Button: defineAsyncComponent(() => import('./A2UIButton.vue')),
+  TextField: defineAsyncComponent(() => import('./A2UITextField.vue')),
+  Progress: defineAsyncComponent(() => import('./A2UIProgress.vue')),
+  Badge: defineAsyncComponent(() => import('./A2UIBadge.vue')),
+  Divider: defineAsyncComponent(() => import('./A2UIDivider.vue')),
+  DateField: defineAsyncComponent(() => import('./A2UIDateField.vue')),
+  SelectField: defineAsyncComponent(() => import('./A2UISelectField.vue')),
+  Table: defineAsyncComponent(() => import('./A2UITable.vue')),
+};
+
+// 未知组件占位符
+const UnknownComponent = () => h('div', { class: 'unknown-component' }, 'Unknown Component');
 
 const props = defineProps<{
   surface: Surface;
@@ -49,30 +56,15 @@ const surfaceTitle = computed(() => {
   return null;
 });
 
-function renderComponent(comp: A2UIComponent) {
+function renderComponent(comp: A2UIComponent | undefined) {
   if (!comp) return null;
-  const [type, data] = Object.entries(comp.component)[0];
 
-  const components: Record<string, any> = {
-    Text: A2UIText,
-    Card: A2UICard,
-    Row: A2UIRow,
-    Column: A2UIColumn,
-    List: A2UIList,
-    Button: A2UIButton,
-    TextField: A2UITextField,
-    Progress: A2UIProgress,
-    Badge: A2UIBadge,
-    Divider: A2UIDivider,
-    DateField: A2UIDateField,
-    SelectField: A2UISelectField,
-    Table: A2UITable,
-  };
+  const [type] = Object.keys(comp.component);
+  const component = COMPONENT_MAP[type];
 
-  const component = components[type];
   if (!component) {
     console.warn(`Unknown component type: ${type}`);
-    return () => h('div', { class: 'unknown-component' }, `Unknown: ${type}`);
+    return UnknownComponent;
   }
 
   return component;

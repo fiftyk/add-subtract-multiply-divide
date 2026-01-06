@@ -1,17 +1,23 @@
 <template>
   <button
-    :class="['btn', `btn-${component.props.variant || 'primary'}`]"
-    :disabled="component.props.disabled"
-    @click="emit('action', { name: 'click', surfaceId: '', componentId: component.id, payload: { action: component.props.action } })"
+    :class="['btn', `btn-${props.variant || 'primary'}`]"
+    :disabled="props.disabled"
+    @click="emit('action', { name: 'click', surfaceId: '', componentId: componentProp.component.id, payload: { action: props.action } })"
   >
-    {{ component.props.label }}
+    {{ props.label }}
   </button>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  component: { id: string; props: { label: string; action: string; variant?: string; disabled?: boolean } };
+import { computed } from 'vue';
+import type { A2UIComponent, ButtonProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
 }>();
+
+const props = computed(() => getProps<ButtonProps>(componentProp.component));
 
 const emit = defineEmits<{
   action: [action: any];

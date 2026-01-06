@@ -1,11 +1,11 @@
 <template>
   <div class="date">
-    <label class="date-label">{{ component.props.label }}</label>
+    <label class="date-label">{{ props.label }}</label>
     <input
       type="date"
       class="date-input"
-      :min="component.props.minDate"
-      :max="component.props.maxDate"
+      :min="props.minDate"
+      :max="props.maxDate"
       :value="modelValue"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
@@ -13,10 +13,16 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: { props: { label: string; minDate?: string; maxDate?: string } };
+import { computed } from 'vue';
+import type { A2UIComponent, DateFieldProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
   modelValue?: string;
 }>();
+
+const props = computed(() => getProps<DateFieldProps>(componentProp.component));
 
 defineEmits<{
   'update:modelValue': [value: string];

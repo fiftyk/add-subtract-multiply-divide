@@ -1,11 +1,17 @@
 <template>
-  <div :class="['divider', component.props.style === 'dashed' ? 'divider-dashed' : '']"></div>
+  <div :class="['divider', props.style === 'dashed' ? 'divider-dashed' : '']"></div>
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: { props: { style?: string } };
+import { computed } from 'vue';
+import type { A2UIComponent, DividerProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
 }>();
+
+const props = computed(() => getProps<DividerProps>(componentProp.component));
 </script>
 
 <style scoped>

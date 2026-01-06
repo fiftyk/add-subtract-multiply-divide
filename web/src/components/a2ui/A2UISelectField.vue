@@ -1,13 +1,13 @@
 <template>
   <div class="select">
-    <label class="select-label">{{ component.props.label }}</label>
+    <label class="select-label">{{ props.label }}</label>
     <select
       class="select-input"
-      :multiple="component.props.multiSelect"
+      :multiple="props.multiSelect"
       :value="modelValue"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-for="option in component.props.options" :key="option.value" :value="option.value">
+      <option v-for="option in props.options" :key="option.value" :value="option.value">
         {{ option.label }}
       </option>
     </select>
@@ -15,16 +15,16 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: {
-    props: {
-      label: string;
-      options: Array<{ value: string | number; label: string; description?: string }>;
-      multiSelect?: boolean;
-    };
-  };
+import { computed } from 'vue';
+import type { A2UIComponent, SelectFieldProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
   modelValue?: string | number;
 }>();
+
+const props = computed(() => getProps<SelectFieldProps>(componentProp.component));
 
 defineEmits<{
   'update:modelValue': [value: string | number];

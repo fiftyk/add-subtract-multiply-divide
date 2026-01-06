@@ -3,11 +3,11 @@
     <table class="table">
       <thead>
         <tr>
-          <th v-for="header in component.props.headers" :key="header">{{ header }}</th>
+          <th v-for="header in props.headers" :key="header">{{ header }}</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, rowIndex) in component.props.rows" :key="rowIndex">
+        <tr v-for="(row, rowIndex) in props.rows" :key="rowIndex">
           <td v-for="(cell, cellIndex) in row" :key="cellIndex">{{ cell }}</td>
         </tr>
       </tbody>
@@ -16,14 +16,15 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: {
-    props: {
-      headers: string[];
-      rows: Array<Array<string | number | boolean | null>>;
-    };
-  };
+import { computed } from 'vue';
+import type { A2UIComponent, TableProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
 }>();
+
+const props = computed(() => getProps<TableProps>(componentProp.component));
 </script>
 
 <style scoped>

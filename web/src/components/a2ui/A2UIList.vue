@@ -1,15 +1,21 @@
 <template>
-  <ul :class="['list', { 'list-ordered': component.props.ordered }]">
-    <li v-for="(item, index) in component.props.children" :key="index" class="list-item">
+  <ul :class="['list', { 'list-ordered': props.ordered }]">
+    <li v-for="(item, index) in props.children" :key="index" class="list-item">
       {{ item }}
     </li>
   </ul>
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  component: { props: { children: string[]; ordered?: boolean } };
+import { computed } from 'vue';
+import type { A2UIComponent, ListProps } from '../../../../../src/a2ui/types';
+import { getProps } from '../../utils/a2ui';
+
+const componentProp = defineProps<{
+  component: A2UIComponent;
 }>();
+
+const props = computed(() => getProps<ListProps>(componentProp.component));
 </script>
 
 <style scoped>
