@@ -25,6 +25,8 @@ import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
 import type { A2UIRenderer as A2UIRendererType } from '../../a2ui/A2UIRenderer.js';
 import type { A2UIComponent } from '../../a2ui/types.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
+import { TimeoutStrategy } from '../interfaces/TimeoutStrategy.js';
+import { NoTimeoutStrategy } from './NoTimeoutStrategy.js';
 
 /**
  * Executor 配置选项
@@ -51,16 +53,19 @@ export interface ExecutorConfig {
 export class ExecutorImpl implements Executor {
   protected functionProvider: FunctionProvider;
   protected a2uiRenderer?: A2UIRendererType;
+  protected timeoutStrategy: TimeoutStrategy;
   protected config: Required<ExecutorConfig>;
   protected logger: ILogger;
 
   constructor(
     @inject(FunctionProvider) functionProvider: FunctionProvider,
     @unmanaged() config?: ExecutorConfig,
-    @inject(A2UIRenderer) @optional() a2uiRenderer?: A2UIRendererType
+    @inject(A2UIRenderer) @optional() a2uiRenderer?: A2UIRendererType,
+    @inject(TimeoutStrategy) @optional() timeoutStrategy?: TimeoutStrategy
   ) {
     this.functionProvider = functionProvider;
     this.a2uiRenderer = a2uiRenderer;
+    this.timeoutStrategy = timeoutStrategy ?? new NoTimeoutStrategy();
     const appConfig = ConfigManager.get();
     this.config = {
       stepTimeout: config?.stepTimeout ?? appConfig.executor.stepTimeout,
@@ -148,8 +153,11 @@ export class ExecutorImpl implements Executor {
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
-    // 如果超时设置为 0，不限制超时
-    if (this.config.stepTimeout === 0) {
+    // 从 TimeoutStrategy 获取超时配置
+    const timeout = this.timeoutStrategy.getTimeout(step);
+
+    // 如果超时为 undefined，不限制超时
+    if (timeout === undefined) {
       return this.executeStep(step, context);
     }
 
@@ -157,7 +165,7 @@ export class ExecutorImpl implements Executor {
       // 使用 Promise.race 实现超时
       return await Promise.race([
         this.executeStep(step, context),
-        this.createTimeoutPromise(step.stepId, this.config.stepTimeout),
+        this.createTimeoutPromise(step.stepId, timeout),
       ]);
     } catch (error) {
       // 捕获超时错误并转换为 StepResult 格式

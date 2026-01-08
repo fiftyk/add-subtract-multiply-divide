@@ -238,11 +238,11 @@ export interface TableProps {
   rows: Array<Array<string | number | boolean | null>>;
 }
 
-// ================ Surface (for Web Renderer) ================
+// ================ Surface ================
 
 /**
  * Surface - represents a rendering surface with components
- * Used by Web and other renderers to manage component state
+ * Used by renderers to manage component state
  */
 export interface Surface {
   /** Unique identifier for this surface */

@@ -23,6 +23,8 @@ import { Storage } from '../storage/interfaces/Storage.js';
 import { StorageImpl } from '../storage/StorageImpl.js';
 import { Executor } from '../executor/interfaces/Executor.js';
 import { ExecutorImpl } from '../executor/implementations/ExecutorImpl.js';
+import { TimeoutStrategy } from '../executor/interfaces/TimeoutStrategy.js';
+import { NoTimeoutStrategy } from '../executor/implementations/NoTimeoutStrategy.js';
 import { LLMAdapter } from '../function-completion/interfaces/LLMAdapter.js';
 import { AnthropicLLMAdapter } from '../function-completion/adapters/AnthropicLLMAdapter.js';
 import { CLILLMAdapter } from '../function-completion/adapters/CLILLMAdapter.js';
@@ -159,7 +161,12 @@ export function registerCoreBindings(container: Container): void {
   // ============================================
   // Executor
   // ============================================
-  container.bind<Executor>(Executor).to(ExecutorImpl);
+  container.bind(Executor).to(ExecutorImpl);
+
+  // ============================================
+  // TimeoutStrategy - Default: NoTimeoutStrategy
+  // ============================================
+  container.bind(TimeoutStrategy).to(NoTimeoutStrategy);
 
   // ============================================
   // LLMAdapter - 根据配置选择实现

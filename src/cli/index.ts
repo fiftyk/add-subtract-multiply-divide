@@ -14,43 +14,12 @@ const packageJson = JSON.parse(
   readFileSync(join(process.cwd(), 'package.json'), 'utf-8')
 );
 
-async function startWebMode(port: number): Promise<void> {
-  console.log('Starting web mode...');
-  try {
-    // Use dynamic import with absolute path resolution
-    const webServerPath = new URL('../web/server.js', import.meta.url).href;
-    const { startWebServer } = await import(webServerPath);
-    await startWebServer(port);
-    console.log('Web server started. Open http://localhost:3001 in your browser.');
-  } catch (error) {
-    console.error('Failed to start web server:', error);
-    process.exit(1);
-  }
-}
-
 const program = new Command();
 
 program
   .name('fn-orchestrator')
   .description('基于 LLM 的函数编排系统')
   .version(packageJson.version, '-v, --version', '显示版本号');
-
-// Global options
-program.option('--web', '以 Web 模式启动（提供 Web UI）');
-program.option('--web-port <port>', 'Web 服务器端口', '3001');
-
-// Check for web mode BEFORE parsing commands
-// This allows --web to be used without a subcommand
-const webIndex = process.argv.indexOf('--web');
-const webPortIndex = process.argv.findIndex((arg, i) => arg === '--web-port' && i < process.argv.length - 1);
-
-if (webIndex !== -1) {
-  // Web mode - start web server and exit
-  const port = webPortIndex !== -1 ? parseInt(process.argv[webPortIndex + 1], 10) : 3001;
-  await startWebMode(port);
-  // Don't call process.exit() - let the server run
-  // The server will handle graceful shutdown with SIGTERM/SIGINT
-}
 
 // Global hook: Initialize ConfigManager before any command runs
 // This centralizes configuration from CLI args, env vars, and config files
@@ -123,8 +92,4 @@ program
   .option('-s, --session <sessionId>', '继续现有会话')
   .action(refineCommand);
 
-// Only parse and run commands if not in web mode
-const inWebMode = process.argv.includes('--web');
-if (!inWebMode) {
-  program.parse();
-}
+program.parse();
