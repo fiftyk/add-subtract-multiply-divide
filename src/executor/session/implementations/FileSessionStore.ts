@@ -17,7 +17,7 @@ import type { ILogger } from '../../../logger/index.js';
 /**
  * File Session Store Implementation
  *
- * Stores sessions as JSON files in .data/sessions/ directory.
+ * Stores sessions as JSON files in .data/execution-sessions/ directory.
  * Sessions persist across process restarts.
  */
 @injectable()
@@ -28,7 +28,7 @@ export class FileSessionStore implements ExecutionSessionStore {
   constructor() {
     this.logger = LoggerFactory.create(undefined, 'FileSessionStore');
     const dataDir = ConfigManager.get().storage.dataDir;
-    this.sessionsDir = join(dataDir, 'sessions');
+    this.sessionsDir = join(dataDir, 'execution-sessions');
   }
 
   private async ensureDir(): Promise<void> {

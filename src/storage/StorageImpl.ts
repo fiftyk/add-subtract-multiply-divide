@@ -119,53 +119,33 @@ export class StorageImpl implements Storage {
   }
 
   /**
-   * 保存执行结果
+   * @deprecated 请使用 ExecutionSessionManager.createSession() 和 executeSession()
    */
   async saveExecution(result: ExecutionResult): Promise<string> {
-    await this.ensureDirectories();
-    const id = `exec-${uuidv4().slice(0, 8)}`;
-    const filePath = path.join(this.executionsDir, `${id}.json`);
-    const data = { id, ...result };
-    await this.atomicWrite(filePath, JSON.stringify(data, null, 2));
-    return id;
+    throw new Error(
+      'saveExecution() 已废弃，请使用 ExecutionSessionManager.createSession() 和 executeSession() 代替。\n' +
+      '参考: src/executor/session/interfaces/ExecutionSessionManager.ts'
+    );
   }
 
   /**
-   * 加载执行结果
+   * @deprecated 请使用 ExecutionSessionStorage.loadSession()
    */
   async loadExecution(executionId: string): Promise<ExecutionResult | undefined> {
-    try {
-      const filePath = path.join(this.executionsDir, `${executionId}.json`);
-      const content = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(content) as ExecutionResult;
-    } catch {
-      return undefined;
-    }
+    throw new Error(
+      'loadExecution() 已废弃，请使用 ExecutionSessionStorage.loadSession() 代替。\n' +
+      '参考: src/executor/session/interfaces/ExecutionSessionStorage.ts'
+    );
   }
 
   /**
-   * 列出所有执行结果
+   * @deprecated 请使用 ExecutionSessionStorage.listSessions()
    */
   async listExecutions(): Promise<ExecutionResult[]> {
-    await this.ensureDirectories();
-    try {
-      const files = await fs.readdir(this.executionsDir);
-      const results: ExecutionResult[] = [];
-
-      for (const file of files) {
-        if (file.endsWith('.json')) {
-          const id = file.replace('.json', '');
-          const result = await this.loadExecution(id);
-          if (result) {
-            results.push(result);
-          }
-        }
-      }
-
-      return results;
-    } catch {
-      return [];
-    }
+    throw new Error(
+      'listExecutions() 已废弃，请使用 ExecutionSessionStorage.listSessions() 代替。\n' +
+      '参考: src/executor/session/interfaces/ExecutionSessionStorage.ts'
+    );
   }
 
   // ============================================================================

@@ -2,13 +2,10 @@ import { input, confirm } from '@inquirer/prompts';
 import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Executor } from '../../executor/index.js';
-import { ExecutorImpl } from '../../executor/implementations/ExecutorImpl.js';
-import { ConditionalExecutor } from '../../executor/implementations/ConditionalExecutor.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
-import { StepType } from '../../planner/types.js';
 import { A2UIService } from '../../a2ui/A2UIService.js';
-import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
+import { ExecutionSessionManager } from '../../executor/session/index.js';
 import { loadFunctions } from '../utils.js';
 
 interface ExecuteOptions {
@@ -149,35 +146,29 @@ export async function executeCommand(
     ui.startSurface('execute-running');
     ui.heading('🚀 开始执行...');
 
-    // 获取 A2UIRenderer 用于处理用户输入
-    const a2uiRenderer = container.get<A2UIRenderer>(A2UIRenderer);
+    // 创建执行会话
+    const sessionManager = container.get<ExecutionSessionManager>(ExecutionSessionManager);
+    const session = await sessionManager.createSession(plan, 'cli');
 
-    // 根据计划内容选择执行器
-    const hasConditionSteps = plan.steps.some(step => step.type === StepType.CONDITION);
-    const executor: Executor = hasConditionSteps
-      ? new ConditionalExecutor(functionProvider, undefined, a2uiRenderer)
-      : new ExecutorImpl(functionProvider, undefined, a2uiRenderer);
+    ui.caption(`Session ID: ${session.id}`);
+    ui.text(''); // 空行
 
-    if (hasConditionSteps) {
-      ui.caption('ℹ️  检测到条件分支步骤，使用条件执行器');
-    }
-
-    const result = await executor.execute(plan);
-
-    // 保存执行结果
-    const execId = await storage.saveExecution(result);
+    // 执行会话
+    const result = await sessionManager.executeSession(session.id);
 
     // 显示结果
+    const executor = container.get<Executor>(Executor);
     ui.text(executor.formatResultForDisplay(result));
 
     if (result.success) {
       ui.badge('✅ 执行成功!', 'success');
-      ui.caption(`执行记录 ID: ${execId}`);
+      ui.caption(`Session ID: ${session.id}`);
       ui.endSurface();
       process.exit(0);
     } else {
       ui.badge('❌ 执行失败', 'error');
-      ui.caption(`执行记录 ID: ${execId}`);
+      ui.caption(`Session ID: ${session.id}`);
+      ui.text(`💡 提示: 使用 "npx fn-orchestrator sessions retry ${session.id}" 重试`, 'subheading');
       ui.endSurface();
       process.exit(1);
     }

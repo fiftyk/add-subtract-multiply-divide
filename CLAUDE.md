@@ -36,6 +36,16 @@ npx fn-orchestrator plan "需求描述" --auto-complete  # 启用函数自动补
 npx fn-orchestrator execute plan-abc123
 npx fn-orchestrator execute plan-abc123 -y  # 跳过确认
 
+# 管理执行会话
+npx fn-orchestrator sessions list              # 列出所有会话
+npx fn-orchestrator sessions list --plan plan-abc123  # 按 plan 过滤
+npx fn-orchestrator sessions list --status failed     # 按状态过滤
+npx fn-orchestrator sessions show session-abc  # 查看会话详情
+npx fn-orchestrator sessions retry session-abc # 重试失败的会话
+npx fn-orchestrator sessions retry session-abc --from-step 2  # 从指定步骤重试
+npx fn-orchestrator sessions delete session-abc # 删除会话
+npx fn-orchestrator sessions stats plan-abc123  # 查看执行统计
+
 # 查看函数和计划
 npx fn-orchestrator list functions
 npx fn-orchestrator list plans
@@ -99,10 +109,48 @@ npx fn-orchestrator show-plan plan-abc123
 - 支持超时控制（`stepTimeout`），默认 30 秒
 - 记录详细的执行日志（通过 `ILogger`）
 
+**ExecutionSessionStorage & ExecutionSessionManager**
+- **ExecutionSessionStorage**: 管理执行会话的持久化存储
+  - 保存/加载/更新/删除会话
+  - 按 plan、状态、平台过滤查询
+  - 统计分析（成功率、平均时长等）
+  - 数据存储：`.data/execution-sessions/` 目录
+- **ExecutionSessionManager**: 管理会话生命周期
+  - `createSession()`: 创建新会话（每次执行创建独立会话）
+  - `executeSession()`: 执行会话
+  - `retrySession()`: 重试失败的会话（可从指定步骤开始）
+  - `resumeSession()`: 恢复等待用户输入的会话
+  - `cancelSession()`: 取消运行中的会话
+
+**ExecutionSession 类型**
+```typescript
+interface ExecutionSession {
+  id: string;              // session-{uuid}
+  planId: string;          // plan-abc 或 plan-abc-v2
+  basePlanId: string;      // plan-abc (不含版本号)
+  planVersion?: number;    // 版本号
+  status: ExecutionStatus; // pending | running | waiting_input | completed | failed
+  result?: ExecutionResult; // 执行完成后填充
+  parentSessionId?: string; // 重试时指向父会话
+  retryCount: number;       // 重试次数
+  platform: 'cli' | 'web';  // 执行平台
+  createdAt: string;
+  completedAt?: string;
+  // ... 其他字段
+}
+```
+
+**PlanRefinementSessionStorage (原 InteractionSession)**
+- 管理 Plan 改进会话的持久化存储（refine 命令使用）
+- 保存对话历史、当前版本等信息
+- 数据存储：`.data/refinement-sessions/` 目录
+- 与 ExecutionSession 分离，避免命名混淆
+
 **Storage**
-- 持久化计划和执行结果到 `.data/` 目录（JSON 文件）
-- Plans: `.data/plans/plan-{id}.json`
-- Executions: `.data/executions/exec-{id}.json`
+- 持久化计划到 `.data/` 目录（JSON 文件）
+- Plans: `.data/plans/plan-{id}.json` 或 `.data/plans/plan-{id}-v{version}.json`
+- ⚠️ **废弃方法**：`saveExecution()`, `loadExecution()`, `listExecutions()` 已废弃
+- 使用 `ExecutionSessionManager` 代替旧的 execution 存储方式
 
 ### SOLID 设计原则应用
 
@@ -324,7 +372,7 @@ logger.error('错误', error, { 额外上下文 });
 src/
 ├── cli/                    # CLI 入口和命令
 │   ├── index.ts           # Commander 配置 + ConfigManager 初始化
-│   ├── commands/          # plan, execute, list 命令
+│   ├── commands/          # plan, execute, list, sessions 命令
 │   └── utils.ts           # 函数加载工具
 ├── config/                # 配置管理（v2.0 新架构）
 │   ├── ConfigManager.ts   # 单例配置管理器
@@ -338,8 +386,19 @@ src/
 │   └── interfaces/        # IPlannerLLMClient
 ├── executor/              # 计划执行引擎
 │   ├── executor.ts
-│   └── context.ts         # 执行上下文（解析引用）
+│   ├── context.ts         # 执行上下文（解析引用）
+│   └── session/           # 执行会话管理
+│       ├── types.ts       # ExecutionSession 类型定义
+│       ├── interfaces/    # ExecutionSessionStorage, ExecutionSessionManager
+│       ├── storage/       # 存储实现（ExecutionSessionStorageImpl）
+│       └── managers/      # 会话管理器（ExecutionSessionManagerImpl）
 ├── storage/               # 持久化存储
+│   └── interfaces/Storage.ts  # ⚠️ saveExecution/loadExecution 已废弃
+├── services/              # 计划改进服务
+│   ├── InteractivePlanService.ts
+│   └── storage/           # PlanRefinementSessionStorage
+│       ├── interfaces/PlanRefinementSessionStorage.ts
+│       └── PlanRefinementSessionStorage.ts
 ├── function-completion/                  # 函数自动补全系统
 │   ├── interfaces/        # 6 个小接口 (ISP)
 │   │   └── LLMAdapter.ts  # LLM 调用抽象接口
@@ -361,7 +420,13 @@ functions/                 # 函数定义
 
 .data/                    # 运行时数据（git ignored）
 ├── plans/                # 计划 JSON 文件
-└── executions/           # 执行记录 JSON 文件
+│   ├── plan-abc.json     # 旧格式计划（兼容）
+│   └── plan-abc-v1.json  # 版本化计划
+├── execution-sessions/   # 执行会话记录（新增）
+│   ├── session-a1b2c3d4.json
+│   └── session-x9y8z7w6.json
+└── refinement-sessions/  # Plan 改进会话（原 sessions/）
+    └── session-xyz123.json
 ```
 
 ## 配置系统
@@ -415,3 +480,21 @@ LOG_LEVEL=info  # debug, info, warn, error
 - 验证生成的代码文件是否保存到 `.data/plans/{planId}/mocks/`
 - 确认 `LLMAdapter` 绑定正确（AnthropicLLMAdapter 或 CLILLMAdapter）
 - CLI 模式需要确保对应命令在 PATH 中可用
+
+**ExecutionSession 和旧 Execution 存储**
+- ⚠️ **废弃**：`Storage.saveExecution()`, `loadExecution()`, `listExecutions()` 已废弃
+- **新方式**：使用 `ExecutionSessionManager` 管理执行会话
+  - 每次 `execute` 命令会创建独立的 `ExecutionSession`
+  - 会话数据存储在 `.data/execution-sessions/` 目录
+  - 旧数据（`.data/executions/`）不会自动迁移
+- **迁移指南**：
+  - 新执行自动使用新格式
+  - 旧执行数据可手动导出，但不影响新功能
+  - 使用 `sessions list` 命令查看所有新格式会话
+
+**PlanRefinementSession vs ExecutionSession**
+- **PlanRefinementSession**: 用于 `refine` 命令，存储计划改进的对话历史
+  - 存储位置：`.data/refinement-sessions/`
+- **ExecutionSession**: 用于 `execute` 命令，存储执行状态和结果
+  - 存储位置：`.data/execution-sessions/`
+- 两者功能完全分离，避免混淆

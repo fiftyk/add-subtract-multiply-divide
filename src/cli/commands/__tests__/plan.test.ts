@@ -5,7 +5,7 @@ import { Storage } from '../../../storage/interfaces/Storage.js';
 import { Planner } from '../../../planner/interfaces/IPlanner.js';
 import { Executor } from '../../../executor/index.js';
 import { MockServiceFactory } from '../../../function-completion/interfaces/MockServiceFactory.js';
-import { SessionStorage, PlanRefinementLLMClient } from '../../../services/index.js';
+import { PlanRefinementSessionStorage, PlanRefinementLLMClient } from '../../../services/index.js';
 import type { ExecutionPlan } from '../../../planner/types.js';
 import type { FunctionDefinition } from '../../../registry/types.js';
 
@@ -65,7 +65,7 @@ describe('plan command', () => {
   let mockPlanner: Partial<Planner>;
   let mockExecutor: Partial<Executor>;
   let mockMockServiceFactory: Partial<MockServiceFactory>;
-  let mockSessionStorage: Partial<SessionStorage>;
+  let mockSessionStorage: Partial<PlanRefinementSessionStorage>;
   let mockRefinementLLMClient: Partial<PlanRefinementLLMClient>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
   let configGetSpy: ReturnType<typeof vi.spyOn>;
@@ -111,7 +111,7 @@ describe('plan command', () => {
       if (token === Planner) return mockPlanner as T;
       if (token === Executor) return mockExecutor as T;
       if (token === MockServiceFactoryToken) return mockMockServiceFactory as T;
-      if (token === SessionStorage) return mockSessionStorage as T;
+      if (token === PlanRefinementSessionStorage) return mockSessionStorage as T;
       if (token === PlanRefinementLLMClient) return mockRefinementLLMClient as T;
       if (token === A2UIService) return mockA2UIService as T;
       throw new Error(`Unexpected token: ${token?.toString()}`);

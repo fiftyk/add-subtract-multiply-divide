@@ -5,8 +5,8 @@ export * from './types.js';
 export { InteractivePlanService } from './InteractivePlanService.js';
 
 // 存储
-export { SessionStorageImpl } from './storage/SessionStorage.js';
-export { SessionStorage, SessionStorage as SessionStorageInterface } from './storage/interfaces/SessionStorage.js';
+export { PlanRefinementSessionStorageImpl } from './storage/PlanRefinementSessionStorage.js';
+export { PlanRefinementSessionStorage, PlanRefinementSessionStorage as PlanRefinementSessionStorageInterface } from './storage/interfaces/PlanRefinementSessionStorage.js';
 
 // 接口
 export { PlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';

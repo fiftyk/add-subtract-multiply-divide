@@ -15,10 +15,10 @@ export interface SessionMessage {
 }
 
 /**
- * 交互会话
- * 用于跟踪用户与系统的完整对话历史
+ * Plan 改进会话
+ * 用于跟踪 Plan 改进过程中用户与系统的完整对话历史
  */
-export interface InteractionSession {
+export interface PlanRefinementSession {
   sessionId: string;           // session-{uuid}
   planId: string;              // 关联的 plan 基础 ID (不含版本号)
   currentVersion: number;      // 当前版本号
@@ -94,7 +94,7 @@ export interface CreatePlanOptions {
  */
 export interface CreatePlanResult {
   plan: VersionedPlan;
-  session: InteractionSession;
+  session: PlanRefinementSession;
   questions?: Question[];      // 如果需要询问用户
 }
 
@@ -103,7 +103,7 @@ export interface CreatePlanResult {
  */
 export interface RefinePlanResult {
   newPlan: VersionedPlan;
-  session: InteractionSession;
+  session: PlanRefinementSession;
   changes: PlanChange[];
 }
 

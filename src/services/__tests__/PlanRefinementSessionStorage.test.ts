@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SessionStorageImpl } from '../storage/SessionStorage.js';
-import type { SessionStorage } from '../storage/interfaces/SessionStorage.js';
-import type { InteractionSession } from '../types.js';
+import { PlanRefinementSessionStorageImpl } from '../storage/PlanRefinementSessionStorage.js';
+import type { PlanRefinementSessionStorage } from '../storage/interfaces/PlanRefinementSessionStorage.js';
+import type { PlanRefinementSession } from '../types.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
-describe('SessionStorage', () => {
-  const testDataDir = '.data-test-sessions';
-  let storage: SessionStorage;
+describe('PlanRefinementSessionStorage', () => {
+  const testDataDir = '.data-test-refinement-sessions';
+  let storage: PlanRefinementSessionStorage;
 
   beforeEach(async () => {
-    storage = new SessionStorageImpl(testDataDir);
+    storage = new PlanRefinementSessionStorageImpl(testDataDir);
     // 确保测试目录存在
-    await fs.mkdir(path.join(testDataDir, 'sessions'), { recursive: true });
+    await fs.mkdir(path.join(testDataDir, 'refinement-sessions'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -26,7 +26,7 @@ describe('SessionStorage', () => {
 
   describe('saveSession and loadSession', () => {
     it('should save and load a session', async () => {
-      const session: InteractionSession = {
+      const session: PlanRefinementSession = {
         sessionId: 'session-test-001',
         planId: 'plan-abc',
         currentVersion: 1,
@@ -54,7 +54,7 @@ describe('SessionStorage', () => {
     });
 
     it('should overwrite existing session on save', async () => {
-      const session: InteractionSession = {
+      const session: PlanRefinementSession = {
         sessionId: 'session-test-002',
         planId: 'plan-abc',
         currentVersion: 1,
@@ -84,7 +84,7 @@ describe('SessionStorage', () => {
 
   describe('updateSession', () => {
     it('should update existing session', async () => {
-      const session: InteractionSession = {
+      const session: PlanRefinementSession = {
         sessionId: 'session-test-003',
         planId: 'plan-abc',
         currentVersion: 1,
@@ -116,7 +116,7 @@ describe('SessionStorage', () => {
 
   describe('listSessions', () => {
     it('should list all sessions', async () => {
-      const session1: InteractionSession = {
+      const session1: PlanRefinementSession = {
         sessionId: 'session-test-004',
         planId: 'plan-abc',
         currentVersion: 1,
@@ -126,7 +126,7 @@ describe('SessionStorage', () => {
         status: 'active',
       };
 
-      const session2: InteractionSession = {
+      const session2: PlanRefinementSession = {
         sessionId: 'session-test-005',
         planId: 'plan-xyz',
         currentVersion: 2,
@@ -152,7 +152,7 @@ describe('SessionStorage', () => {
 
     it('should handle invalid session files gracefully', async () => {
       // 创建一个无效的 session 文件
-      const sessionsDir = path.join(testDataDir, 'sessions');
+      const sessionsDir = path.join(testDataDir, 'refinement-sessions');
       await fs.writeFile(
         path.join(sessionsDir, 'invalid-session.json'),
         'invalid json content'
@@ -166,7 +166,7 @@ describe('SessionStorage', () => {
 
   describe('deleteSession', () => {
     it('should delete existing session', async () => {
-      const session: InteractionSession = {
+      const session: PlanRefinementSession = {
         sessionId: 'session-test-006',
         planId: 'plan-abc',
         currentVersion: 1,
@@ -192,7 +192,7 @@ describe('SessionStorage', () => {
 
   describe('session messages', () => {
     it('should preserve message order and metadata', async () => {
-      const session: InteractionSession = {
+      const session: PlanRefinementSession = {
         sessionId: 'session-test-007',
         planId: 'plan-abc',
         currentVersion: 1,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { InteractivePlanService } from '../InteractivePlanService.js';
-import { SessionStorageImpl } from '../storage/SessionStorage.js';
-import type { SessionStorage } from '../storage/interfaces/SessionStorage.js';
+import { PlanRefinementSessionStorageImpl } from '../storage/PlanRefinementSessionStorage.js';
+import type { PlanRefinementSessionStorage } from '../storage/interfaces/PlanRefinementSessionStorage.js';
 import type { Planner } from '../../planner/planner.js';
 import type { Storage } from '../../storage/index.js';
 import type { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
@@ -15,7 +15,7 @@ describe('InteractivePlanService', () => {
   let service: InteractivePlanService;
   let mockPlanner: Planner;
   let mockStorage: Storage;
-  let sessionStorage: SessionStorage;
+  let sessionStorage: PlanRefinementSessionStorage;
   let mockRefinementLLMClient: IPlanRefinementLLMClient;
   let mockFunctionProvider: FunctionProvider;
 
@@ -47,8 +47,8 @@ describe('InteractivePlanService', () => {
       },
     } as any;
 
-    // Real SessionStorage for integration testing
-    sessionStorage = new SessionStorageImpl(testDataDir);
+    // Real PlanRefinementSessionStorage for integration testing
+    sessionStorage = new PlanRefinementSessionStorageImpl(testDataDir);
 
     // Mock RefinementLLMClient
     mockRefinementLLMClient = {
