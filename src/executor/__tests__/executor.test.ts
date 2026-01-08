@@ -8,6 +8,7 @@ import type { ExecutionPlan } from '../../planner/types.js';
 import { StepType } from '../../planner/types.js';
 import { isFunctionCallStep } from '../../planner/type-guards.js';
 import { ConfigManager } from '../../config/index.js';
+import { ConfigurableTimeoutStrategy } from '../implementations/ConfigurableTimeoutStrategy.js';
 
 // 初始化 ConfigManager（每个测试前重置并初始化）
 beforeEach(() => {
@@ -382,7 +383,13 @@ describe('Executor', () => {
       );
 
       // 创建一个超时时间为 100ms 的 executor
-      const executorWithTimeout = new ExecutorImpl(functionProvider, { stepTimeout: 100 });
+      const timeoutStrategy = new ConfigurableTimeoutStrategy({ functionCall: 100 });
+      const executorWithTimeout = new ExecutorImpl(
+        functionProvider,
+        { stepTimeout: 100 },
+        undefined,
+        timeoutStrategy
+      );
 
       const plan: ExecutionPlan = {
         id: 'plan-timeout',

@@ -1,4 +1,4 @@
-import type { A2UISchema } from '../user-input/interfaces/A2UISchema.js';
+import type { A2UISchema } from '../a2ui/types.js';
 import { StepType } from './types.js';
 
 // Step type constants for validation

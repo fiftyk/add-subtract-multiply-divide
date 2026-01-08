@@ -1,149 +1,159 @@
-import chalk from 'chalk';
-import container from '../../container.js';
+import container from '../../container/cli-container.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
+import { A2UIService } from '../../a2ui/A2UIService.js';
 import { loadFunctions } from '../utils.js';
 
 interface ListFunctionsOptions {
   functions: string;
 }
 
-export const listCommand = {
+/**
+ * List Command - 列表查询命令
+ * 
+ * 使用工厂函数模式手动解析依赖，避免循环导入问题
+ */
+export class ListCommand {
+  constructor(
+    private ui: A2UIService,
+    private functionProvider: FunctionProvider,
+    private storage: Storage,
+    private planner: Planner
+  ) {}
+
   async functions(options: ListFunctionsOptions): Promise<void> {
     try {
-      // 使用统一的 FunctionProvider（CompositeFunctionProvider）
-      // 它会自动组合本地和远程函数
-      const functionProvider = container.get<FunctionProvider>(FunctionProvider);
+      this.ui.startSurface('list-functions');
 
-      // 加载内置函数
-      await loadFunctions(functionProvider, options.functions);
-
-      const allFunctions = await functionProvider.list();
+      await loadFunctions(this.functionProvider, options.functions);
+      const allFunctions = await this.functionProvider.list();
 
       if (allFunctions.length === 0) {
-        console.log(chalk.yellow('没有找到已注册的函数'));
-        console.log(chalk.gray(`请检查函数定义文件: ${options.functions}`));
+        this.ui.badge('没有找到已注册的函数', 'warning');
+        this.ui.caption(`请检查函数定义文件: ${options.functions}`);
+        this.ui.endSurface();
         process.exit(1);
       }
 
-      // 按来源分组显示函数
       const localFunctions = allFunctions.filter(f => f.source === 'local');
       const remoteFunctions = allFunctions.filter(f => f.source !== 'local');
 
-      // 显示本地函数列表
       if (localFunctions.length > 0) {
-        console.log(chalk.blue(`📚 本地函数 (${localFunctions.length} 个):`));
-        console.log();
-
+        this.ui.heading(`📚 本地函数 (${localFunctions.length} 个):`);
         for (const func of localFunctions) {
-          console.log(chalk.white(`- ${func.name}: ${func.description}`));
+          this.ui.text(`- ${func.name}: ${func.description}`);
           if (func.scenario) {
-            console.log(chalk.gray(`  使用场景: ${func.scenario}`));
+            this.ui.caption(`  使用场景: ${func.scenario}`);
           }
-          console.log(chalk.gray('  参数:'));
+          this.ui.caption('  参数:');
           for (const param of func.parameters) {
-            console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
+            this.ui.caption(`    - ${param.name} (${param.type}): ${param.description}`);
           }
-          console.log(chalk.gray(`  返回值: ${func.returns.type} - ${func.returns.description}`));
-          console.log();
+          this.ui.caption(`  返回值: ${func.returns.type} - ${func.returns.description}`);
         }
       }
 
-      // 显示远程函数列表
       if (remoteFunctions.length > 0) {
-        console.log(chalk.blue(`🔗 远程函数 (${remoteFunctions.length} 个):`));
-        console.log();
-
+        this.ui.heading(`🔗 远程函数 (${remoteFunctions.length} 个):`);
         for (const func of remoteFunctions) {
-          console.log(chalk.cyan(`- ${func.name}`));
-          console.log(chalk.gray(`  来源: ${func.source}`));
-          console.log(chalk.gray(`  描述: ${func.description}`));
-          console.log(chalk.gray('  参数:'));
+          this.ui.text(`- ${func.name}`, 'subheading');
+          this.ui.caption(`  来源: ${func.source}`);
+          this.ui.caption(`  描述: ${func.description}`);
+          this.ui.caption('  参数:');
           if (func.parameters.length === 0) {
-            console.log(chalk.gray('    (无参数)'));
+            this.ui.caption('    (无参数)');
           } else {
             for (const param of func.parameters) {
-              console.log(chalk.gray(`    - ${param.name} (${param.type}): ${param.description}`));
+              this.ui.caption(`    - ${param.name} (${param.type}): ${param.description}`);
             }
           }
-          console.log(chalk.gray(`  返回类型: ${func.returns.type}`));
+          this.ui.caption(`  返回类型: ${func.returns.type}`);
           if (func.returns.description) {
-            console.log(chalk.gray(`  返回描述: ${func.returns.description}`));
+            this.ui.caption(`  返回描述: ${func.returns.description}`);
           }
-          console.log();
         }
       }
 
-      // 汇总统计
-      console.log(chalk.blue(`📊 总计: ${localFunctions.length} 个本地函数, ${remoteFunctions.length} 个远程函数`));
-
+      this.ui.heading(`📊 总计: ${localFunctions.length} 个本地函数, ${remoteFunctions.length} 个远程函数`);
+      this.ui.endSurface();
       process.exit(0);
     } catch (error) {
-      console.error(
-        chalk.red(
-          `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
-        )
-      );
+      this.ui.badge(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+      this.ui.endSurface();
       process.exit(1);
     }
-  },
+  }
 
   async plans(): Promise<void> {
     try {
-      const storage = container.get<Storage>(Storage);
-      const plans = await storage.listPlans();
+      this.ui.startSurface('list-plans');
+      const plans = await this.storage.listPlans();
 
       if (plans.length === 0) {
-        console.log(chalk.yellow('没有保存的执行计划'));
+        this.ui.badge('没有保存的执行计划', 'warning');
+        this.ui.endSurface();
         process.exit(0);
       }
 
-      console.log(chalk.blue(`📋 执行计划列表 (${plans.length} 个):`));
-      console.log();
+      this.ui.heading(`📋 执行计划列表 (${plans.length} 个):`);
 
       for (const plan of plans) {
         const statusIcon = plan.status === 'executable' ? '✅' : '⚠️';
-        console.log(
-          `${statusIcon} ${chalk.cyan(plan.id)} - ${plan.userRequest}`
-        );
-        console.log(
-          chalk.gray(`   创建时间: ${plan.createdAt} | 步骤数: ${plan.steps.length}`)
-        );
+        this.ui.text(`${statusIcon} ${plan.id} - ${plan.userRequest}`, 'subheading');
+        this.ui.caption(`   创建时间: ${plan.createdAt} | 步骤数: ${plan.steps.length}`);
       }
+
+      this.ui.endSurface();
       process.exit(0);
     } catch (error) {
-      console.error(
-        chalk.red(
-          `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
-        )
-      );
+      this.ui.badge(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+      this.ui.endSurface();
       process.exit(1);
     }
-  },
+  }
 
   async showPlan(planId: string): Promise<void> {
     try {
-      const storage = container.get<Storage>(Storage);
-      const plan = await storage.loadPlan(planId);
+      this.ui.startSurface('show-plan');
+      const plan = await this.storage.loadPlan(planId);
 
       if (!plan) {
-        console.log(chalk.red(`❌ 找不到计划: ${planId}`));
+        this.ui.badge(`❌ 找不到计划: ${planId}`, 'error');
+        this.ui.endSurface();
         process.exit(1);
       }
 
-      // 从容器获取 Planner 用于格式化显示
-      const planner = container.get<Planner>(Planner);
-
-      console.log(planner.formatPlanForDisplay(plan));
+      this.ui.text(this.planner.formatPlanForDisplay(plan));
+      this.ui.endSurface();
       process.exit(0);
     } catch (error) {
-      console.error(
-        chalk.red(
-          `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
-        )
-      );
+      this.ui.badge(`❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+      this.ui.endSurface();
       process.exit(1);
     }
+  }
+}
+
+// 工厂函数 - 手动解析依赖
+function createListCommand(): ListCommand {
+  return new ListCommand(
+    container.get<A2UIService>(A2UIService),
+    container.get<FunctionProvider>(FunctionProvider),
+    container.get<Storage>(Storage),
+    container.get<Planner>(Planner)
+  );
+}
+
+// 便捷导出
+export const listCommand = {
+  async functions(options: ListFunctionsOptions): Promise<void> {
+    return createListCommand().functions(options);
+  },
+  async plans(): Promise<void> {
+    return createListCommand().plans();
+  },
+  async showPlan(planId: string): Promise<void> {
+    return createListCommand().showPlan(planId);
   },
 };

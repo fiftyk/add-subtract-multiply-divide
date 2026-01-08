@@ -103,55 +103,10 @@ function loadFunctionCompletionConfig(): PartialAppConfig['functionCompletion'] 
 }
 
 /**
- * Load MCP configuration from environment variables
- * Supports stdio and http transport configurations
- */
-function loadMCPConfig(): PartialAppConfig['mcp'] {
-  const enabled = process.env.MCP_ENABLED;
-  const stdioCommand = process.env.MCP_STDIO_COMMAND;
-  const stdioArgs = process.env.MCP_STDIO_ARGS;
-  const httpUrl = process.env.MCP_HTTP_URL;
-  const httpToken = process.env.MCP_HTTP_ACCESS_TOKEN;
-
-  // If no MCP env vars are set, return undefined to use defaults
-  if (!enabled && !stdioCommand && !httpUrl) {
-    return undefined;
-  }
-
-  const mcp: PartialAppConfig['mcp'] = {
-    enabled: enabled ? parseBoolean(enabled) : true,
-    servers: [],
-  };
-
-  // Add stdio server if configured
-  if (stdioCommand) {
-    const stdioArgsList = stdioArgs
-      ? stdioArgs.split(',').map((arg) => arg.trim())
-      : [];
-    mcp.servers!.push({
-      name: 'stdio-server',
-      type: 'stdio',
-      command: stdioCommand,
-      args: stdioArgsList.length > 0 ? stdioArgsList : undefined,
-    });
-  }
-
-  // Add http server if configured
-  if (httpUrl) {
-    mcp.servers!.push({
-      name: 'http-server',
-      type: 'http',
-      url: httpUrl,
-      ...(httpToken && { accessToken: httpToken }),
-    });
-  }
-
-  return mcp;
-}
-
-/**
  * Load configuration from environment variables
  * Automatically loads .env file from project root
+ *
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
  */
 function loadFromEnv(): PartialAppConfig {
   // Load .env file if it exists (skip in test to avoid pollution)
@@ -169,7 +124,6 @@ function loadFromEnv(): PartialAppConfig {
   const functionCompletionConfig = loadFunctionCompletionConfig();
   const functionCodeGeneratorConfig = loadGeneratorConfig('FUNCTION_GENERATOR_CMD', 'FUNCTION_GENERATOR_ARGS');
   const plannerGeneratorConfig = loadGeneratorConfig('PLANNER_GENERATOR_CMD', 'PLANNER_GENERATOR_ARGS');
-  const mcpConfig = loadMCPConfig();
 
   // Assign to config object (only if defined)
   if (apiConfig) config.api = apiConfig;
@@ -179,7 +133,6 @@ function loadFromEnv(): PartialAppConfig {
   if (functionCompletionConfig) config.functionCompletion = functionCompletionConfig;
   if (functionCodeGeneratorConfig) config.functionCodeGenerator = functionCodeGeneratorConfig;
   if (plannerGeneratorConfig) config.plannerGenerator = plannerGeneratorConfig;
-  if (mcpConfig) config.mcp = mcpConfig;
 
   return config;
 }
@@ -206,10 +159,6 @@ function mergeConfig(
       ...base.plannerGenerator,
       ...override.plannerGenerator,
     },
-    mcp: {
-      ...base.mcp,
-      ...override.mcp,
-    },
   };
 }
 
@@ -229,19 +178,19 @@ function validateAPIConfig(api: PartialAppConfig['api']): void {
  *
  * Priority (highest to lowest):
  * 1. Provided overrides (CLI args)
- * 2. Environment variables
+ * 2. Environment variables (.env file or process.env)
  * 3. Default values
  *
- * Note: CLI args must take highest priority to allow users to override
- * .env settings (e.g., --no-auto-mock should disable even if AUTO_GENERATE_MOCK=true)
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
+ * and loaded from fn-orchestrator.mcp.json file
  */
 export function loadConfig(overrides?: PartialAppConfig): AppConfig {
-  // Load from environment
+  // Load from environment variables
   const envConfig = loadFromEnv();
 
-  // Merge order: defaults <- env <- overrides
+  // Merge order: defaults <- env <- CLI overrides
   // This ensures CLI args (overrides) have highest priority
-  const baseConfig = mergeConfig(DEFAULT_CONFIG, envConfig);
+  let baseConfig = mergeConfig(DEFAULT_CONFIG, envConfig);
   const finalBaseConfig = mergeConfig(baseConfig, overrides);
 
   // CRITICAL: Handle explicit CLI boolean overrides

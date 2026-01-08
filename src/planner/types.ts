@@ -46,7 +46,7 @@ export interface UserInputStep extends BasePlanStep {
   type: StepType.USER_INPUT;
 
   /** A2UI Schema */
-  schema: import('../user-input/interfaces/A2UISchema.js').A2UISchema;
+  schema: import('../a2ui/types.js').A2UISchema;
 
   /**
    * 输入结果的存储名称(可选)

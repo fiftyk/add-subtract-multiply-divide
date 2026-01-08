@@ -3,6 +3,8 @@ import * as path from 'path';
 
 /**
  * Default configuration values
+ *
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
  */
 export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
   llm: {
@@ -27,9 +29,5 @@ export const DEFAULT_CONFIG: Omit<AppConfig, 'api'> = {
   plannerGenerator: {
     command: '',
     args: '',
-  },
-  mcp: {
-    enabled: false,
-    servers: [],
   },
 };

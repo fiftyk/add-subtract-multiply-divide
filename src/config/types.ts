@@ -77,6 +77,9 @@ export interface FunctionCompletionConfig {
 
 /**
  * Complete Application Configuration
+ *
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
+ * and loaded from fn-orchestrator.mcp.json file
  */
 export interface AppConfig {
   api: APIConfig;
@@ -86,11 +89,12 @@ export interface AppConfig {
   functionCompletion: FunctionCompletionConfig;
   functionCodeGenerator: FunctionCodeGeneratorConfig;
   plannerGenerator: PlannerGeneratorConfig;
-  mcp: MCPConfig;
 }
 
 /**
  * Partial configuration for overrides
+ *
+ * Note: MCP configuration is managed separately by MCPServerConfigProvider
  */
 export type PartialAppConfig = {
   api?: Partial<APIConfig>;
@@ -100,7 +104,6 @@ export type PartialAppConfig = {
   functionCompletion?: Partial<FunctionCompletionConfig>;
   functionCodeGenerator?: Partial<FunctionCodeGeneratorConfig>;
   plannerGenerator?: Partial<PlannerGeneratorConfig>;
-  mcp?: Partial<MCPConfig>;
 };
 
 /**

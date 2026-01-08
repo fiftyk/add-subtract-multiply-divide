@@ -21,8 +21,12 @@ import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import { PlanValidator } from '../../validation/index.js';
 import { ConfigManager } from '../../config/index.js';
-import { UserInputProvider } from '../../user-input/interfaces/UserInputProvider.js';
+import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
+import type { A2UIRenderer as A2UIRendererType } from '../../a2ui/A2UIRenderer.js';
+import type { A2UIComponent } from '../../a2ui/types.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
+import { TimeoutStrategy } from '../interfaces/TimeoutStrategy.js';
+import { NoTimeoutStrategy } from './NoTimeoutStrategy.js';
 
 /**
  * Executor 配置选项
@@ -48,17 +52,20 @@ export interface ExecutorConfig {
 @injectable()
 export class ExecutorImpl implements Executor {
   protected functionProvider: FunctionProvider;
-  protected userInputProvider?: UserInputProvider;
+  protected a2uiRenderer?: A2UIRendererType;
+  protected timeoutStrategy: TimeoutStrategy;
   protected config: Required<ExecutorConfig>;
   protected logger: ILogger;
 
   constructor(
     @inject(FunctionProvider) functionProvider: FunctionProvider,
     @unmanaged() config?: ExecutorConfig,
-    @inject(UserInputProvider) @optional() userInputProvider?: UserInputProvider
+    @inject(A2UIRenderer) @optional() a2uiRenderer?: A2UIRendererType,
+    @inject(TimeoutStrategy) @optional() timeoutStrategy?: TimeoutStrategy
   ) {
     this.functionProvider = functionProvider;
-    this.userInputProvider = userInputProvider;
+    this.a2uiRenderer = a2uiRenderer;
+    this.timeoutStrategy = timeoutStrategy ?? new NoTimeoutStrategy();
     const appConfig = ConfigManager.get();
     this.config = {
       stepTimeout: config?.stepTimeout ?? appConfig.executor.stepTimeout,
@@ -146,8 +153,11 @@ export class ExecutorImpl implements Executor {
     step: ExecutionPlan['steps'][0],
     context: ExecutionContext
   ): Promise<StepResult> {
-    // 如果超时设置为 0，不限制超时
-    if (this.config.stepTimeout === 0) {
+    // 从 TimeoutStrategy 获取超时配置
+    const timeout = this.timeoutStrategy.getTimeout(step);
+
+    // 如果超时为 undefined，不限制超时
+    if (timeout === undefined) {
       return this.executeStep(step, context);
     }
 
@@ -155,7 +165,7 @@ export class ExecutorImpl implements Executor {
       // 使用 Promise.race 实现超时
       return await Promise.race([
         this.executeStep(step, context),
-        this.createTimeoutPromise(step.stepId, this.config.stepTimeout),
+        this.createTimeoutPromise(step.stepId, timeout),
       ]);
     } catch (error) {
       // 捕获超时错误并转换为 StepResult 格式
@@ -290,37 +300,133 @@ export class ExecutorImpl implements Executor {
     const executedAt = new Date().toISOString();
 
     try {
-      // 检查是否有 UserInputProvider
-      if (!this.userInputProvider) {
+      // 检查是否有 A2UIRenderer
+      if (!this.a2uiRenderer) {
         throw new Error(
-          'User input step requires a UserInputProvider, but none was provided to Executor'
+          'User input step requires an A2UIRenderer, but none was provided to Executor'
         );
       }
 
       this.logger.info('Requesting user input', { stepId: step.stepId });
 
-      // 检查所有字段类型是否支持
+      // Use A2UIRenderer to collect user input
+      const surfaceId = `user-input-${step.stepId}`;
+      this.a2uiRenderer.begin(surfaceId, 'root');
+
+      // Collect input for each field sequentially
+      const values: Record<string, unknown> = {};
       for (const field of step.schema.fields) {
-        if (!this.userInputProvider.supportsFieldType(field.type)) {
-          throw new UnsupportedFieldTypeError(field.type, 'CLIUserInputProvider');
+        const componentId = `field-${field.id}`;
+
+        // Create component based on field type
+        let component: A2UIComponent;
+        switch (field.type) {
+          case 'date':
+            const dateConfig = field.config as { minDate?: string; maxDate?: string } | undefined;
+            component = {
+              id: componentId,
+              component: {
+                DateField: {
+                  label: field.label,
+                  name: field.id,
+                  minDate: dateConfig?.minDate,
+                  maxDate: dateConfig?.maxDate,
+                }
+              }
+            };
+            break;
+          case 'single_select':
+          case 'multi_select':
+            const selectConfig = field.config as { options: Array<{ value: string | number; label: string; description?: string }> } | undefined;
+            component = {
+              id: componentId,
+              component: {
+                SelectField: {
+                  label: field.label,
+                  name: field.id,
+                  options: selectConfig?.options || [],
+                  multiSelect: field.type === 'multi_select',
+                }
+              }
+            };
+            break;
+          case 'text':
+          case 'number':
+          case 'boolean':
+          default:
+            component = {
+              id: componentId,
+              component: {
+                TextField: {
+                  label: field.label,
+                  name: field.id,
+                  placeholder: field.description,
+                  required: field.required,
+                }
+              }
+            };
+        }
+
+        // Add component to surface (required by requestInput)
+        this.a2uiRenderer.update(surfaceId, [component]);
+
+        // Request input (inquirer handles its own rendering)
+        const action = await this.a2uiRenderer.requestInput(surfaceId, componentId);
+
+        // Extract the value from payload and convert type if needed
+        if (action.payload && action.payload[field.id] !== undefined) {
+          let value = action.payload[field.id];
+
+          // Type conversion based on field type
+          switch (field.type) {
+            case 'number':
+              value = typeof value === 'string' ? parseFloat(value) : value;
+              if (isNaN(value as number)) {
+                throw new Error(`Invalid number value for field "${field.id}": ${action.payload[field.id]}`);
+              }
+              break;
+            case 'boolean':
+              if (typeof value === 'string') {
+                value = value.toLowerCase() === 'true' || value === '1' || value === 'yes';
+              }
+              break;
+            case 'date':
+              // Validate and parse date
+              const date = new Date(value as string);
+              if (isNaN(date.getTime())) {
+                throw new Error(`Invalid date value for field "${field.id}": ${value}`);
+              }
+              value = date.toISOString().split('T')[0];
+              break;
+            case 'single_select':
+              // single_select returns a single value
+              // Value is already in correct format from CLIRenderer
+              break;
+            case 'multi_select':
+              // multi_select returns an array of values
+              // Value is already in correct format from CLIRenderer
+              break;
+            // 'text' keeps as-is
+          }
+
+          values[field.id] = value;
         }
       }
 
-      // 请求用户输入
-      const result = await this.userInputProvider.requestInput(step.schema);
+      // Clean up surface (won't render because it's a user-input surface)
+      this.a2uiRenderer.end(surfaceId);
 
       this.logger.info('User input received', {
         stepId: step.stepId,
-        skipped: result.skipped,
-        fieldCount: Object.keys(result.values).length,
+        fieldCount: Object.keys(values).length,
       });
 
       return {
         stepId: step.stepId,
         type: StepType.USER_INPUT,
-        values: result.values,
-        skipped: result.skipped,
-        timestamp: result.timestamp,
+        values,
+        skipped: false,
+        timestamp: Date.now(),
         success: true,
         executedAt,
       };
