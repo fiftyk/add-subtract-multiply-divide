@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { sseManager } from '../services/SSEManager.js';
+import { coreBridge } from '../services/CoreBridge.js';
 import type {
   ExecuteSessionRequest,
   ExecuteSessionResponse,
@@ -23,21 +24,17 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
       const { planId, platform = 'web' } = request.body;
 
       try {
-        // TODO: Integrate with ExecutionSessionManager
-        // const sessionManager = container.get<ExecutionSessionManager>(TYPES.ExecutionSessionManager);
-        // const session = await sessionManager.createSession(planId, platform);
+        // 创建会话
+        const session = await coreBridge.createAndExecuteSession(planId, platform);
 
-        // Mock response for now
-        const sessionId = `session-${Date.now()}`;
-
-        // Start execution asynchronously (don't await)
-        // executeSessionAsync(sessionId).catch(err => {
-        //   console.error(`Session ${sessionId} execution error:`, err);
-        // });
+        // 异步执行（不阻塞响应）
+        coreBridge.executeSessionWithSSE(session.id).catch(err => {
+          console.error(`Session ${session.id} execution error:`, err);
+        });
 
         return {
-          sessionId,
-          status: 'pending' as const
+          sessionId: session.id,
+          status: session.status as 'pending'
         };
       } catch (error) {
         console.error('Error creating session:', error);
@@ -111,19 +108,11 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
       const { inputData } = request.body;
 
       try {
-        // TODO: Integrate with ExecutionSessionManager
-        // const sessionManager = container.get<ExecutionSessionManager>(TYPES.ExecutionSessionManager);
-        // await sessionManager.resumeSession(sessionId, inputData);
-
         console.log(`[API] Resume session ${sessionId} with data:`, inputData);
 
-        // Send confirmation via SSE
-        sseManager.emit(sessionId, {
-          type: 'inputReceived',
-          sessionId,
-          stepId: 1, // TODO: Get from actual step
-          status: 'accepted',
-          timestamp: new Date().toISOString()
+        // 恢复会话并继续执行（异步）
+        coreBridge.resumeSessionWithSSE(sessionId, inputData).catch(err => {
+          console.error(`Session ${sessionId} resume error:`, err);
         });
 
         return {
@@ -131,7 +120,7 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
         };
       } catch (error) {
         console.error('Error resuming session:', error);
-        reply.status(500).send({
+        return reply.status(500).send({
           status: 'error' as const,
           message: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -149,17 +138,11 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
       const { id: sessionId } = request.params;
 
       try {
-        // TODO: Integrate with ExecutionSessionStorage
-        // const storage = container.get<ExecutionSessionStorage>(TYPES.ExecutionSessionStorage);
-        // const session = await storage.loadSession(sessionId);
+        // 从存储加载会话
+        const session = await coreBridge.getSession(sessionId);
 
-        // Mock response
         return {
-          session: {
-            id: sessionId,
-            status: 'pending',
-            createdAt: new Date().toISOString()
-          }
+          session
         };
       } catch (error) {
         console.error('Error loading session:', error);
@@ -170,43 +153,4 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
       }
     }
   );
-}
-
-/**
- * Helper function to execute session asynchronously
- */
-async function executeSessionAsync(sessionId: string): Promise<void> {
-  // TODO: Implement actual execution logic
-  console.log(`[Executor] Starting execution for session ${sessionId}`);
-
-  // Emit execution start
-  sseManager.emit(sessionId, {
-    type: 'executionStart',
-    sessionId,
-    timestamp: new Date().toISOString()
-  });
-
-  // Mock execution flow
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Emit input request (for demo)
-  sseManager.emit(sessionId, {
-    type: 'inputRequested',
-    sessionId,
-    surfaceId: `form-${sessionId}`,
-    stepId: 1,
-    schema: {
-      version: '1.0',
-      fields: [
-        {
-          id: 'companyName',
-          type: 'text',
-          label: '公司名称',
-          required: true,
-          config: { placeholder: '例如：华为技术有限公司' }
-        }
-      ]
-    },
-    timestamp: new Date().toISOString()
-  });
 }

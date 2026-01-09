@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ListPlansResponse, GetPlanResponse } from '../types/sse.js';
+import { coreBridge } from '../services/CoreBridge.js';
 
 /**
  * Plans API Routes
@@ -12,26 +13,15 @@ export default async function plansRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/', async (request, reply) => {
     try {
-      // TODO: Integrate with StorageImpl
-      // const storage = container.get<Storage>(TYPES.Storage);
-      // const plans = await storage.listPlans();
+      const plans = await coreBridge.listPlans();
 
-      // Mock response with sample plans
       return {
-        plans: [
-          {
-            id: 'plan-patent-query',
-            userRequest: '查询指定公司在特定时间范围内的专利信息',
-            status: 'executable',
-            createdAt: new Date('2026-01-08').toISOString()
-          },
-          {
-            id: 'plan-calculate',
-            userRequest: '计算 (3 + 5) * 2 的结果',
-            status: 'executable',
-            createdAt: new Date('2026-01-09').toISOString()
-          }
-        ]
+        plans: plans.map(p => ({
+          id: p.id,
+          userRequest: p.userRequest,
+          status: p.status,
+          createdAt: p.createdAt || new Date().toISOString()
+        }))
       };
     } catch (error) {
       console.error('Error listing plans:', error);
@@ -52,110 +42,15 @@ export default async function plansRoutes(fastify: FastifyInstance) {
       const { id: planId } = request.params;
 
       try {
-        // TODO: Integrate with StorageImpl
-        // const storage = container.get<Storage>(TYPES.Storage);
-        // const plan = await storage.loadPlan(planId);
+        const plan = await coreBridge.getPlan(planId);
 
-        // Mock response
-        if (planId === 'plan-patent-query') {
-          return {
-            plan: {
-              id: 'plan-patent-query',
-              userRequest: '查询指定公司在特定时间范围内的专利信息',
-              steps: [
-                {
-                  stepId: 1,
-                  type: 'user_input',
-                  description: '收集用户输入',
-                  schema: {
-                    version: '1.0',
-                    fields: [
-                      {
-                        id: 'companyName',
-                        type: 'text',
-                        label: '公司名称',
-                        required: true,
-                        config: { placeholder: '例如：华为技术有限公司' }
-                      },
-                      {
-                        id: 'startDate',
-                        type: 'date',
-                        label: '开始日期',
-                        required: true
-                      },
-                      {
-                        id: 'endDate',
-                        type: 'date',
-                        label: '截止日期',
-                        required: true
-                      }
-                    ]
-                  },
-                  outputName: 'userInputData'
-                },
-                {
-                  stepId: 2,
-                  type: 'function_call',
-                  functionName: 'queryPatents',
-                  parameters: {
-                    companyName: {
-                      type: 'reference',
-                      value: 'step.1.result.companyName'
-                    },
-                    startDate: {
-                      type: 'reference',
-                      value: 'step.1.result.startDate'
-                    },
-                    endDate: {
-                      type: 'reference',
-                      value: 'step.1.result.endDate'
-                    }
-                  }
-                }
-              ],
-              status: 'executable',
-              createdAt: new Date('2026-01-08').toISOString()
-            }
-          };
-        } else if (planId === 'plan-calculate') {
-          return {
-            plan: {
-              id: 'plan-calculate',
-              userRequest: '计算 (3 + 5) * 2 的结果',
-              steps: [
-                {
-                  stepId: 1,
-                  type: 'function_call',
-                  functionName: 'add',
-                  parameters: {
-                    a: { type: 'literal', value: 3 },
-                    b: { type: 'literal', value: 5 }
-                  }
-                },
-                {
-                  stepId: 2,
-                  type: 'function_call',
-                  functionName: 'multiply',
-                  parameters: {
-                    a: { type: 'reference', value: 'step.1.result' },
-                    b: { type: 'literal', value: 2 }
-                  }
-                }
-              ],
-              status: 'executable',
-              createdAt: new Date('2026-01-09').toISOString()
-            }
-          };
-        }
-
-        return reply.status(404).send({
-          error: 'Plan not found',
-          message: `No plan found with id: ${planId}`
-        });
+        return {
+          plan
+        };
       } catch (error) {
         console.error('Error loading plan:', error);
-        return reply.status(500).send({
-          error: 'Failed to load plan',
+        return reply.status(404).send({
+          error: 'Plan not found',
           message: error instanceof Error ? error.message : 'Unknown error'
         });
       }

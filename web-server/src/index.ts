@@ -8,10 +8,6 @@ import { dirname, join } from 'path';
 // Load environment variables
 config();
 
-// Import routes
-import sessionsRoutes from './routes/sessions.js';
-import plansRoutes from './routes/plans.js';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -44,20 +40,24 @@ const fastify = Fastify({
 
 // CORS
 await fastify.register(cors, {
-  origin: FRONTEND_URL,
+  origin: [FRONTEND_URL, 'http://localhost:3000'], // Allow self-origin for test page
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 });
 
-// Static files (optional, for serving frontend in production)
-// await fastify.register(fastifyStatic, {
-//   root: join(__dirname, '../../web-ui/dist'),
-//   prefix: '/'
-// });
+// Static files for test page
+await fastify.register(fastifyStatic, {
+  root: join(__dirname, '../..'),
+  prefix: '/',
+  decorateReply: false
+});
 
 /**
- * Register routes
+ * Register routes (using dynamic imports to ensure ConfigManager is initialized first)
  */
+const { default: sessionsRoutes } = await import('./routes/sessions.js');
+const { default: plansRoutes } = await import('./routes/plans.js');
+
 await fastify.register(sessionsRoutes, { prefix: '/api/sessions' });
 await fastify.register(plansRoutes, { prefix: '/api/plans' });
 

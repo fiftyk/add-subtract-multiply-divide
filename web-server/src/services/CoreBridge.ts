@@ -4,14 +4,38 @@
  * 封装对核心服务的访问，提供简洁的 API 供 Web Server 使用
  */
 
-import container from '../../src/container/cli-container.js';
-import { ExecutionSessionManager } from '../../src/executor/session/index.js';
-import { ExecutionSessionStorage } from '../../src/executor/session/index.js';
-import { Storage } from '../../src/storage/index.js';
-import { FunctionProvider } from '../../src/function-provider/interfaces/FunctionProvider.js';
-import type { ExecutionPlan } from '../../src/planner/types.js';
-import type { ExecutionSession } from '../../src/executor/session/types.js';
-import type { ExecutionResult } from '../../src/executor/types.js';
+// IMPORTANT: Initialize ConfigManager BEFORE importing container
+import { ConfigManager } from '../../dist/src/config/index.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize ConfigManager if not already initialized
+if (!ConfigManager.isInitialized()) {
+  // Set STORAGE_DATA_DIR to parent directory's .data folder
+  const rootDir = path.resolve(__dirname, '../../../');
+  const dataDir = path.join(rootDir, '.data');
+
+  // Override environment variable for correct path
+  process.env.STORAGE_DATA_DIR = dataDir;
+
+  ConfigManager.initialize({
+    autoComplete: false,
+    maxRetries: 3
+  });
+  console.log(`[CoreBridge] ConfigManager initialized with dataDir: ${dataDir}`);
+}
+
+import container from '../../dist/src/container/cli-container.js';
+import { ExecutionSessionManager } from '../../dist/src/executor/session/index.js';
+import { ExecutionSessionStorage } from '../../dist/src/executor/session/index.js';
+import { Storage } from '../../dist/src/storage/index.js';
+import { FunctionProvider } from '../../dist/src/function-provider/interfaces/FunctionProvider.js';
+import type { ExecutionPlan } from '../../dist/src/planner/types.js';
+import type { ExecutionSession } from '../../dist/src/executor/session/types.js';
+import type { ExecutionResult } from '../../dist/src/executor/types.js';
 import { sseManager } from './SSEManager.js';
 
 /**
@@ -55,7 +79,7 @@ export class CoreBridge {
       if (plan.metadata?.usesMocks) {
         try {
           const planMocks = await this.planStorage.loadPlanMocks(planId);
-          planMocks.forEach((fn) => {
+          planMocks.forEach((fn: any) => {
             this.functionProvider.register?.(fn as any);
           });
           console.log(`[CoreBridge] Loaded ${planMocks.length} mock functions for plan ${planId}`);
@@ -173,21 +197,14 @@ export class CoreBridge {
    * 执行会话（原始方法，不发射SSE）
    *
    * @param sessionId - 会话 ID
-   * @param callbacks - 可选的回调函数
    */
   async executeSession(
-    sessionId: string,
-    callbacks?: {
-      onStepStart?: (step: any) => void;
-      onStepComplete?: (step: any, result: any) => void;
-      onInputRequired?: (step: any) => void;
-      onError?: (error: Error, step?: any) => void;
-    }
+    sessionId: string
   ): Promise<ExecutionResult> {
     try {
       console.log(`[CoreBridge] Executing session: ${sessionId}`);
 
-      const result = await this.sessionManager.executeSession(sessionId, callbacks);
+      const result = await this.sessionManager.executeSession(sessionId);
 
       console.log(`[CoreBridge] Session execution completed: ${result.success}`);
 
@@ -437,5 +454,26 @@ export class CoreBridge {
   }
 }
 
-// 单例实例
-export const coreBridge = new CoreBridge();
+// Lazy singleton instance
+let _coreBridgeInstance: CoreBridge | null = null;
+
+export function getCoreBridge(): CoreBridge {
+  if (!_coreBridgeInstance) {
+    _coreBridgeInstance = new CoreBridge();
+  }
+  return _coreBridgeInstance;
+}
+
+// For backwards compatibility, export coreBridge as a getter
+export const coreBridge = {
+  get createAndExecuteSession() { return getCoreBridge().createAndExecuteSession.bind(getCoreBridge()); },
+  get executeSessionWithSSE() { return getCoreBridge().executeSessionWithSSE.bind(getCoreBridge()); },
+  get executeSession() { return getCoreBridge().executeSession.bind(getCoreBridge()); },
+  get resumeSessionWithSSE() { return getCoreBridge().resumeSessionWithSSE.bind(getCoreBridge()); },
+  get resumeSession() { return getCoreBridge().resumeSession.bind(getCoreBridge()); },
+  get getSession() { return getCoreBridge().getSession.bind(getCoreBridge()); },
+  get listPlans() { return getCoreBridge().listPlans.bind(getCoreBridge()); },
+  get getPlan() { return getCoreBridge().getPlan.bind(getCoreBridge()); },
+  get cancelSession() { return getCoreBridge().cancelSession.bind(getCoreBridge()); },
+  get retrySession() { return getCoreBridge().retrySession.bind(getCoreBridge()); }
+};
