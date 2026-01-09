@@ -55,12 +55,14 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id: sessionId } = request.params;
 
-      // Set SSE headers
+      // Set SSE headers with CORS
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no' // Disable nginx buffering
+        'X-Accel-Buffering': 'no', // Disable nginx buffering
+        'Access-Control-Allow-Origin': request.headers.origin || '*',
+        'Access-Control-Allow-Credentials': 'true'
       });
 
       // Register the connection

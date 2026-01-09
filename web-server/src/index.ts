@@ -40,7 +40,7 @@ const fastify = Fastify({
 
 // CORS
 await fastify.register(cors, {
-  origin: [FRONTEND_URL, 'http://localhost:3000'], // Allow self-origin for test page
+  origin: [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:3000'], // Allow multiple dev ports and self-origin for test page
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 });

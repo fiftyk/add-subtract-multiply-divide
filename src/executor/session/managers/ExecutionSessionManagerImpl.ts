@@ -12,7 +12,8 @@ import type {
 } from '../interfaces/ExecutionSessionManager.js';
 import type { ExecutionSession } from '../types.js';
 import type { ExecutionPlan } from '../../../planner/types.js';
-import type { ExecutionResult } from '../../types.js';
+import { StepType } from '../../../planner/types.js';
+import type { ExecutionResult, StepResult } from '../../types.js';
 import type { ExecutorCallbacks } from '../../interfaces/InterruptibleExecutor.js';
 import type { ExecutionStatus } from '../../../a2ui/types.js';
 import { ExecutionSessionStorage } from '../interfaces/ExecutionSessionStorage.js';
@@ -230,17 +231,84 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
       );
     }
 
-    // Clear pending input and save user input to context
+    // 创建用户输入步骤的结果
+    const userInputStepResult: StepResult = {
+      stepId: session.currentStepId,
+      type: StepType.USER_INPUT,
+      values: userInput,
+      success: true,
+      executedAt: new Date().toISOString(),
+    };
+
+    // 更新session：添加用户输入结果，更新context，清除pendingInput
+    const updatedContext = {
+      ...session.context,
+      ...userInput,
+    };
+
+    const updatedStepResults = [...session.stepResults, userInputStepResult];
+
     await this.sessionStorage.updateSession(sessionId, {
       pendingInput: null,
-      context: {
-        ...session.context,
-        ...userInput,
-      },
+      context: updatedContext,
+      stepResults: updatedStepResults,
+      currentStepId: session.currentStepId + 1, // 移动到下一步
+      status: 'running',
     });
 
-    // Continue execution
-    return this.executeSession(sessionId);
+    this.logger.debug('User input processed, continuing execution', {
+      sessionId,
+      nextStepId: session.currentStepId + 1,
+      userInput,
+    });
+
+    try {
+      // 从下一步开始继续执行
+      const result = await this.executor.execute(session.plan, {
+        startFromStep: session.currentStepId + 1, // 从用户输入步骤的下一步开始
+        previousStepResults: updatedStepResults,
+      });
+
+      // Determine final status
+      const finalStatus: ExecutionStatus = result.success ? 'completed' : 'failed';
+
+      // Update session with result
+      await this.sessionStorage.updateSession(sessionId, {
+        status: finalStatus,
+        result,
+        completedAt: new Date().toISOString(),
+      });
+
+      this.logger.info('Session resumed and completed', {
+        sessionId,
+        success: result.success,
+      });
+
+      return result;
+    } catch (error) {
+      // Update session with error
+      const errorResult: ExecutionResult = {
+        planId: session.plan.id,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        steps: updatedStepResults,
+        finalResult: undefined,
+        startedAt: session.createdAt,
+        completedAt: new Date().toISOString(),
+      };
+
+      await this.sessionStorage.updateSession(sessionId, {
+        status: 'failed',
+        result: errorResult,
+        completedAt: new Date().toISOString(),
+      });
+
+      this.logger.error('Session resume failed', error as Error, {
+        sessionId,
+      });
+
+      return errorResult;
+    }
   }
 
   async getSessionStatus(sessionId: string): Promise<ExecutionStatus | undefined> {

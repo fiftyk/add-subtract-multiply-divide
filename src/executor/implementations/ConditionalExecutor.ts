@@ -10,13 +10,14 @@
 
 import 'reflect-metadata';
 import { injectable, inject, unmanaged } from 'inversify';
-import type { ExecutionPlan, ConditionalStep } from '../../planner/types.js';
+import type { ExecutionPlan, ConditionalStep, UserInputStep } from '../../planner/types.js';
 import { StepType } from '../../planner/types.js';
-import { isConditionalStep } from '../../planner/type-guards.js';
+import { isConditionalStep, isUserInputStep } from '../../planner/type-guards.js';
 import type {
   ExecutionResult,
   StepResult,
   ConditionalResult,
+  UserInputResult,
 } from '../types.js';
 import type { Executor } from '../interfaces/Executor.js';
 import { ExecutorImpl } from './ExecutorImpl.js';
@@ -98,15 +99,42 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
   /**
    * 执行计划（覆盖父类方法，支持条件分支）
    */
-  async execute(plan: ExecutionPlan): Promise<ExecutionResult> {
+  async execute(
+    plan: ExecutionPlan,
+    options?: {
+      startFromStep?: number;
+      previousStepResults?: StepResult[];
+    }
+  ): Promise<ExecutionResult> {
     // 验证计划
     this.validatePlan(plan);
 
-    this.logger.debug('ConditionalExecutor: 执行计划', { planId: plan.id, stepsCount: plan.steps.length });
+    const startFromStep = options?.startFromStep ?? 0;
+    const previousStepResults = options?.previousStepResults ?? [];
+
+    this.logger.debug('ConditionalExecutor: 执行计划', {
+      planId: plan.id,
+      stepsCount: plan.steps.length,
+      startFromStep,
+      resuming: startFromStep > 0
+    });
 
     const context = new ExecutionContext();
-    const stepResults: StepResult[] = [];
-    const startedAt = new Date().toISOString();
+    const stepResults: StepResult[] = [...previousStepResults];
+    const startedAt = previousStepResults[0]?.executedAt ?? new Date().toISOString();
+
+    // 恢复之前步骤的结果到context
+    if (previousStepResults.length > 0) {
+      for (const stepResult of previousStepResults) {
+        if (stepResult.success) {
+          if (stepResult.type === StepType.FUNCTION_CALL) {
+            context.setStepResult(stepResult.stepId, stepResult.result);
+          } else if (stepResult.type === StepType.USER_INPUT) {
+            context.setStepResult(stepResult.stepId, stepResult.values);
+          }
+        }
+      }
+    }
 
     // 执行状态（用于在分支递归中共享）
     const state = {
@@ -134,6 +162,13 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
         continue;
       }
 
+      // 跳过已执行的步骤（从 startFromStep 开始）
+      const stepIndex = plan.steps.findIndex(s => s.stepId === stepId);
+      if (stepIndex < startFromStep) {
+        this.logger.debug('跳过已执行的步骤', { stepId, startFromStep });
+        continue;
+      }
+
       // 如果步骤已在分支循环中执行过，跳过
       if (executedInBranch.has(stepId)) {
         this.logger.debug('跳过已执行的步骤（在分支循环中）', { stepId });
@@ -147,7 +182,7 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
       }
 
       const stepDesc = this.getStepDescription(step);
-      this.logger.debug('执行步骤', { stepId, type: stepDesc });
+      this.logger.debug('执行步骤', { stepId, type: stepDesc, startFromStep });
 
       const stepResult = await this.executeStepWithTimeout(step, context);
 
@@ -395,6 +430,21 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
   ): Promise<StepResult> {
     if (isConditionalStep(step)) {
       return this.executeConditional(step, context);
+    } else if (isUserInputStep(step)) {
+      // For Web scenario: user input already provided via API, skip this step
+      if (!this.a2uiRenderer) {
+        this.logger.info('ConditionalExecutor: Skipping user_input step (no A2UIRenderer)', {
+          stepId: step.stepId
+        });
+        return {
+          stepId: step.stepId,
+          type: StepType.USER_INPUT,
+          values: {},
+          skipped: true,
+          success: true,
+          executedAt: new Date().toISOString(),
+        };
+      }
     }
     // 调用父类方法处理其他步骤类型
     return super.executeStep(step, context);

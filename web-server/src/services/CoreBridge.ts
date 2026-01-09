@@ -37,6 +37,7 @@ import type { ExecutionPlan } from '../../dist/src/planner/types.js';
 import type { ExecutionSession } from '../../dist/src/executor/session/types.js';
 import type { ExecutionResult } from '../../dist/src/executor/types.js';
 import { sseManager } from './SSEManager.js';
+import { registerBuiltInMathFunctions } from '../functions/builtInMath.js';
 
 /**
  * Core Bridge Service
@@ -54,6 +55,11 @@ export class CoreBridge {
     this.sessionStorage = container.get<ExecutionSessionStorage>(ExecutionSessionStorage);
     this.planStorage = container.get<Storage>(Storage);
     this.functionProvider = container.get<FunctionProvider>(FunctionProvider);
+
+    // Register built-in math functions
+    if (typeof this.functionProvider.register === 'function') {
+      registerBuiltInMathFunctions((fn) => this.functionProvider.register!(fn));
+    }
   }
 
   /**
