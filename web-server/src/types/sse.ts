@@ -3,10 +3,13 @@
  * Server-Sent Events for real-time communication
  */
 
+import type { A2UIComponent } from '../../../src/a2ui/types.js';
+
 export type SSEEvent =
   | ExecutionStartEvent
   | StepStartEvent
   | StepCompleteEvent
+  | SurfaceUpdateEvent
   | InputRequestedEvent
   | InputReceivedEvent
   | ExecutionCompleteEvent
@@ -33,6 +36,15 @@ export interface StepCompleteEvent {
   success: boolean;
   result?: any;
   error?: string;
+  timestamp: string;
+}
+
+export interface SurfaceUpdateEvent {
+  type: 'surfaceUpdate';
+  sessionId: string;
+  surfaceId: string;
+  components: A2UIComponent[];
+  removeComponentIds?: string[];
   timestamp: string;
 }
 

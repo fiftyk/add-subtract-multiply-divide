@@ -110,6 +110,20 @@
         </div>
       </div>
 
+      <!-- A2UI Surface Updates (Real-time Results) -->
+      <div v-if="surfaceUpdates.length > 0" class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Execution Results</h2>
+        <div class="space-y-4">
+          <div
+            v-for="update in surfaceUpdates"
+            :key="update.surfaceId"
+            class="border border-gray-100 rounded-lg p-4 bg-gray-50"
+          >
+            <A2UIRenderer :components="update.components" />
+          </div>
+        </div>
+      </div>
+
       <!-- User Input Form -->
       <div v-if="isWaitingInput && pendingInputSchema" class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">User Input Required</h2>
@@ -251,6 +265,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSessionStore } from '../stores/session'
+import A2UIRenderer from '../components/A2UIRenderer.vue'
 
 const route = useRoute()
 const sessionStore = useSessionStore()
@@ -263,6 +278,7 @@ const {
   stepResults,
   finalResult,
   pendingInputSchema,
+  surfaceUpdates,
   error,
   loading,
   isWaitingInput,

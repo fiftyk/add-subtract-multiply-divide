@@ -7,7 +7,8 @@ import type {
   SSEEvent,
   ExecutionResult,
   StepResult,
-  A2UISchema
+  A2UISchema,
+  SurfaceUpdateEvent
 } from '../types'
 
 export const useSessionStore = defineStore('session', () => {
@@ -21,6 +22,7 @@ export const useSessionStore = defineStore('session', () => {
   const finalResult = ref<ExecutionResult | null>(null)
   const pendingInputSchema = ref<A2UISchema | null>(null)
   const pendingInputStepId = ref<number | null>(null)
+  const surfaceUpdates = ref<SurfaceUpdateEvent[]>([])
   const error = ref<string | null>(null)
   const loading = ref(false)
 
@@ -50,10 +52,12 @@ export const useSessionStore = defineStore('session', () => {
       currentSessionId.value = response.sessionId
       status.value = 'pending'
       isExecuting.value = true
+      currentStep.value = 0
       stepResults.value = []
       finalResult.value = null
       pendingInputSchema.value = null
       pendingInputStepId.value = null
+      surfaceUpdates.value = []
 
       console.log('[SessionStore] Session created:', response.sessionId)
 
@@ -112,6 +116,11 @@ export const useSessionStore = defineStore('session', () => {
           executedAt: event.timestamp
         })
         console.log('[SessionStore] Step completed:', event.stepId)
+        break
+
+      case 'surfaceUpdate':
+        surfaceUpdates.value.push(event)
+        console.log('[SessionStore] Surface update received:', event.surfaceId, event.components.length, 'components')
         break
 
       case 'inputRequested':
@@ -188,11 +197,32 @@ export const useSessionStore = defineStore('session', () => {
   async function loadSession(sessionId: string) {
     loading.value = true
     error.value = null
+    surfaceUpdates.value = []
 
     try {
       currentSession.value = await sessionsApi.get(sessionId)
       currentSessionId.value = sessionId
       status.value = currentSession.value.status
+      finalResult.value = currentSession.value.result
+
+      // 如果会话已完成，从 result.steps 生成 surfaceUpdates
+      if (currentSession.value.result?.steps) {
+        for (const stepResult of currentSession.value.result.steps) {
+          if (stepResult.type === 'function_call' && stepResult.result !== undefined) {
+            // 生成 surfaceUpdate 事件数据
+            const components = generateA2UIComponentsFromResult(stepResult)
+            if (components.length > 0) {
+              surfaceUpdates.value.push({
+                type: 'surfaceUpdate',
+                sessionId,
+                surfaceId: `result-${sessionId}-${stepResult.stepId}`,
+                components,
+                timestamp: stepResult.executedAt || new Date().toISOString()
+              })
+            }
+          }
+        }
+      }
 
       console.log('[SessionStore] Session loaded:', sessionId)
     } catch (err) {
@@ -202,6 +232,63 @@ export const useSessionStore = defineStore('session', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  // 从 StepResult 生成 A2UI 组件
+  function generateA2UIComponentsFromResult(stepResult: StepResult): Array<{
+    id: string
+    component: Record<string, Record<string, unknown>>
+  }> {
+    const components: Array<{
+      id: string
+      component: Record<string, Record<string, unknown>>
+    }> = []
+
+    const result = stepResult.result
+
+    if (Array.isArray(result) && result.length > 0) {
+      // 生成表格组件
+      const headers = Object.keys(result[0])
+      const rows = result.map(item => headers.map(h => item[h] ?? null))
+
+      components.push({
+        id: `table-${stepResult.stepId}`,
+        component: {
+          Table: {
+            headers,
+            rows
+          }
+        }
+      })
+    } else if (result && typeof result === 'object' && Object.keys(result).length > 0) {
+      // 生成卡片组件
+      const children = Object.entries(result).map(([key, value]) => {
+        const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value)
+        return `${key}: ${displayValue}`
+      })
+
+      components.push({
+        id: `card-${stepResult.stepId}`,
+        component: {
+          Card: {
+            title: stepResult.functionName || `步骤 ${stepResult.stepId} 结果`,
+            children
+          }
+        }
+      })
+    } else if (result !== undefined) {
+      // 生成文本组件
+      components.push({
+        id: `text-${stepResult.stepId}`,
+        component: {
+          Text: {
+            text: `${stepResult.functionName || '步骤 ' + stepResult.stepId}: ${String(result)}`
+          }
+        }
+      })
+    }
+
+    return components
   }
 
   function disconnectSSE() {
@@ -223,6 +310,7 @@ export const useSessionStore = defineStore('session', () => {
     finalResult.value = null
     pendingInputSchema.value = null
     pendingInputStepId.value = null
+    surfaceUpdates.value = []
     error.value = null
     loading.value = false
   }
@@ -242,6 +330,7 @@ export const useSessionStore = defineStore('session', () => {
     finalResult,
     pendingInputSchema,
     pendingInputStepId,
+    surfaceUpdates,
     error,
     loading,
 

@@ -83,6 +83,7 @@ export type SSEEvent =
   | ExecutionStartEvent
   | StepStartEvent
   | StepCompleteEvent
+  | SurfaceUpdateEvent
   | InputRequestedEvent
   | InputReceivedEvent
   | ExecutionCompleteEvent
@@ -108,6 +109,18 @@ export interface StepCompleteEvent {
   stepId: number
   result: any
   success: boolean
+  timestamp: string
+}
+
+export interface SurfaceUpdateEvent {
+  type: 'surfaceUpdate'
+  sessionId: string
+  surfaceId: string
+  components: Array<{
+    id: string
+    component: Record<string, Record<string, unknown>>
+  }>
+  removeComponentIds?: string[]
   timestamp: string
 }
 
