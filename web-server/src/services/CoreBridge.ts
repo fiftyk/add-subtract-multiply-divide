@@ -4,8 +4,8 @@
  * 封装对核心服务的访问，提供简洁的 API 供 Web Server 使用
  */
 
-// IMPORTANT: Initialize ConfigManager BEFORE importing container
-import { ConfigManager } from '../../dist/src/config/index.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { ConfigManager } from '../../../dist/src/config/index.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -28,16 +28,25 @@ if (!ConfigManager.isInitialized()) {
   console.log(`[CoreBridge] ConfigManager initialized with dataDir: ${dataDir}`);
 }
 
-import container from '../../dist/src/container/cli-container.js';
-import { ExecutionSessionManager } from '../../dist/src/executor/session/index.js';
-import { ExecutionSessionStorage } from '../../dist/src/executor/session/index.js';
-import { Storage } from '../../dist/src/storage/index.js';
-import { FunctionProvider } from '../../dist/src/function-provider/interfaces/FunctionProvider.js';
-import type { ExecutionPlan } from '../../dist/src/planner/types.js';
-import type { ExecutionSession } from '../../dist/src/executor/session/types.js';
-import type { ExecutionResult } from '../../dist/src/executor/types.js';
+// @ts-ignore - Importing from parent project's dist folder
+import container from '../../../dist/src/container/cli-container.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { ExecutionSessionManager } from '../../../dist/src/executor/session/index.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { ExecutionSessionStorage } from '../../../dist/src/executor/session/index.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { Storage } from '../../../dist/src/storage/index.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { FunctionProvider } from '../../../dist/src/function-provider/interfaces/FunctionProvider.js';
+// @ts-ignore - Importing from parent project's dist folder
+import type { ExecutionPlan } from '../../../dist/src/planner/types.js';
+// @ts-ignore - Importing from parent project's dist folder
+import type { ExecutionSession } from '../../../dist/src/executor/session/types.js';
+// @ts-ignore - Importing from parent project's dist folder
+import type { ExecutionResult } from '../../../dist/src/executor/types.js';
 import { sseManager } from './SSEManager.js';
 import { registerBuiltInMathFunctions } from '../functions/builtInMath.js';
+import { registerPatentFunctions } from '../functions/patents.js';
 
 /**
  * Core Bridge Service
@@ -59,6 +68,7 @@ export class CoreBridge {
     // Register built-in math functions
     if (typeof this.functionProvider.register === 'function') {
       registerBuiltInMathFunctions((fn) => this.functionProvider.register!(fn));
+      registerPatentFunctions((fn) => this.functionProvider.register!(fn));
     }
   }
 
@@ -234,22 +244,24 @@ export class CoreBridge {
     try {
       console.log(`[CoreBridge] Resuming session ${sessionId} with input:`, inputData);
 
+      // 获取当前会话，找到用户输入步骤的 ID
+      const session = await this.sessionStorage.loadSession(sessionId);
+      const inputStepId = session?.pendingInput?.stepId ?? 0;
+
       // 发射 inputReceived 事件
       sseManager.emit(sessionId, {
         type: 'inputReceived',
         sessionId,
-        stepId: 1, // TODO: 从会话中获取实际的步骤 ID
+        stepId: inputStepId,
         status: 'accepted',
         timestamp: new Date().toISOString()
       });
 
-      // 调用核心的 resumeSession
+      // 调用核心的 resumeSession，它会从下一步继续执行
+      // 注意：resumeSession 内部会调用 executor.execute，所以不需要额外调用 continueExecution
       await this.sessionManager.resumeSession(sessionId, inputData);
 
-      console.log(`[CoreBridge] Session resumed, continuing execution`);
-
-      // 继续执行剩余步骤
-      await this.continueExecution(sessionId);
+      console.log(`[CoreBridge] Session resumed and execution completed`);
     } catch (error) {
       console.error(`[CoreBridge] Error resuming session:`, error);
 

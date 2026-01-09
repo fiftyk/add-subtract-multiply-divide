@@ -4,7 +4,8 @@
  * These functions are available in both CLI and Web modes
  */
 
-import type { FunctionDefinition } from '../../dist/src/registry/types.js';
+// @ts-ignore - Importing from parent project's dist folder
+import type { FunctionDefinition } from '../../../dist/src/registry/types.js';
 
 /**
  * Add two numbers

@@ -3,10 +3,10 @@
  *
  * This module must be imported before any code that uses the container
  */
-import '../../dist/src/config/index.js';
+// @ts-ignore - Importing from parent project's dist folder
+import * as ConfigModule from '../../../dist/src/config/index.js';
 
-// Get ConfigManager from the same module path that container uses
-import { ConfigManager } from '../../dist/src/config/index.js';
+const { ConfigManager } = ConfigModule;
 
 // Initialize once
 let initialized = false;

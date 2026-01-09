@@ -170,7 +170,11 @@ export const useSessionStore = defineStore('session', () => {
       // Ensure SSE connection is still active and reconnect if needed
       if (!sseConnection || !sseConnection.isConnected()) {
         console.log('[SessionStore] SSE connection lost, reconnecting...')
-        connectSSE(currentSessionId.value)
+        try {
+          connectSSE(currentSessionId.value)
+        } catch (err) {
+          console.error('[SessionStore] Failed to reconnect SSE:', err)
+        }
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to submit input'
