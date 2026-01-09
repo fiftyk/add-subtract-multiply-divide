@@ -1,0 +1,441 @@
+/**
+ * Core Bridge - Web Server 与 fn-orchestrator 核心的桥接层
+ *
+ * 封装对核心服务的访问，提供简洁的 API 供 Web Server 使用
+ */
+
+import container from '../../src/container/cli-container.js';
+import { ExecutionSessionManager } from '../../src/executor/session/index.js';
+import { ExecutionSessionStorage } from '../../src/executor/session/index.js';
+import { Storage } from '../../src/storage/index.js';
+import { FunctionProvider } from '../../src/function-provider/interfaces/FunctionProvider.js';
+import type { ExecutionPlan } from '../../src/planner/types.js';
+import type { ExecutionSession } from '../../src/executor/session/types.js';
+import type { ExecutionResult } from '../../src/executor/types.js';
+import { sseManager } from './SSEManager.js';
+
+/**
+ * Core Bridge Service
+ *
+ * 提供与 fn-orchestrator 核心的统一访问接口
+ */
+export class CoreBridge {
+  private sessionManager: ExecutionSessionManager;
+  private sessionStorage: ExecutionSessionStorage;
+  private planStorage: Storage;
+  private functionProvider: FunctionProvider;
+
+  constructor() {
+    this.sessionManager = container.get<ExecutionSessionManager>(ExecutionSessionManager);
+    this.sessionStorage = container.get<ExecutionSessionStorage>(ExecutionSessionStorage);
+    this.planStorage = container.get<Storage>(Storage);
+    this.functionProvider = container.get<FunctionProvider>(FunctionProvider);
+  }
+
+  /**
+   * 创建并执行会话
+   *
+   * @param planId - 计划 ID
+   * @param platform - 平台 ('web' 或 'cli')
+   * @returns 创建的会话
+   */
+  async createAndExecuteSession(
+    planId: string,
+    platform: 'web' | 'cli' = 'web'
+  ): Promise<ExecutionSession> {
+    try {
+      // 加载计划
+      const plan = await this.planStorage.loadPlan(planId);
+
+      if (!plan) {
+        throw new Error(`Plan not found: ${planId}`);
+      }
+
+      // 加载 plan-specific mock 函数
+      if (plan.metadata?.usesMocks) {
+        try {
+          const planMocks = await this.planStorage.loadPlanMocks(planId);
+          planMocks.forEach((fn) => {
+            this.functionProvider.register?.(fn as any);
+          });
+          console.log(`[CoreBridge] Loaded ${planMocks.length} mock functions for plan ${planId}`);
+        } catch (error) {
+          console.warn(`[CoreBridge] Failed to load mock functions:`, error);
+        }
+      }
+
+      // 创建会话
+      const session = await this.sessionManager.createSession(plan, platform);
+
+      console.log(`[CoreBridge] Session created: ${session.id}`);
+
+      return session;
+    } catch (error) {
+      console.error(`[CoreBridge] Error creating session:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 执行会话（异步执行，发射 SSE 事件）
+   *
+   * @param sessionId - 会话 ID
+   */
+  async executeSessionWithSSE(sessionId: string): Promise<void> {
+    try {
+      console.log(`[CoreBridge] Executing session with SSE: ${sessionId}`);
+
+      // 发射执行开始事件
+      sseManager.emit(sessionId, {
+        type: 'executionStart',
+        sessionId,
+        timestamp: new Date().toISOString()
+      });
+
+      // 加载会话
+      const session = await this.sessionStorage.loadSession(sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${sessionId}`);
+      }
+
+      // 遍历所有步骤，预先发射 stepStart 事件
+      // 注意：这是一个简化版本，真实的执行会在每个步骤实际执行时发射
+      for (const step of session.plan.steps) {
+        // 延迟一下，模拟步骤执行时间
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        sseManager.emit(sessionId, {
+          type: 'stepStart',
+          sessionId,
+          stepId: step.stepId,
+          functionName: step.type === 'function_call' ? (step as any).functionName : undefined,
+          timestamp: new Date().toISOString()
+        });
+
+        // 检查是否是用户输入步骤
+        if (step.type === 'user_input') {
+          // 发射 inputRequested 事件
+          sseManager.emit(sessionId, {
+            type: 'inputRequested',
+            sessionId,
+            surfaceId: `form-${sessionId}`,
+            schema: (step as any).schema,
+            stepId: step.stepId,
+            timestamp: new Date().toISOString()
+          });
+
+          // 更新会话状态为等待输入
+          await this.sessionStorage.updateSession(sessionId, {
+            status: 'waiting_input',
+            pendingInput: {
+              stepId: step.stepId,
+              schema: (step as any).schema,
+              surfaceId: `form-${sessionId}`
+            }
+          });
+
+          console.log(`[CoreBridge] Session ${sessionId} waiting for input at step ${step.stepId}`);
+
+          // 暂停执行，等待 resumeSession 被调用
+          return;
+        }
+      }
+
+      // 如果没有用户输入步骤，直接执行计划
+      const result = await this.sessionManager.executeSession(sessionId);
+
+      // 发射执行完成事件
+      sseManager.emit(sessionId, {
+        type: 'executionComplete',
+        sessionId,
+        success: result.success,
+        result,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`[CoreBridge] Session execution completed: ${result.success}`);
+    } catch (error) {
+      console.error(`[CoreBridge] Error executing session:`, error);
+
+      // 发射错误事件
+      sseManager.emit(sessionId, {
+        type: 'executionError',
+        sessionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * 执行会话（原始方法，不发射SSE）
+   *
+   * @param sessionId - 会话 ID
+   * @param callbacks - 可选的回调函数
+   */
+  async executeSession(
+    sessionId: string,
+    callbacks?: {
+      onStepStart?: (step: any) => void;
+      onStepComplete?: (step: any, result: any) => void;
+      onInputRequired?: (step: any) => void;
+      onError?: (error: Error, step?: any) => void;
+    }
+  ): Promise<ExecutionResult> {
+    try {
+      console.log(`[CoreBridge] Executing session: ${sessionId}`);
+
+      const result = await this.sessionManager.executeSession(sessionId, callbacks);
+
+      console.log(`[CoreBridge] Session execution completed: ${result.success}`);
+
+      return result;
+    } catch (error) {
+      console.error(`[CoreBridge] Error executing session:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 恢复会话（提交用户输入并继续执行）
+   *
+   * @param sessionId - 会话 ID
+   * @param inputData - 用户输入数据
+   */
+  async resumeSessionWithSSE(
+    sessionId: string,
+    inputData: Record<string, any>
+  ): Promise<void> {
+    try {
+      console.log(`[CoreBridge] Resuming session ${sessionId} with input:`, inputData);
+
+      // 发射 inputReceived 事件
+      sseManager.emit(sessionId, {
+        type: 'inputReceived',
+        sessionId,
+        stepId: 1, // TODO: 从会话中获取实际的步骤 ID
+        status: 'accepted',
+        timestamp: new Date().toISOString()
+      });
+
+      // 调用核心的 resumeSession
+      await this.sessionManager.resumeSession(sessionId, inputData);
+
+      console.log(`[CoreBridge] Session resumed, continuing execution`);
+
+      // 继续执行剩余步骤
+      await this.continueExecution(sessionId);
+    } catch (error) {
+      console.error(`[CoreBridge] Error resuming session:`, error);
+
+      // 发射错误事件
+      sseManager.emit(sessionId, {
+        type: 'executionError',
+        sessionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * 继续执行会话（在用户输入后）
+   *
+   * @param sessionId - 会话 ID
+   */
+  private async continueExecution(sessionId: string): Promise<void> {
+    try {
+      // 加载会话
+      const session = await this.sessionStorage.loadSession(sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${sessionId}`);
+      }
+
+      // 找到下一个需要执行的步骤
+      const currentStepIndex = session.currentStepId;
+      const remainingSteps = session.plan.steps.slice(currentStepIndex);
+
+      // 执行剩余步骤
+      for (const step of remainingSteps) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        sseManager.emit(sessionId, {
+          type: 'stepStart',
+          sessionId,
+          stepId: step.stepId,
+          functionName: step.type === 'function_call' ? (step as any).functionName : undefined,
+          timestamp: new Date().toISOString()
+        });
+
+        // 检查是否又遇到用户输入步骤
+        if (step.type === 'user_input') {
+          sseManager.emit(sessionId, {
+            type: 'inputRequested',
+            sessionId,
+            surfaceId: `form-${sessionId}`,
+            schema: (step as any).schema,
+            stepId: step.stepId,
+            timestamp: new Date().toISOString()
+          });
+
+          await this.sessionStorage.updateSession(sessionId, {
+            status: 'waiting_input',
+            pendingInput: {
+              stepId: step.stepId,
+              schema: (step as any).schema,
+              surfaceId: `form-${sessionId}`
+            }
+          });
+
+          return; // 再次暂停
+        }
+      }
+
+      // 所有步骤完成，执行计划
+      const result = await this.sessionManager.executeSession(sessionId);
+
+      // 发射完成事件
+      sseManager.emit(sessionId, {
+        type: 'executionComplete',
+        sessionId,
+        success: result.success,
+        result,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`[CoreBridge] Execution fully completed: ${result.success}`);
+    } catch (error) {
+      console.error(`[CoreBridge] Error continuing execution:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 恢复会话（原始方法，不发射 SSE）
+   *
+   * @param sessionId - 会话 ID
+   * @param inputData - 用户输入数据
+   */
+  async resumeSession(
+    sessionId: string,
+    inputData: Record<string, any>
+  ): Promise<void> {
+    try {
+      console.log(`[CoreBridge] Resuming session ${sessionId} with input:`, inputData);
+
+      await this.sessionManager.resumeSession(sessionId, inputData);
+
+      console.log(`[CoreBridge] Session resumed successfully`);
+    } catch (error) {
+      console.error(`[CoreBridge] Error resuming session:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取会话详情
+   *
+   * @param sessionId - 会话 ID
+   * @returns 会话对象
+   */
+  async getSession(sessionId: string): Promise<ExecutionSession> {
+    try {
+      const session = await this.sessionStorage.loadSession(sessionId);
+
+      if (!session) {
+        throw new Error(`Session not found: ${sessionId}`);
+      }
+
+      return session;
+    } catch (error) {
+      console.error(`[CoreBridge] Error loading session:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 列出所有计划
+   *
+   * @returns 计划列表
+   */
+  async listPlans(): Promise<ExecutionPlan[]> {
+    try {
+      const plans = await this.planStorage.listPlans();
+      return plans;
+    } catch (error) {
+      console.error(`[CoreBridge] Error listing plans:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取计划详情
+   *
+   * @param planId - 计划 ID
+   * @returns 计划对象
+   */
+  async getPlan(planId: string): Promise<ExecutionPlan> {
+    try {
+      const plan = await this.planStorage.loadPlan(planId);
+
+      if (!plan) {
+        throw new Error(`Plan not found: ${planId}`);
+      }
+
+      return plan;
+    } catch (error) {
+      console.error(`[CoreBridge] Error loading plan:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 取消会话
+   *
+   * @param sessionId - 会话 ID
+   */
+  async cancelSession(sessionId: string): Promise<void> {
+    try {
+      console.log(`[CoreBridge] Cancelling session: ${sessionId}`);
+
+      await this.sessionManager.cancelSession(sessionId);
+
+      console.log(`[CoreBridge] Session cancelled successfully`);
+    } catch (error) {
+      console.error(`[CoreBridge] Error cancelling session:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 重试会话
+   *
+   * @param sessionId - 会话 ID
+   * @param fromStep - 可选，从指定步骤开始重试
+   * @returns 新创建的会话
+   */
+  async retrySession(
+    sessionId: string,
+    fromStep?: number
+  ): Promise<ExecutionSession> {
+    try {
+      console.log(`[CoreBridge] Retrying session: ${sessionId} from step ${fromStep || 'start'}`);
+
+      const newSession = await this.sessionManager.retrySession(sessionId, fromStep);
+
+      console.log(`[CoreBridge] Retry session created: ${newSession.id}`);
+
+      return newSession;
+    } catch (error) {
+      console.error(`[CoreBridge] Error retrying session:`, error);
+      throw error;
+    }
+  }
+}
+
+// 单例实例
+export const coreBridge = new CoreBridge();
