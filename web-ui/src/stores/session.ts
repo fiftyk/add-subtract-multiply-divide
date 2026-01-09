@@ -166,6 +166,12 @@ export const useSessionStore = defineStore('session', () => {
       await sessionsApi.resume(currentSessionId.value, { inputData })
 
       console.log('[SessionStore] Input submitted successfully')
+
+      // Ensure SSE connection is still active and reconnect if needed
+      if (!sseConnection || !sseConnection.isConnected()) {
+        console.log('[SessionStore] SSE connection lost, reconnecting...')
+        connectSSE(currentSessionId.value)
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to submit input'
       console.error('[SessionStore] Error submitting input:', err)

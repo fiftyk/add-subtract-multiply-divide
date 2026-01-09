@@ -412,6 +412,229 @@ describe('ExecutionSessionManagerImpl', () => {
         manager.resumeSession('session-test-001', {})
       ).rejects.toThrow('Cannot resume session with status: running');
     });
+
+    it('should create user input step result with correct values', async () => {
+      const waitingSession = createMockSession({
+        id: 'session-waiting',
+        status: 'waiting_input',
+        currentStepId: 1,
+        pendingInput: {
+          surfaceId: 'test-surface',
+          stepId: 1,
+          schema: { fields: [] },
+        },
+      });
+
+      const successResult = createMockResult(true);
+
+      vi.mocked(mockSessionStorage.loadSession).mockResolvedValue(waitingSession);
+      vi.mocked(mockExecutor.execute).mockResolvedValue(successResult);
+      mockSessionStorage.updateSession = vi.fn();
+
+      await manager.resumeSession('session-waiting', {
+        companyName: '华为',
+        startDate: '2024-01-01',
+        endDate: '2024-12-31',
+      });
+
+      // Verify the updateSession call for processing input
+      expect(mockSessionStorage.updateSession).toHaveBeenCalledWith(
+        'session-waiting',
+        expect.objectContaining({
+          pendingInput: null,
+          currentStepId: 2, // Incremented from 1 to 2
+          status: 'running',
+          stepResults: expect.arrayContaining([
+            expect.objectContaining({
+              stepId: 1,
+              type: StepType.USER_INPUT,
+              values: {
+                companyName: '华为',
+                startDate: '2024-01-01',
+                endDate: '2024-12-31',
+              },
+              success: true,
+              executedAt: expect.any(String),
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should start execution from correct step after user input', async () => {
+      const waitingSession = createMockSession({
+        id: 'session-waiting',
+        status: 'waiting_input',
+        currentStepId: 1, // User input step is at index 1
+        pendingInput: {
+          surfaceId: 'test-surface',
+          stepId: 1,
+          schema: { fields: [] },
+        },
+        stepResults: [
+          {
+            stepId: 0,
+            type: StepType.FUNCTION_CALL,
+            functionName: 'firstFunction',
+            parameters: {},
+            result: 'result1',
+            success: true,
+            executedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ] as any,
+      });
+
+      const successResult = createMockResult(true);
+
+      vi.mocked(mockSessionStorage.loadSession).mockResolvedValue(waitingSession);
+      vi.mocked(mockExecutor.execute).mockResolvedValue(successResult);
+      mockSessionStorage.updateSession = vi.fn();
+
+      await manager.resumeSession('session-waiting', { userInput: 'test' });
+
+      // Verify executor was called with startFromStep = 2 (after user input step)
+      expect(mockExecutor.execute).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          startFromStep: 2,
+          previousStepResults: expect.arrayContaining([
+            expect.objectContaining({ stepId: 0 }),
+            expect.objectContaining({ stepId: 1, type: StepType.USER_INPUT }),
+          ]),
+        })
+      );
+    });
+
+    it('should handle execution failure after resume', async () => {
+      const waitingSession = createMockSession({
+        id: 'session-waiting',
+        status: 'waiting_input',
+        currentStepId: 1,
+        pendingInput: {
+          surfaceId: 'test-surface',
+          stepId: 1,
+          schema: { fields: [] },
+        },
+      });
+
+      const failureResult = createMockResult(false);
+
+      vi.mocked(mockSessionStorage.loadSession).mockResolvedValue(waitingSession);
+      vi.mocked(mockExecutor.execute).mockResolvedValue(failureResult);
+      mockSessionStorage.updateSession = vi.fn();
+
+      const result = await manager.resumeSession('session-waiting', {
+        userInput: 'test',
+      });
+
+      expect(result.success).toBe(false);
+
+      // Verify final updateSession call with failed status
+      expect(mockSessionStorage.updateSession).toHaveBeenCalledWith(
+        'session-waiting',
+        expect.objectContaining({
+          status: 'failed',
+          result: expect.objectContaining({
+            success: false,
+          }),
+          completedAt: expect.any(String),
+        })
+      );
+    });
+
+    it('should update context with user input values', async () => {
+      const waitingSession = createMockSession({
+        id: 'session-waiting',
+        status: 'waiting_input',
+        currentStepId: 1,
+        pendingInput: {
+          surfaceId: 'test-surface',
+          stepId: 1,
+          schema: { fields: [] },
+        },
+        context: { previousData: 'oldValue' },
+      });
+
+      const successResult = createMockResult(true);
+
+      vi.mocked(mockSessionStorage.loadSession).mockResolvedValue(waitingSession);
+      vi.mocked(mockExecutor.execute).mockResolvedValue(successResult);
+      mockSessionStorage.updateSession = vi.fn();
+
+      await manager.resumeSession('session-waiting', {
+        companyName: '华为技术有限公司',
+        startDate: '2024-01-01',
+        endDate: '2024-12-31',
+      });
+
+      // Verify context merge
+      expect(mockSessionStorage.updateSession).toHaveBeenCalledWith(
+        'session-waiting',
+        expect.objectContaining({
+          context: expect.objectContaining({
+            previousData: 'oldValue',
+            companyName: '华为技术有限公司',
+            startDate: '2024-01-01',
+            endDate: '2024-12-31',
+          }),
+        })
+      );
+    });
+
+    it('should append user input step result to existing step results', async () => {
+      const waitingSession = createMockSession({
+        id: 'session-waiting',
+        status: 'waiting_input',
+        currentStepId: 1,
+        pendingInput: {
+          surfaceId: 'test-surface',
+          stepId: 1,
+          schema: { fields: [] },
+        },
+        stepResults: [
+          {
+            stepId: 0,
+            type: StepType.FUNCTION_CALL,
+            functionName: 'firstStep',
+            parameters: {},
+            result: 'result0',
+            success: true,
+            executedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ] as any,
+      });
+
+      const successResult = createMockResult(true);
+
+      vi.mocked(mockSessionStorage.loadSession).mockResolvedValue(waitingSession);
+      vi.mocked(mockExecutor.execute).mockResolvedValue(successResult);
+      mockSessionStorage.updateSession = vi.fn();
+
+      await manager.resumeSession('session-waiting', { userInput: 'test' });
+
+      // Verify step results are appended
+      expect(mockSessionStorage.updateSession).toHaveBeenCalledWith(
+        'session-waiting',
+        expect.objectContaining({
+          stepResults: expect.arrayContaining([
+            expect.objectContaining({ stepId: 0 }),
+            expect.objectContaining({ stepId: 1, type: StepType.USER_INPUT }),
+          ]),
+        })
+      );
+    });
+
+    it('should throw error when session is already completed', async () => {
+      const completedSession = createMockSession({
+        status: 'completed',
+      });
+
+      vi.mocked(mockSessionStorage.loadSession).mockResolvedValue(completedSession);
+
+      await expect(
+        manager.resumeSession('session-test-001', { test: 'value' })
+      ).rejects.toThrow('Cannot resume session with status: completed');
+    });
   });
 
   // ============================================
