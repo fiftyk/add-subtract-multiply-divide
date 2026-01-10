@@ -86,11 +86,73 @@ export const queryPatents: FunctionDefinition = {
 };
 
 /**
+ * Analyze a specific patent and generate a detailed report
+ */
+export const analyzePatent: FunctionDefinition = {
+  name: 'analyzePatent',
+  description: 'Analyze a specific patent and generate a detailed analysis report',
+  scenario: 'When needing to get detailed analysis of a specific patent',
+  parameters: [
+    {
+      name: 'patentNumber',
+      type: 'string',
+      description: 'Patent number (e.g., CN202410010101.0)',
+    },
+  ],
+  returns: {
+    type: 'object',
+    description: 'Patent analysis report including details and insights',
+  },
+  implementation: (patentNumber: string) => {
+    console.log(`[analyzePatent] Analyzing patent: ${patentNumber}`);
+
+    const patent = MOCK_PATENTS.find(p => p.pn === patentNumber);
+
+    if (!patent) {
+      return {
+        error: 'Patent not found',
+        patentNumber,
+      };
+    }
+
+    // Generate a detailed analysis report
+    const analysis = {
+      basicInfo: {
+        title: patent.title,
+        patentNumber: patent.pn,
+        inventor: patent.inventor,
+        pubDate: patent.pubDate,
+      },
+      technicalFields: [
+        'Artificial Intelligence',
+        'Machine Learning',
+        'Data Processing',
+      ],
+      analysis: {
+        innovationLevel: 'High',
+        applicationProspects: 'Broad',
+        technicalComplexity: 'Medium',
+      },
+      summary: `专利 "${patent.title}" 由发明人 ${patent.inventor} 于 ${patent.pubDate} 申请。该专利涉及多个技术领域，具有较高的创新水平和广阔的应用前景。`,
+      recommendations: [
+        '建议关注该专利的技术实现方案',
+        '可考虑与技术团队进行深入讨论',
+        '评估专利的商业化价值',
+      ],
+    };
+
+    console.log(`[analyzePatent] Analysis completed for: ${patentNumber}`);
+    return analysis;
+  },
+};
+
+/**
  * Register patent query functions
  */
 export function registerPatentFunctions(
   registerFn: (fn: FunctionDefinition) => void
 ): void {
   registerFn(queryPatents);
-  console.log('[WebServer] Registered queryPatents function');
+  registerFn(analyzePatent);
+  console.log('[WebServer] Registered queryPatents and analyzePatent functions');
 }

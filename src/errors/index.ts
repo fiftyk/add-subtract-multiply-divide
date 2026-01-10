@@ -188,3 +188,14 @@ export class UnsupportedFieldTypeError extends OrchestratorError {
     });
   }
 }
+
+/**
+ * User input required error - thrown when user input is required in web server mode
+ * This is not an actual error, but a signal that execution should pause and wait for user input
+ */
+export class UserInputRequiredError extends OrchestratorError {
+  constructor(stepId: number) {
+    const message = `User input required for step ${stepId}`;
+    super(message, 'USER_INPUT_REQUIRED', { stepId });
+  }
+}

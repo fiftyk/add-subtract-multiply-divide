@@ -33,6 +33,7 @@ export interface StepCompleteEvent {
   type: 'stepComplete';
   sessionId: string;
   stepId: number;
+  stepType: string;
   success: boolean;
   result?: any;
   error?: string;

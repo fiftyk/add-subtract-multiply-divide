@@ -7,6 +7,7 @@
 import { inject, injectable } from 'inversify';
 import type { A2UIRenderer, A2UIRendererType } from '../../../dist/src/a2ui/A2UIRenderer.js';
 import type { A2UIComponent, A2UIUserAction } from '../../../dist/src/a2ui/types.js';
+import { UserInputRequiredError } from '../../../dist/src/errors/index.js';
 
 /**
  * Mock A2UIRenderer for web server mode
@@ -36,8 +37,10 @@ export class MockA2UIRenderer implements A2UIRenderer {
   }
 
   async requestInput(surfaceId: string, componentId: string): Promise<A2UIUserAction> {
-    // This should never be called in web mode
-    console.warn('[MockA2UIRenderer] requestInput called - this should not happen in web mode');
-    throw new Error('requestInput should not be called in web server mode');
+    // Extract step ID from surfaceId (format: user-input-{stepId})
+    const stepId = parseInt(surfaceId.replace('user-input-', ''), 10) || 0;
+    console.log(`[MockA2UIRenderer] User input required for step ${stepId}`);
+    // Throw special error to signal that user input is required
+    throw new UserInputRequiredError(stepId);
   }
 }

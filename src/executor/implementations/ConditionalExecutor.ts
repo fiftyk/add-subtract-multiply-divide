@@ -28,6 +28,7 @@ import type { ILogger } from '../../logger/index.js';
 import { LoggerFactory } from '../../logger/index.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
+import { UserInputRequiredError } from '../../errors/index.js';
 
 export interface ConditionalExecutorConfig {
   /**
@@ -163,8 +164,8 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
       }
 
       // 跳过已执行的步骤（从 startFromStep 开始）
-      const stepIndex = plan.steps.findIndex(s => s.stepId === stepId);
-      if (stepIndex < startFromStep) {
+      // startFromStep 是 stepId，不是索引
+      if (stepId < startFromStep) {
         this.logger.debug('跳过已执行的步骤', { stepId, startFromStep });
         continue;
       }
@@ -184,7 +185,36 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
       const stepDesc = this.getStepDescription(step);
       this.logger.debug('执行步骤', { stepId, type: stepDesc, startFromStep });
 
-      const stepResult = await this.executeStepWithTimeout(step, context);
+      let stepResult: StepResult;
+
+      try {
+        stepResult = await this.executeStepWithTimeout(step, context);
+      } catch (error) {
+        // Check if user input is required (web server mode)
+        if (error instanceof UserInputRequiredError) {
+          const stepId = error.context?.stepId as number ?? step.stepId;
+          this.logger.info('User input required, pausing execution', { stepId });
+
+          // Return partial result indicating user input is required
+          // Don't add a step result for the waiting state - it will be added when user actually inputs
+          return {
+            planId: plan.id,
+            steps: stepResults,  // Only return completed steps, not waiting steps
+            finalResult: state.finalResult,
+            success: true,
+            error: undefined,
+            startedAt,
+            completedAt: new Date().toISOString(),
+            waitingForInput: {
+              stepId: stepId,
+              stepType: step.type,
+            }
+          };
+        }
+
+        // Rethrow other errors
+        throw error;
+      }
 
       // 如果是条件步骤，需要处理分支
       if (isConditionalStep(step)) {

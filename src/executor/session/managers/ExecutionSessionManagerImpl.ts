@@ -269,6 +269,46 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
         previousStepResults: updatedStepResults,
       });
 
+      // 检查是否需要更多用户输入（最后一个步骤是用户输入类型）
+      const lastStep = result.steps[result.steps.length - 1];
+      const needsMoreInput = lastStep?.type === StepType.USER_INPUT;
+
+      if (needsMoreInput) {
+        // 需要更多用户输入，更新会话状态为 waiting_input
+        const nextPendingStepId = lastStep.stepId;
+
+        // 获取下一个用户输入步骤的模式
+        const nextStep = session.plan.steps.find(s => s.stepId === nextPendingStepId);
+        const pendingInputSchema = nextStep?.type === StepType.USER_INPUT ? nextStep.schema : undefined;
+
+        await this.sessionStorage.updateSession(sessionId, {
+          status: 'waiting_input',
+          currentStepId: nextPendingStepId,
+          pendingInput: {
+            stepId: nextPendingStepId,
+            schema: pendingInputSchema!,
+            surfaceId: `user-input-${nextPendingStepId}`,
+          },
+          result: undefined, // 清除之前的结果，因为还没有完成
+        });
+
+        this.logger.info('Session paused, waiting for more user input', {
+          sessionId,
+          nextStepId: nextPendingStepId,
+        });
+
+        // 返回部分结果，不设置 completedAt（因为还没有完成）
+        return {
+          planId: session.plan.id,
+          steps: result.steps,
+          finalResult: undefined,
+          success: true,
+          error: undefined,
+          startedAt: session.createdAt,
+          completedAt: new Date().toISOString(), // 设置为当前时间，表示此阶段完成，但整体未完成
+        };
+      }
+
       // Determine final status
       const finalStatus: ExecutionStatus = result.success ? 'completed' : 'failed';
 

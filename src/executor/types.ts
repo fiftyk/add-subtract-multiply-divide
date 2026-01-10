@@ -58,4 +58,9 @@ export interface ExecutionResult {
   error?: string;
   startedAt: string;
   completedAt: string;
+  /** 如果存在，表示执行暂停等待用户输入 */
+  waitingForInput?: {
+    stepId: number;
+    stepType: string;
+  };
 }

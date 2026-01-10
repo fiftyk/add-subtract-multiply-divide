@@ -45,6 +45,15 @@ export class ExecutionContext {
 
     // 解析引用，格式: "step.{stepId}.{path}"
     const refStr = param.value as string;
+
+    // 防御性检查：确保引用字符串有效
+    if (refStr === undefined || refStr === null || typeof refStr !== 'string') {
+      throw new ParameterResolutionError(
+        String(refStr),
+        'Invalid parameter reference: value is undefined or not a string'
+      );
+    }
+
     const match = refStr.match(/^step\.(\d+)\.(.+)$/);
 
     if (!match) {

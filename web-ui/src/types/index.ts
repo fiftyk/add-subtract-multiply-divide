@@ -67,6 +67,13 @@ export interface A2UISchema {
   fields: A2UIField[]
 }
 
+export interface A2UIFieldOptionsSource {
+  type: 'stepResult'
+  stepId: number
+  labelField: string
+  valueField: string
+}
+
 export interface A2UIField {
   id: string
   type: 'text' | 'date' | 'number' | 'select' | 'button'
@@ -74,6 +81,7 @@ export interface A2UIField {
   required?: boolean
   config?: Record<string, any>
   options?: Array<{ value: string; label: string }>
+  optionsSource?: A2UIFieldOptionsSource
 }
 
 /**
@@ -107,6 +115,7 @@ export interface StepCompleteEvent {
   type: 'stepComplete'
   sessionId: string
   stepId: number
+  stepType: string
   result: any
   success: boolean
   timestamp: string

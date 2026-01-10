@@ -110,12 +110,12 @@ export const useSessionStore = defineStore('session', () => {
       case 'stepComplete':
         stepResults.value.push({
           stepId: event.stepId,
-          type: 'function_call',
+          type: event.stepType || 'function_call',
           result: event.result,
           success: event.success,
           executedAt: event.timestamp
         })
-        console.log('[SessionStore] Step completed:', event.stepId)
+        console.log('[SessionStore] Step completed:', event.stepId, event.stepType)
         break
 
       case 'surfaceUpdate':

@@ -177,8 +177,12 @@
               :required="field.required"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">Select an option</option>
-              <option v-for="option in field.options" :key="option.value" :value="option.value">
+              <option value="">请选择{{ field.label }}</option>
+              <option
+                v-for="option in resolveSelectOptions(field)"
+                :key="option.value"
+                :value="option.value"
+              >
                 {{ option.label }}
               </option>
             </select>
@@ -266,6 +270,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSessionStore } from '../stores/session'
 import A2UIRenderer from '../components/A2UIRenderer.vue'
+import type { A2UIField, A2UIFieldOptionsSource } from '../types'
 
 const route = useRoute()
 const sessionStore = useSessionStore()
@@ -304,6 +309,28 @@ const progressPercentage = computed(() => {
   // In a real app, you'd calculate based on total steps
   return Math.min(currentStep.value * 10, 90)
 })
+
+// 解析动态选项源
+function resolveSelectOptions(field: A2UIField): Array<{ value: string; label: string }> {
+  // 如果有静态 options，直接返回
+  if (field.options && field.options.length > 0) {
+    return field.options
+  }
+
+  // 如果有 optionsSource，从 stepResults 动态生成
+  if (field.optionsSource && field.optionsSource.type === 'stepResult') {
+    const source = field.optionsSource as A2UIFieldOptionsSource
+    const stepResult = stepResults.value.find(s => s.stepId === source.stepId)
+    if (stepResult?.result && Array.isArray(stepResult.result)) {
+      return stepResult.result.map((item: any) => ({
+        value: item[source.valueField],
+        label: item[source.labelField]
+      }))
+    }
+  }
+
+  return []
+}
 
 async function handleSubmitInput() {
   if (!pendingInputSchema.value) return

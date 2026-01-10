@@ -141,74 +141,62 @@ export class CoreBridge {
         throw new Error(`Session not found: ${sessionId}`);
       }
 
-      // 遍历所有步骤，预先发射 stepStart 事件
-      // 注意：这是一个简化版本，真实的执行会在每个步骤实际执行时发射
-      for (const step of session.plan.steps) {
-        // 延迟一下，模拟步骤执行时间
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // 查找第一个 user_input 步骤（如果有）
+      const firstUserInputStep = session.plan.steps.find(s => s.type === 'user_input');
 
+      // 如果有 user_input 步骤，发射 inputRequested 事件并暂停
+      if (firstUserInputStep) {
+        console.log(`[CoreBridge] Session ${sessionId} waiting for input at step ${firstUserInputStep.stepId}`);
+
+        // 发射 inputRequested 事件
         sseManager.emit(sessionId, {
-          type: 'stepStart',
+          type: 'inputRequested',
           sessionId,
-          stepId: step.stepId,
-          functionName: step.type === 'function_call' ? (step as any).functionName : undefined,
+          surfaceId: `form-${sessionId}`,
+          schema: (firstUserInputStep as any).schema,
+          stepId: firstUserInputStep.stepId,
           timestamp: new Date().toISOString()
         });
 
-        // 检查是否是用户输入步骤
-        if (step.type === 'user_input') {
-          // 发射 inputRequested 事件
-          sseManager.emit(sessionId, {
-            type: 'inputRequested',
-            sessionId,
-            surfaceId: `form-${sessionId}`,
-            schema: (step as any).schema,
-            stepId: step.stepId,
-            timestamp: new Date().toISOString()
-          });
+        // 更新会话状态为等待输入
+        await this.sessionStorage.updateSession(sessionId, {
+          status: 'waiting_input',
+          currentStepId: firstUserInputStep.stepId,
+          pendingInput: {
+            stepId: firstUserInputStep.stepId,
+            schema: (firstUserInputStep as any).schema,
+            surfaceId: `form-${sessionId}`
+          }
+        });
 
-          // 更新会话状态为等待输入
-          await this.sessionStorage.updateSession(sessionId, {
-            status: 'waiting_input',
-            pendingInput: {
-              stepId: step.stepId,
-              schema: (step as any).schema,
-              surfaceId: `form-${sessionId}`
-            }
-          });
-
-          console.log(`[CoreBridge] Session ${sessionId} waiting for input at step ${step.stepId}`);
-
-          // 暂停执行，等待 resumeSession 被调用
-          return;
-        }
+        // 暂停执行，等待 resumeSession 被调用
+        return;
       }
 
       // 如果没有用户输入步骤，直接执行计划
       const result = await this.sessionManager.executeSession(sessionId);
 
       // 发射每个步骤的 stepComplete 和 surfaceUpdate 事件
+      // 注意：不要发射 stepStart，因为用户输入步骤已经被跳过
       if (result.steps) {
         for (const stepResult of result.steps) {
-          // 发射 stepStart 事件（对于 function_call 步骤）
-          if (stepResult.type === 'function_call' && stepResult.functionName) {
-            sseManager.emit(sessionId, {
-              type: 'stepStart',
-              sessionId,
-              stepId: stepResult.stepId,
-              functionName: stepResult.functionName,
-              timestamp: new Date().toISOString()
-            });
+          // 跳过已经通过 inputRequested 事件处理的 user_input 步骤
+          // 这些步骤已经被标记为 skipped，不需要再次发射 stepComplete
+          if (stepResult.type === 'user_input' && (stepResult as any).skipped) {
+            console.log(`[CoreBridge] Skipping stepComplete for already-handled user_input step ${stepResult.stepId}`);
+            continue;
           }
 
           // 发射 stepComplete 事件
+          const stepAny = stepResult as any;
           sseManager.emit(sessionId, {
             type: 'stepComplete',
             sessionId,
             stepId: stepResult.stepId,
+            stepType: stepResult.type,
             success: stepResult.success,
-            result: stepResult.result,
-            error: stepResult.error,
+            result: stepAny.result,
+            error: stepAny.error,
             timestamp: new Date().toISOString()
           });
 
@@ -297,7 +285,7 @@ export class CoreBridge {
       return components;
     }
 
-    const result = stepResult.result;
+    const result = (stepResult as any).result;
 
     // 如果结果是数组，生成表格
     if (Array.isArray(result)) {
@@ -306,7 +294,7 @@ export class CoreBridge {
           id: `text-${stepResult.stepId}`,
           component: {
             Text: {
-              text: `${stepResult.functionName || '步骤 ' + stepResult.stepId}: 返回空结果`
+              text: `${(stepResult as any).functionName || '步骤 ' + stepResult.stepId}: 返回空结果`
             }
           }
         });
@@ -337,7 +325,7 @@ export class CoreBridge {
         id: `card-${stepResult.stepId}`,
         component: {
           Card: {
-            title: stepResult.functionName || `步骤 ${stepResult.stepId} 结果`,
+            title: (stepResult as any).functionName || `步骤 ${stepResult.stepId} 结果`,
             children
           }
         }
@@ -349,7 +337,7 @@ export class CoreBridge {
         id: `text-${stepResult.stepId}`,
         component: {
           Text: {
-            text: `${stepResult.functionName || '步骤 ' + stepResult.stepId}: ${String(result)}`
+            text: `${(stepResult as any).functionName || '步骤 ' + stepResult.stepId}: ${String(result)}`
           }
         }
       });
@@ -389,27 +377,43 @@ export class CoreBridge {
       const result = await this.sessionManager.resumeSession(sessionId, inputData);
 
       // 发射每个步骤的 stepComplete 和 surfaceUpdate 事件
+      // 注意：不要发射 stepStart，resumeSession 返回的结果中已经包含了用户输入步骤的结果
       if (result.steps) {
         for (const stepResult of result.steps) {
-          // 发射 stepStart 事件（对于 function_call 步骤）
-          if (stepResult.type === 'function_call' && stepResult.functionName) {
+          // 如果步骤结果是 user_input 类型，可能是：
+          // 1. 刚刚提交的用户输入步骤 - 需要发射 stepComplete
+          // 2. 下一个等待输入的步骤（skipped=true）- 不需要发射 stepComplete
+          if (stepResult.type === 'user_input') {
+            if ((stepResult as any).skipped) {
+              // 这是下一个等待输入的步骤，不需要发射 stepComplete
+              // inputRequested 事件会在下面处理
+              continue;
+            }
+            // 这是刚刚提交的用户输入步骤，发射 stepComplete
+            const stepAny = stepResult as any;
             sseManager.emit(sessionId, {
-              type: 'stepStart',
+              type: 'stepComplete',
               sessionId,
               stepId: stepResult.stepId,
-              functionName: stepResult.functionName,
+              stepType: stepResult.type,
+              success: stepResult.success,
+              result: stepAny.result,
+              error: stepAny.error,
               timestamp: new Date().toISOString()
             });
+            continue;
           }
 
-          // 发射 stepComplete 事件
+          // 发射 function_call 步骤的 stepComplete 事件
+          const stepAny = stepResult as any;
           sseManager.emit(sessionId, {
             type: 'stepComplete',
             sessionId,
             stepId: stepResult.stepId,
+            stepType: stepResult.type,
             success: stepResult.success,
-            result: stepResult.result,
-            error: stepResult.error,
+            result: stepAny.result,
+            error: stepAny.error,
             timestamp: new Date().toISOString()
           });
 
@@ -425,6 +429,42 @@ export class CoreBridge {
             });
           }
         }
+      }
+
+      // 检查是否需要更多用户输入（通过 waitingForInput 字段）
+      const needsMoreInput = result.waitingForInput !== undefined;
+
+      if (needsMoreInput) {
+        const nextPendingStepId = result.waitingForInput!.stepId;
+
+        // 需要更多用户输入，更新会话状态并发射 inputRequested 事件
+        const session = await this.sessionStorage.loadSession(sessionId);
+        const nextStep = session?.plan.steps.find((s: any) => s.stepId === nextPendingStepId);
+        const pendingInputSchema = nextStep?.type === 'user_input' ? (nextStep as any).schema : { fields: [] };
+
+        await this.sessionStorage.updateSession(sessionId, {
+          status: 'waiting_input',
+          currentStepId: nextPendingStepId,
+          pendingInput: {
+            stepId: nextPendingStepId,
+            schema: pendingInputSchema,
+            surfaceId: `user-input-${nextPendingStepId}`,
+          },
+          result: undefined,
+        });
+
+        // 发射 inputRequested 事件
+        sseManager.emit(sessionId, {
+          type: 'inputRequested',
+          sessionId,
+          stepId: nextPendingStepId,
+          surfaceId: `user-input-${nextPendingStepId}`,
+          schema: pendingInputSchema,
+          timestamp: new Date().toISOString()
+        });
+
+        console.log(`[CoreBridge] Session ${sessionId} waiting for more input at step ${nextPendingStepId}`);
+        return; // 不发射 executionComplete，继续等待输入
       }
 
       // 发射执行完成事件
