@@ -195,6 +195,10 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
           const stepId = error.context?.stepId as number ?? step.stepId;
           this.logger.info('User input required, pausing execution', { stepId });
 
+          // Get schema from user input step
+          const userInputStep = isUserInputStep(step) ? step : undefined;
+          const schema = userInputStep?.schema ?? { fields: [] };
+
           // Return partial result indicating user input is required
           // Don't add a step result for the waiting state - it will be added when user actually inputs
           return {
@@ -207,7 +211,8 @@ export class ConditionalExecutor extends ExecutorImpl implements Executor {
             completedAt: new Date().toISOString(),
             waitingForInput: {
               stepId: stepId,
-              stepType: step.type,
+              schema: schema as any,
+              surfaceId: `user-input-${stepId}`,
             }
           };
         }

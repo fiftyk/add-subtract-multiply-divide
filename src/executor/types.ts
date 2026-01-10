@@ -48,6 +48,26 @@ export interface ConditionalResult extends BaseStepResult {
 export type StepResult = FunctionCallResult | UserInputResult | ConditionalResult;
 
 /**
+ * 用户输入步骤模式
+ */
+export interface UserInputSchema {
+  fields: Array<{
+    id: string;
+    type: string;
+    label: string;
+    description?: string;
+    required?: boolean;
+    options?: Array<{ value: string; label: string }>;
+    optionsSource?: {
+      type: 'stepResult';
+      stepId: number;
+      labelField: string;
+      valueField: string;
+    };
+  }>;
+}
+
+/**
  * 执行结果
  */
 export interface ExecutionResult {
@@ -61,6 +81,7 @@ export interface ExecutionResult {
   /** 如果存在，表示执行暂停等待用户输入 */
   waitingForInput?: {
     stepId: number;
-    stepType: string;
+    schema: UserInputSchema;
+    surfaceId: string;
   };
 }

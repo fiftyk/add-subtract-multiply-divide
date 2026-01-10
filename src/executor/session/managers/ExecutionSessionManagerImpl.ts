@@ -297,7 +297,7 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
           nextStepId: nextPendingStepId,
         });
 
-        // 返回部分结果，不设置 completedAt（因为还没有完成）
+        // 返回部分结果，包含 waitingForInput 字段供 CoreBridge 发送 SSE 事件
         return {
           planId: session.plan.id,
           steps: result.steps,
@@ -305,7 +305,12 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
           success: true,
           error: undefined,
           startedAt: session.createdAt,
-          completedAt: new Date().toISOString(), // 设置为当前时间，表示此阶段完成，但整体未完成
+          completedAt: new Date().toISOString(),
+          waitingForInput: {
+            stepId: nextPendingStepId,
+            schema: pendingInputSchema!,
+            surfaceId: `user-input-${nextPendingStepId}`,
+          },
         };
       }
 
