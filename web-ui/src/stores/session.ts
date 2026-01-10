@@ -135,6 +135,8 @@ export const useSessionStore = defineStore('session', () => {
       case 'inputRequested':
         status.value = 'waiting_input'
         isExecuting.value = false
+        console.log('[SessionStore] Input requested schema:', JSON.stringify(event.schema, null, 2))
+        console.log('[SessionStore] Field optionsSource:', JSON.stringify(event.schema?.fields?.map(f => ({ id: f.id, optionsSource: f.optionsSource })), null, 2))
         pendingInputSchema.value = event.schema
         pendingInputStepId.value = event.stepId
         console.log('[SessionStore] Input requested at step:', event.stepId)
