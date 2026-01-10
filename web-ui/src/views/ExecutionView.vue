@@ -318,14 +318,19 @@ function resolveSelectOptions(field: A2UIField): Array<{ value: string; label: s
   }
 
   // 如果有 optionsSource，从 stepResults 动态生成
-  if (field.optionsSource && field.optionsSource.type === 'stepResult') {
-    const source = field.optionsSource as A2UIFieldOptionsSource
-    const stepResult = stepResults.value.find(s => s.stepId === source.stepId)
+  const optionsSource = field.optionsSource as A2UIFieldOptionsSource | undefined
+  if (optionsSource && optionsSource.type === 'stepResult') {
+    console.log('[resolveSelectOptions] optionsSource:', optionsSource)
+    const stepResult = stepResults.value.find(s => s.stepId === optionsSource.stepId)
+    console.log('[resolveSelectOptions] stepResult:', stepResult?.stepId, 'result type:', typeof stepResult?.result)
     if (stepResult?.result && Array.isArray(stepResult.result)) {
-      return stepResult.result.map((item: any) => ({
-        value: item[source.valueField],
-        label: item[source.labelField]
+      console.log('[resolveSelectOptions] result array length:', stepResult.result.length)
+      const options = stepResult.result.map((item: any) => ({
+        value: item[optionsSource.valueField],
+        label: item[optionsSource.labelField]
       }))
+      console.log('[resolveSelectOptions] generated options:', options)
+      return options
     }
   }
 

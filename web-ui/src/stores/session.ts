@@ -108,14 +108,23 @@ export const useSessionStore = defineStore('session', () => {
         break
 
       case 'stepComplete':
-        stepResults.value.push({
+        // 检查是否已经存在相同 stepId 的结果（去重）
+        const existingIndex = stepResults.value.findIndex(s => s.stepId === event.stepId)
+        const stepResult = {
           stepId: event.stepId,
           type: event.stepType || 'function_call',
           result: event.result,
           success: event.success,
           executedAt: event.timestamp
-        })
-        console.log('[SessionStore] Step completed:', event.stepId, event.stepType)
+        }
+        if (existingIndex >= 0) {
+          // 更新现有结果（保持数组顺序）
+          stepResults.value[existingIndex] = stepResult
+          console.log('[SessionStore] Step result updated:', event.stepId, event.stepType)
+        } else {
+          stepResults.value.push(stepResult)
+          console.log('[SessionStore] Step completed:', event.stepId, event.stepType)
+        }
         break
 
       case 'surfaceUpdate':
