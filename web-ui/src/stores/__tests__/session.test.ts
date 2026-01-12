@@ -103,6 +103,17 @@ describe('SessionStore', () => {
 
       // Mock API response
       vi.mocked(sessionsApi.execute).mockResolvedValue({ sessionId: 'new-session', status: 'pending' })
+      vi.mocked(sessionsApi.get).mockResolvedValue({
+        id: 'new-session',
+        planId: 'test-plan',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        plan: {
+          id: 'test-plan',
+          userRequest: 'test request',
+          steps: []
+        }
+      } as Session)
 
       await store.startExecution('test-plan')
 
@@ -125,6 +136,17 @@ describe('SessionStore', () => {
       store.surfaceUpdates = [{ type: 'surfaceUpdate' }] as any
 
       vi.mocked(sessionsApi.execute).mockResolvedValue({ sessionId: 'new-session', status: 'pending' })
+      vi.mocked(sessionsApi.get).mockResolvedValue({
+        id: 'new-session',
+        planId: 'test-plan',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        plan: {
+          id: 'test-plan',
+          userRequest: 'test request',
+          steps: []
+        }
+      } as Session)
 
       await store.startExecution('test-plan')
 
@@ -344,6 +366,92 @@ describe('SessionStore', () => {
       const components = store.surfaceUpdates[0].components
       expect(components.length).toBe(1)
       expect(components[0].component).toHaveProperty('Text')
+    })
+
+    it('should skip placeholder user input results (success: false, values: {})', async () => {
+      const store = useSessionStore()
+
+      const mockSession: Partial<Session> = {
+        id: 'session-123',
+        planId: 'plan-abc',
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+        result: {
+          planId: 'plan-abc',
+          success: true,
+          steps: [
+            // Step 1: User input - placeholder (waiting for input)
+            {
+              stepId: 1,
+              type: 'user_input',
+              values: {},
+              success: false,
+              executedAt: '2026-01-10T00:00:00.000Z'
+            },
+            // Step 2: User input - actual successful input
+            {
+              stepId: 2,
+              type: 'user_input',
+              values: { name: '张三', age: 25 },
+              success: true,
+              executedAt: '2026-01-10T00:00:01.000Z'
+            },
+            // Step 3: User input - placeholder (waiting for next input)
+            {
+              stepId: 3,
+              type: 'user_input',
+              values: {},
+              success: false,
+              executedAt: '2026-01-10T00:00:02.000Z'
+            },
+            // Step 4: User input - actual successful input
+            {
+              stepId: 4,
+              type: 'user_input',
+              values: { address: '北京', phone: '13800138000' },
+              success: true,
+              executedAt: '2026-01-10T00:00:03.000Z'
+            },
+            // Step 5: User input - error case (should be included)
+            {
+              stepId: 5,
+              type: 'user_input',
+              values: { name: '李四' },
+              success: false,
+              error: 'Invalid phone format',
+              executedAt: '2026-01-10T00:00:04.000Z'
+            }
+          ]
+        }
+      }
+
+      vi.mocked(sessionsApi.get).mockResolvedValue(mockSession as Session)
+
+      await store.loadSession('session-123')
+
+      // Should only have 3 step results (placeholder steps skipped)
+      expect(store.stepResults.length).toBe(3)
+
+      // Step 1 placeholder should be skipped
+      expect(store.stepResults.find(s => s.stepId === 1)).toBeUndefined()
+
+      // Step 2 should be included
+      const step2 = store.stepResults.find(s => s.stepId === 2)
+      expect(step2).toBeDefined()
+      expect((step2 as any).values).toEqual({ name: '张三', age: 25 })
+
+      // Step 3 placeholder should be skipped
+      expect(store.stepResults.find(s => s.stepId === 3)).toBeUndefined()
+
+      // Step 4 should be included
+      const step4 = store.stepResults.find(s => s.stepId === 4)
+      expect(step4).toBeDefined()
+      expect((step4 as any).values).toEqual({ address: '北京', phone: '13800138000' })
+
+      // Step 5 error should be included (has values, just failed with error)
+      const step5 = store.stepResults.find(s => s.stepId === 5)
+      expect(step5).toBeDefined()
+      expect((step5 as any).values).toEqual({ name: '李四' })
     })
   })
 })

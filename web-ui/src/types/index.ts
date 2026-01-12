@@ -20,6 +20,22 @@ export interface PlanStep {
 }
 
 /**
+ * Execution Plan (from session.plan)
+ */
+export interface ExecutionPlan {
+  id: string
+  userRequest: string
+  steps: Array<{
+    stepId: number
+    type: 'function_call' | 'user_input'
+    description?: string
+    functionName?: string
+    parameters?: Record<string, any>
+    dependsOn?: number[]
+  }>
+}
+
+/**
  * Session Types
  */
 export interface Session {
@@ -31,6 +47,7 @@ export interface Session {
   completedAt?: string
   result?: ExecutionResult
   pendingInput?: PendingInput
+  plan?: ExecutionPlan  // 完整计划信息（从后端会话获取）
 }
 
 export interface PendingInput {
@@ -54,6 +71,7 @@ export interface StepResult {
   functionName?: string
   parameters?: Record<string, any>
   result?: any
+  values?: Record<string, any>  // 用户输入的值
   success: boolean
   error?: string
   executedAt?: string
@@ -74,13 +92,34 @@ export interface A2UIFieldOptionsSource {
   valueField: string
 }
 
+export interface A2UIFieldValidation {
+  range?: { min?: number; max?: number }
+  length?: { min?: number; max?: number }
+  pattern?: string
+  errorMessage?: string
+}
+
+export interface A2UIFieldConfig {
+  multiline?: boolean
+  rows?: number
+  placeholder?: string
+  options?: Array<{ value: string | number; label: string; description?: string }>
+  minSelections?: number
+  maxSelections?: number
+  minDate?: string
+  maxDate?: string
+}
+
 export interface A2UIField {
   id: string
-  type: 'text' | 'date' | 'number' | 'select' | 'button'
+  type: 'text' | 'number' | 'boolean' | 'date' | 'single_select' | 'multi_select'
   label: string
+  description?: string
   required?: boolean
-  config?: Record<string, any>
-  options?: Array<{ value: string; label: string }>
+  defaultValue?: unknown
+  validation?: A2UIFieldValidation
+  config?: A2UIFieldConfig
+  options?: Array<{ value: string | number; label: string }>
   optionsSource?: A2UIFieldOptionsSource
 }
 
@@ -139,7 +178,13 @@ export interface InputRequestedEvent {
   stepId: number
   surfaceId: string
   schema: A2UISchema
+  components?: A2UIComponent[]
   timestamp: string
+}
+
+export interface A2UIComponent {
+  id: string
+  component: Record<string, Record<string, unknown>>
 }
 
 export interface InputReceivedEvent {

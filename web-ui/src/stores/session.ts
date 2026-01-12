@@ -8,13 +8,27 @@ import type {
   ExecutionResult,
   StepResult,
   A2UISchema,
-  SurfaceUpdateEvent
+  SurfaceUpdateEvent,
+  A2UIComponent
 } from '../types'
+import type { ExecutionPlan } from '../types'
+
+// InputRequested event type with components
+interface InputRequestedEvent {
+  type: 'inputRequested'
+  sessionId: string
+  schema: A2UISchema
+  stepId: number
+  surfaceId: string
+  components?: A2UIComponent[]
+  timestamp: string
+}
 
 export const useSessionStore = defineStore('session', () => {
   // State
   const currentSessionId = ref<string | null>(null)
   const currentSession = ref<Session | null>(null)
+  const currentPlan = ref<ExecutionPlan | null>(null)  // 完整计划信息
   const status = ref<Session['status']>('pending')
   const isExecuting = ref(false)
   const currentStep = ref<number>(0)
@@ -25,6 +39,7 @@ export const useSessionStore = defineStore('session', () => {
   const surfaceUpdates = ref<SurfaceUpdateEvent[]>([])
   const error = ref<string | null>(null)
   const loading = ref(false)
+  const lastInputRequested = ref<InputRequestedEvent | null>(null)
 
   // SSE Connection
   let sseConnection: SSEConnection | null = null
@@ -34,6 +49,29 @@ export const useSessionStore = defineStore('session', () => {
   const isWaitingInput = computed(() => status.value === 'waiting_input')
   const isCompleted = computed(() => status.value === 'completed')
   const isFailed = computed(() => status.value === 'failed')
+  // Total steps in the plan (for display in sidebar)
+  const totalSteps = computed(() => {
+    if (currentPlan.value?.steps) {
+      return currentPlan.value.steps.length
+    }
+    return stepResults.value.length || 1
+  })
+  // Total user input steps in the plan (from plan.steps)
+  const totalUserInputSteps = computed(() => {
+    if (currentPlan.value?.steps) {
+      return currentPlan.value.steps.filter(s => s.type === 'user_input').length
+    }
+    // Fallback: count from stepResults
+    return stepResults.value.filter(s => s.type === 'user_input').length
+  })
+  // Completed user input steps count
+  const completedUserInputSteps = computed(() => {
+    return stepResults.value.filter(s => s.type === 'user_input').length
+  })
+  // Total completed steps count
+  const completedSteps = computed(() => {
+    return stepResults.value.length
+  })
 
   // Actions
   async function startExecution(planId: string) {
@@ -60,6 +98,13 @@ export const useSessionStore = defineStore('session', () => {
       surfaceUpdates.value = []
 
       console.log('[SessionStore] Session created:', response.sessionId)
+
+      // Load full session to get plan information
+      const fullSession = await sessionsApi.get(response.sessionId)
+      currentSession.value = fullSession
+      currentPlan.value = fullSession.plan ?? null
+
+      console.log('[SessionStore] Plan loaded:', currentPlan.value?.steps?.length, 'steps')
 
       // Connect to SSE stream
       connectSSE(response.sessionId)
@@ -135,8 +180,11 @@ export const useSessionStore = defineStore('session', () => {
       case 'inputRequested':
         status.value = 'waiting_input'
         isExecuting.value = false
+        // Save the full event with components for the sidebar
+        lastInputRequested.value = event as InputRequestedEvent
         console.log('[SessionStore] Input requested schema:', JSON.stringify(event.schema, null, 2))
         console.log('[SessionStore] Field optionsSource:', JSON.stringify(event.schema?.fields?.map(f => ({ id: f.id, optionsSource: f.optionsSource })), null, 2))
+        console.log('[SessionStore] Input components:', event.components?.length || 0)
         pendingInputSchema.value = event.schema
         pendingInputStepId.value = event.stepId
         console.log('[SessionStore] Input requested at step:', event.stepId)
@@ -213,12 +261,34 @@ export const useSessionStore = defineStore('session', () => {
     try {
       currentSession.value = await sessionsApi.get(sessionId)
       currentSessionId.value = sessionId
+      currentPlan.value = currentSession.value.plan ?? null  // 从会话中获取完整计划
       status.value = currentSession.value.status
-      finalResult.value = currentSession.value.result
+      finalResult.value = currentSession.value.result ?? null
 
-      // 如果会话已完成，从 result.steps 生成 surfaceUpdates
+      // 如果会话已完成，从 result.steps 生成 surfaceUpdates 和 stepResults
       if (currentSession.value.result?.steps) {
         for (const stepResult of currentSession.value.result.steps) {
+          // 跳过用户输入的占位符结果（success: false, values: {}）
+          // 这些是等待用户输入时创建的临时记录
+          if (stepResult.type === 'user_input' && !stepResult.success && (!stepResult.values || Object.keys(stepResult.values).length === 0)) {
+            continue
+          }
+
+          // 填充 stepResults（用于侧边栏摘要）
+          const stepEntry: any = {
+            stepId: stepResult.stepId,
+            type: stepResult.type,
+            result: stepResult.result,
+            success: stepResult.success,
+            executedAt: stepResult.executedAt,
+            functionName: stepResult.functionName
+          }
+          // 用户输入步骤有 values 字段
+          if ('values' in stepResult) {
+            stepEntry.values = stepResult.values
+          }
+          stepResults.value.push(stepEntry)
+
           if (stepResult.type === 'function_call' && stepResult.result !== undefined) {
             // 生成 surfaceUpdate 事件数据
             const components = generateA2UIComponentsFromResult(stepResult)
@@ -314,6 +384,7 @@ export const useSessionStore = defineStore('session', () => {
     disconnectSSE()
     currentSessionId.value = null
     currentSession.value = null
+    currentPlan.value = null
     status.value = 'pending'
     isExecuting.value = false
     currentStep.value = 0
@@ -324,6 +395,7 @@ export const useSessionStore = defineStore('session', () => {
     surfaceUpdates.value = []
     error.value = null
     loading.value = false
+    lastInputRequested.value = null
   }
 
   function clearError() {
@@ -334,6 +406,7 @@ export const useSessionStore = defineStore('session', () => {
     // State
     currentSessionId,
     currentSession,
+    currentPlan,
     status,
     isExecuting,
     currentStep,
@@ -344,12 +417,17 @@ export const useSessionStore = defineStore('session', () => {
     surfaceUpdates,
     error,
     loading,
+    lastInputRequested,
 
     // Getters
     hasSession,
     isWaitingInput,
     isCompleted,
     isFailed,
+    totalSteps,
+    totalUserInputSteps,
+    completedSteps,
+    completedUserInputSteps,
 
     // Actions
     startExecution,

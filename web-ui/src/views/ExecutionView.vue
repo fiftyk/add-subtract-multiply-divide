@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="execution-layout">
     <div class="mb-6">
       <router-link to="/plans" class="text-blue-600 hover:text-blue-700 flex items-center">
         ← Back to Plans
@@ -24,7 +24,7 @@
     </div>
 
     <!-- Execution View -->
-    <div v-else class="space-y-6">
+    <div v-else class="execution-content">
       <!-- Status Header -->
       <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center justify-between">
@@ -308,6 +308,49 @@
         </div>
       </div>
     </div>
+
+    <!-- Sidebar Summary -->
+    <aside v-if="sidebarVisible" class="sidebar">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
+
+        <!-- Progress Summary -->
+        <div v-if="isWaitingInput" class="mb-4">
+          <div class="text-sm text-gray-500 mb-2">Progress</div>
+          <A2UIRenderer :components="inputComponents" />
+        </div>
+
+        <!-- User Input Summary -->
+        <div v-if="userInputSummary.length > 0" class="mb-4">
+          <div class="text-sm text-gray-500 mb-2">Filled Information</div>
+          <div class="space-y-2">
+            <div
+              v-for="(item, index) in userInputSummary"
+              :key="index"
+              class="flex items-center justify-between text-sm"
+            >
+              <span class="text-gray-600">{{ item.label }}</span>
+              <span class="font-medium text-gray-900 truncate max-w-32" :title="String(item.value)">
+                {{ formatSummaryValue(item.value) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latest Function Result -->
+        <div v-if="latestFunctionResult" class="mb-4">
+          <div class="text-sm text-gray-500 mb-2">Latest Result</div>
+          <div class="bg-gray-50 rounded p-2 text-xs font-mono overflow-y-auto max-h-40">
+            <pre>{{ JSON.stringify(latestFunctionResult, null, 2) }}</pre>
+          </div>
+        </div>
+
+        <!-- Step Count -->
+        <div class="text-sm text-gray-500">
+          {{ stepCountText }} steps completed
+        </div>
+      </div>
+    </aside>
   </div>
 </template>
 
@@ -317,7 +360,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSessionStore } from '../stores/session'
 import A2UIRenderer from '../components/A2UIRenderer.vue'
-import type { A2UIField, A2UIFieldOptionsSource } from '../types'
+import type { A2UIComponent } from '../types'
 
 const route = useRoute()
 const sessionStore = useSessionStore()
@@ -334,11 +377,82 @@ const {
   error,
   loading,
   isWaitingInput,
-  isCompleted
+  isCompleted,
+  totalSteps,
+  totalUserInputSteps,
+  completedSteps,
+  completedUserInputSteps
 } = storeToRefs(sessionStore)
 
 const inputData = ref<Record<string, any>>({})
 const submitting = ref(false)
+
+// Input components from inputRequested event (Progress, Card, etc.)
+const inputComponents = computed(() => {
+  return sessionStore.lastInputRequested?.components ?? []
+})
+
+// Sidebar visibility
+const sidebarVisible = computed(() => {
+  return isWaitingInput.value || stepResults.value.length > 0
+})
+
+// Check if plan has user input steps
+const hasUserInputSteps = computed(() => {
+  return totalUserInputSteps.value > 0
+})
+
+// Step count display: use user input steps if available, otherwise use total steps
+const stepCountText = computed(() => {
+  if (hasUserInputSteps.value) {
+    return `${completedUserInputSteps.value} / ${totalUserInputSteps.value}`
+  }
+  return `${completedSteps.value} / ${totalSteps.value}`
+})
+
+// User input summary (from previous user input steps)
+const userInputSummary = computed(() => {
+  const summary: Array<{ label: string; value: unknown }> = []
+
+  // Get all user input results - user input steps store data in 'values' field
+  const userInputResults = stepResults.value
+    .filter(s => s.type === 'user_input' && (s as any).values)
+    .sort((a, b) => a.stepId - b.stepId)
+
+  for (const result of userInputResults) {
+    const values = (result as any).values
+    if (values && typeof values === 'object') {
+      for (const [key, value] of Object.entries(values)) {
+        // Skip internal fields
+        if (key.startsWith('_')) continue
+        summary.push({
+          label: key,
+          value
+        })
+      }
+    }
+  }
+
+  return summary
+})
+
+// Latest function call result
+const latestFunctionResult = computed(() => {
+  const functionResults = stepResults.value
+    .filter(s => s.type === 'function_call' && s.result)
+    .sort((a, b) => a.stepId - b.stepId)
+
+  const last = functionResults[functionResults.length - 1]
+  return last?.result ?? null
+})
+
+// Format summary value for display
+function formatSummaryValue(value: unknown): string {
+  if (value === null || value === undefined) return '-'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
 
 const statusLabel = computed(() => {
   switch (status.value) {
@@ -356,33 +470,6 @@ const progressPercentage = computed(() => {
   // In a real app, you'd calculate based on total steps
   return Math.min(currentStep.value * 10, 90)
 })
-
-// 解析动态选项源
-function resolveSelectOptions(field: A2UIField): Array<{ value: string; label: string }> {
-  // 如果有静态 options，直接返回
-  if (field.options && field.options.length > 0) {
-    return field.options
-  }
-
-  // 如果有 optionsSource，从 stepResults 动态生成
-  const optionsSource = field.optionsSource as A2UIFieldOptionsSource | undefined
-  if (optionsSource && optionsSource.type === 'stepResult') {
-    console.log('[resolveSelectOptions] optionsSource:', optionsSource)
-    const stepResult = stepResults.value.find(s => s.stepId === optionsSource.stepId)
-    console.log('[resolveSelectOptions] stepResult:', stepResult?.stepId, 'result type:', typeof stepResult?.result)
-    if (stepResult?.result && Array.isArray(stepResult.result)) {
-      console.log('[resolveSelectOptions] result array length:', stepResult.result.length)
-      const options = stepResult.result.map((item: any) => ({
-        value: item[optionsSource.valueField],
-        label: item[optionsSource.labelField]
-      }))
-      console.log('[resolveSelectOptions] generated options:', options)
-      return options
-    }
-  }
-
-  return []
-}
 
 async function handleSubmitInput() {
   if (!pendingInputSchema.value) return
@@ -426,3 +513,34 @@ onUnmounted(() => {
   // The user might navigate back and forth
 })
 </script>
+
+<style scoped>
+.execution-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.execution-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .execution-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    position: static;
+  }
+}
+</style>
