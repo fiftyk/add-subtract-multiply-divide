@@ -171,6 +171,7 @@ export interface TextProps {
 
 export interface CardProps {
   title?: string;
+  content?: string;
   children?: string[];
 }
 

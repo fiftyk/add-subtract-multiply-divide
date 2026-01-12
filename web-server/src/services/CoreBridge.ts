@@ -150,13 +150,47 @@ export class CoreBridge {
       if (firstUserInputStep) {
         console.log(`[CoreBridge] Session ${sessionId} waiting for input at step ${firstUserInputStep.stepId}`);
 
-        // 发射 inputRequested 事件
+        // 计算进度信息
+        const userInputSteps = session.plan.steps.filter(s => s.type === 'user_input');
+        const currentIndex = userInputSteps.findIndex(s => s.stepId === firstUserInputStep.stepId);
+        const totalSteps = userInputSteps.length;
+        const progressValue = Math.round(((currentIndex + 1) / totalSteps) * 100);
+
+        // 生成进度和说明组件
+        const components: A2UIComponent[] = [];
+
+        // Progress 组件
+        components.push({
+          id: `progress-${firstUserInputStep.stepId}`,
+          component: {
+            Progress: {
+              value: progressValue,
+              max: 100,
+              label: `步骤 ${currentIndex + 1}/${totalSteps}: ${(firstUserInputStep as any).description || '用户输入'}`
+            }
+          }
+        });
+
+        // Card 组件 - 步骤说明
+        const schema = (firstUserInputStep as any).schema;
+        components.push({
+          id: `card-${firstUserInputStep.stepId}`,
+          component: {
+            Card: {
+              title: schema?.title || (firstUserInputStep as any).description || '步骤说明',
+              content: schema?.description || '请填写以下信息'
+            }
+          }
+        });
+
+        // 发射 inputRequested 事件（包含进度和说明组件）
         sseManager.emit(sessionId, {
           type: 'inputRequested',
           sessionId,
           surfaceId: `form-${sessionId}`,
           schema: (firstUserInputStep as any).schema,
           stepId: firstUserInputStep.stepId,
+          components, // 新增：进度和说明组件
           timestamp: new Date().toISOString()
         });
 
@@ -455,13 +489,46 @@ export class CoreBridge {
           result: undefined,
         });
 
-        // 发射 inputRequested 事件
+        // 计算进度信息
+        const userInputSteps = session?.plan.steps.filter(s => s.type === 'user_input') || [];
+        const currentIndex = userInputSteps.findIndex(s => (s as any).stepId === nextPendingStepId);
+        const totalSteps = userInputSteps.length;
+        const progressValue = Math.round(((currentIndex + 1) / totalSteps) * 100);
+
+        // 生成进度和说明组件
+        const components: A2UIComponent[] = [];
+
+        // Progress 组件
+        components.push({
+          id: `progress-${nextPendingStepId}`,
+          component: {
+            Progress: {
+              value: progressValue,
+              max: 100,
+              label: `步骤 ${currentIndex + 1}/${totalSteps}: ${(nextStep as any).description || '用户输入'}`
+            }
+          }
+        });
+
+        // Card 组件 - 步骤说明
+        components.push({
+          id: `card-${nextPendingStepId}`,
+          component: {
+            Card: {
+              title: pendingInputSchema?.title || (nextStep as any).description || '步骤说明',
+              content: pendingInputSchema?.description || '请填写以下信息'
+            }
+          }
+        });
+
+        // 发射 inputRequested 事件（包含进度和说明组件）
         sseManager.emit(sessionId, {
           type: 'inputRequested',
           sessionId,
           stepId: nextPendingStepId,
           surfaceId: `user-input-${nextPendingStepId}`,
           schema: pendingInputSchema,
+          components, // 新增：进度和说明组件
           timestamp: new Date().toISOString()
         });
 

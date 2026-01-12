@@ -80,6 +80,11 @@ function formatCellValue(value: unknown): string {
           {{ comp.props.title }}
         </h3>
         <div class="a2ui-card-content">
+          <!-- 支持 content 字段（单行描述文本） -->
+          <p v-if="comp.props.content" class="a2ui-card-description">
+            {{ comp.props.content }}
+          </p>
+          <!-- 支持 children 字段（多行列表） -->
           <p
             v-for="(line, lineIndex) in (comp.props.children as string[] | undefined)"
             :key="lineIndex"
@@ -186,6 +191,13 @@ function formatCellValue(value: unknown): string {
 
 .a2ui-card-content {
   color: #4b5563;
+}
+
+.a2ui-card-description {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9375rem;
+  color: #374151;
+  line-height: 1.5;
 }
 
 .a2ui-card-line {
