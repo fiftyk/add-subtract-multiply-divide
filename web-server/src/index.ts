@@ -59,19 +59,18 @@ await fastify.register(fastifyStatic, {
 
 // Import container and bind mock A2UIRenderer for web server mode
 // @ts-ignore - Importing from parent project's dist folder
-import container from '/Users/liu/ruxuwu/add-subtract-multiply-divide/dist/src/container/cli-container.js';
+import container from '../../dist/src/container/cli-container.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { A2UIRenderer } from '/Users/liu/ruxuwu/add-subtract-multiply-divide/dist/src/a2ui/A2UIRenderer.js';
+import { A2UIRenderer } from '../../dist/src/a2ui/A2UIRenderer.js';
 // @ts-ignore - Importing local service
 import { MockA2UIRenderer } from './services/WebA2UIRenderer.js';
 
 // Bind mock A2UIRenderer for web server mode
 // This is needed because Executor expects A2UIRenderer to be bound
 // In web mode, UI updates are handled via SSE events instead
-if (process.env.WEB_SERVER === 'true') {
-  container.bind(A2UIRenderer).to(MockA2UIRenderer);
-  console.log('[WebServer] Bound MockA2UIRenderer for web mode');
-}
+// We always bind in web server context (this file is only used in web server)
+container.bind(A2UIRenderer).to(MockA2UIRenderer);
+console.log('[WebServer] Bound MockA2UIRenderer for web mode');
 
 const { default: sessionsRoutes } = await import('./routes/sessions.js');
 const { default: plansRoutes } = await import('./routes/plans.js');
