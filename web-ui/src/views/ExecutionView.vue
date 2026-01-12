@@ -1,7 +1,8 @@
 <template>
-  <div class="execution-layout">
-    <div class="mb-6">
-      <router-link to="/plans" class="text-blue-600 hover:text-blue-700 flex items-center">
+  <div class="flex gap-6 items-start">
+    <main class="flex-1 min-w-0">
+      <div class="mb-6">
+        <router-link to="/plans" class="text-blue-600 hover:text-blue-700 flex items-center">
         ← Back to Plans
       </router-link>
     </div>
@@ -24,7 +25,7 @@
     </div>
 
     <!-- Execution View -->
-    <div v-else class="execution-content">
+    <div v-else class="flex-1 min-w-0">
       <!-- Status Header -->
       <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center justify-between">
@@ -65,31 +66,48 @@
       </div>
 
       <!-- Step Results -->
-      <div v-if="stepResults.length > 0" class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Completed Steps</h2>
-        <div class="space-y-3">
+      <div v-if="stepResults.length > 0" class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-100">
+          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Completed Steps
+            <span class="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {{ stepResults.length }}
+            </span>
+          </h2>
+        </div>
+
+        <div class="p-4 space-y-3">
           <div
             v-for="result in stepResults"
             :key="result.stepId"
-            class="border border-gray-200 rounded-lg p-4"
+            class="group border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30 transition-all duration-200"
           >
-            <div class="flex items-start">
+            <div class="flex items-start gap-3">
               <span
-                class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold"
+                class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-colors"
                 :class="{
-                  'bg-green-100 text-green-800': result.success,
-                  'bg-red-100 text-red-800': !result.success
+                  'bg-green-100 text-green-800 group-hover:bg-green-200': result.success,
+                  'bg-red-100 text-red-800 group-hover:bg-red-200': !result.success
                 }"
               >
-                {{ result.stepId }}
+                <svg v-if="result.success" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </span>
-              <div class="ml-3 flex-1">
-                <div class="flex items-center">
-                  <span class="text-sm font-medium text-gray-700">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center flex-wrap gap-2">
+                  <span class="text-sm font-medium text-gray-900">
                     {{ result.type === 'function_call' ? 'Function Call' : 'User Input' }}
                   </span>
                   <span
-                    class="ml-2 text-xs px-2 py-1 rounded"
+                    class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded"
                     :class="{
                       'bg-green-100 text-green-700': result.success,
                       'bg-red-100 text-red-700': !result.success
@@ -97,11 +115,17 @@
                   >
                     {{ result.success ? 'Success' : 'Failed' }}
                   </span>
+                  <span class="text-xs text-gray-400">Step {{ result.stepId }}</span>
                 </div>
-                <div v-if="result.result" class="mt-2 text-sm text-gray-600">
-                  <pre class="bg-gray-50 p-2 rounded overflow-x-auto">{{ JSON.stringify(result.result, null, 2) }}</pre>
+                <div v-if="result.result" class="mt-2 text-sm">
+                  <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                    <pre class="text-gray-100 text-xs font-mono">{{ JSON.stringify(result.result, null, 2) }}</pre>
+                  </div>
                 </div>
-                <p v-if="result.executedAt" class="mt-1 text-xs text-gray-500">
+                <p v-if="result.executedAt" class="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                   {{ new Date(result.executedAt).toLocaleString() }}
                 </p>
               </div>
@@ -111,13 +135,22 @@
       </div>
 
       <!-- A2UI Surface Updates (Real-time Results) -->
-      <div v-if="surfaceUpdates.length > 0" class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Execution Results</h2>
-        <div class="space-y-4">
+      <div v-if="surfaceUpdates.length > 0" class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Execution Results
+          </h2>
+        </div>
+
+        <div class="p-6 space-y-4">
           <div
             v-for="update in surfaceUpdates"
             :key="update.surfaceId"
-            class="border border-gray-100 rounded-lg p-4 bg-gray-50"
+            class="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
           >
             <A2UIRenderer :components="update.components" />
           </div>
@@ -125,18 +158,29 @@
       </div>
 
       <!-- User Input Form -->
-      <div v-if="isWaitingInput && pendingInputSchema" class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">User Input Required</h2>
+      <div v-if="isWaitingInput && pendingInputSchema" class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <!-- Header with icon -->
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+          <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">User Input Required</h2>
+            <p class="text-sm text-gray-500">Please fill in the information below</p>
+          </div>
+        </div>
 
-        <form @submit.prevent="handleSubmitInput" class="space-y-4">
+        <form @submit.prevent="handleSubmitInput" class="space-y-5">
           <div
             v-for="field in pendingInputSchema.fields"
             :key="field.id"
             class="space-y-2"
           >
-            <label :for="field.id" class="block text-sm font-medium text-gray-700">
+            <label :for="field.id" class="flex items-center gap-1 text-sm font-medium text-gray-700">
               {{ field.label }}
-              <span v-if="field.required" class="text-red-600">*</span>
+              <span v-if="field.required" class="text-red-500">*</span>
             </label>
 
             <!-- Text Input (A2UI v0.8) -->
@@ -147,7 +191,7 @@
               :required="field.required"
               :rows="field.config?.rows || 3"
               :placeholder="field.config?.placeholder"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             ></textarea>
             <input
               v-else-if="field.type === 'text'"
@@ -156,7 +200,7 @@
               type="text"
               :required="field.required"
               :placeholder="field.config?.placeholder"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             />
 
             <!-- Number Input (A2UI v0.8 - validation.range) -->
@@ -168,17 +212,17 @@
               :required="field.required"
               :min="field.validation?.range?.min"
               :max="field.validation?.range?.max"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             />
 
             <!-- Boolean Input (A2UI v0.8 - checkbox) -->
-            <div v-else-if="field.type === 'boolean'" class="flex items-center space-x-2">
+            <div v-else-if="field.type === 'boolean'" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
               <input
                 :id="field.id"
                 type="checkbox"
                 v-model="inputData[field.id]"
                 :required="field.required"
-                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
               <label :for="field.id" class="text-sm text-gray-700">
                 {{ field.description || field.label }}
@@ -194,7 +238,7 @@
               :required="field.required"
               :min="field.config?.minDate"
               :max="field.config?.maxDate"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             />
 
             <!-- Single Select (A2UI v0.8 - dropdown) -->
@@ -203,7 +247,7 @@
               :id="field.id"
               v-model="inputData[field.id]"
               :required="field.required"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             >
               <option value="">{{ field.config?.placeholder || `请选择${field.label}` }}</option>
               <option
@@ -223,7 +267,7 @@
               :required="field.required"
               multiple
               :size="Math.min(field.config?.options?.length || 5, 5)"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             >
               <option
                 v-for="option in field.config?.options"
@@ -235,18 +279,26 @@
             </select>
           </div>
 
-          <div class="flex space-x-3 pt-4">
+          <!-- Action Buttons -->
+          <div class="flex gap-3 pt-4 mt-6 border-t border-gray-100">
             <button
               type="submit"
               :disabled="submitting"
-              class="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <svg v-if="!submitting" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
               {{ submitting ? 'Submitting...' : 'Submit' }}
             </button>
             <button
               type="button"
               @click="resetInput"
-              class="px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300"
+              class="px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 focus:ring-4 focus:ring-gray-200 transition-all duration-200"
             >
               Reset
             </button>
@@ -255,14 +307,17 @@
       </div>
 
       <!-- Final Result -->
-      <div v-if="isCompleted && finalResult" class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center mb-4">
+      <div v-if="isCompleted && finalResult" class="bg-white rounded-xl shadow-lg border overflow-hidden">
+        <!-- Header with gradient background -->
+        <div
+          class="px-6 py-4 flex items-center gap-4"
+          :class="finalResult.success
+            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100'
+            : 'bg-gradient-to-r from-red-50 to-rose-50 border-b border-red-100'"
+        >
           <div
             class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full"
-            :class="{
-              'bg-green-100': finalResult.success,
-              'bg-red-100': !finalResult.success
-            }"
+            :class="finalResult.success ? 'bg-green-100' : 'bg-red-100'"
           >
             <svg
               v-if="finalResult.success"
@@ -283,71 +338,95 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <div class="ml-4">
-            <h2 class="text-lg font-semibold" :class="{
-              'text-green-900': finalResult.success,
-              'text-red-900': !finalResult.success
-            }">
-              {{ finalResult.success ? 'Execution Completed' : 'Execution Failed' }}
+          <div>
+            <h2 class="text-lg font-semibold" :class="finalResult.success ? 'text-green-900' : 'text-red-900'">
+              {{ finalResult.success ? 'Execution Completed Successfully!' : 'Execution Failed' }}
             </h2>
+            <p v-if="finalResult.success" class="text-sm text-green-700">All steps completed without errors</p>
           </div>
         </div>
 
-        <div v-if="finalResult.error" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm font-medium text-red-800">Error:</p>
-          <p class="text-sm text-red-700 mt-1">{{ finalResult.error }}</p>
-        </div>
+        <div class="p-6">
+          <div v-if="finalResult.error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="flex items-center gap-2 text-red-800 font-medium mb-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Error Details
+            </div>
+            <p class="text-sm text-red-700 font-mono">{{ finalResult.error }}</p>
+          </div>
 
-        <div class="mt-6">
-          <button
-            @click="$router.push('/plans')"
-            class="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
-          >
-            Back to Plans
-          </button>
+          <div class="flex gap-3">
+            <button
+              @click="$router.push('/plans')"
+              class="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all duration-200"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Plans
+            </button>
+          </div>
         </div>
       </div>
     </div>
+    </main>
 
     <!-- Sidebar Summary -->
-    <aside v-if="sidebarVisible" class="sidebar">
-      <div class="bg-white rounded-lg shadow p-4">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
-
-        <!-- Progress Summary -->
-        <div v-if="isWaitingInput" class="mb-4">
-          <div class="text-sm text-gray-500 mb-2">Progress</div>
-          <A2UIRenderer :components="inputComponents" />
+    <aside v-if="sidebarVisible" class="w-72 flex-shrink-0 sticky top-4">
+      <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-100">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Summary
+          </h3>
         </div>
 
-        <!-- User Input Summary -->
-        <div v-if="userInputSummary.length > 0" class="mb-4">
-          <div class="text-sm text-gray-500 mb-2">Filled Information</div>
-          <div class="space-y-2">
-            <div
-              v-for="(item, index) in userInputSummary"
-              :key="index"
-              class="flex items-center justify-between text-sm"
-            >
-              <span class="text-gray-600">{{ item.label }}</span>
-              <span class="font-medium text-gray-900 truncate max-w-32" :title="String(item.value)">
-                {{ formatSummaryValue(item.value) }}
+        <div class="p-4 space-y-4">
+          <!-- Progress Summary -->
+          <div v-if="isWaitingInput">
+            <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Progress</div>
+            <A2UIRenderer :components="inputComponents" />
+          </div>
+
+          <!-- User Input Summary -->
+          <div v-if="userInputSummary.length > 0">
+            <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Filled Information</div>
+            <div class="space-y-2">
+              <div
+                v-for="(item, index) in userInputSummary"
+                :key="index"
+                class="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2"
+              >
+                <span class="text-gray-600">{{ item.label }}</span>
+                <span class="font-medium text-gray-900 truncate max-w-32" :title="String(item.value)">
+                  {{ formatSummaryValue(item.value) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Latest Function Result -->
+          <div v-if="latestFunctionResult">
+            <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Latest Result</div>
+            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 text-xs font-mono overflow-y-auto max-h-40 border border-gray-200">
+              <pre>{{ JSON.stringify(latestFunctionResult, null, 2) }}</pre>
+            </div>
+          </div>
+
+          <!-- Step Count -->
+          <div class="pt-3 border-t border-gray-100">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-500">Steps</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {{ stepCountText }}
               </span>
             </div>
           </div>
-        </div>
-
-        <!-- Latest Function Result -->
-        <div v-if="latestFunctionResult" class="mb-4">
-          <div class="text-sm text-gray-500 mb-2">Latest Result</div>
-          <div class="bg-gray-50 rounded p-2 text-xs font-mono overflow-y-auto max-h-40">
-            <pre>{{ JSON.stringify(latestFunctionResult, null, 2) }}</pre>
-          </div>
-        </div>
-
-        <!-- Step Count -->
-        <div class="text-sm text-gray-500">
-          {{ stepCountText }} steps completed
         </div>
       </div>
     </aside>
@@ -514,33 +593,3 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.execution-layout {
-  display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
-}
-
-.execution-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 1rem;
-}
-
-@media (max-width: 1024px) {
-  .execution-layout {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    position: static;
-  }
-}
-</style>

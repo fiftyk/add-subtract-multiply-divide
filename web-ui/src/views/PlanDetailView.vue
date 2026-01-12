@@ -96,7 +96,12 @@
 
     <!-- Drawer for Execution History -->
     <Teleport to="body">
-      <Transition name="drawer">
+      <Transition
+        enter-active-class="transition-opacity duration-300 ease-out"
+        leave-active-class="transition-opacity duration-300 ease-in"
+        enter-from-class="opacity-0"
+        leave-to-class="opacity-0"
+      >
         <div v-if="isDrawerOpen" class="fixed inset-0 z-50 overflow-hidden">
           <!-- Backdrop -->
           <div
@@ -105,7 +110,10 @@
           ></div>
 
           <!-- Drawer Panel -->
-          <div class="absolute inset-y-0 right-0 max-w-full flex">
+          <div
+            class="absolute inset-y-0 right-0 max-w-full flex transition-transform duration-300 ease-out"
+            :class="isDrawerOpen ? 'translate-x-0' : 'translate-x-full'"
+          >
             <div class="w-screen max-w-md">
               <div class="h-full flex flex-col bg-white shadow-xl">
                 <!-- Header -->
@@ -260,25 +268,3 @@ function closeDrawer() {
   isDrawerOpen.value = false
 }
 </script>
-
-<style scoped>
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.drawer-enter-active > div > div,
-.drawer-leave-active > div > div {
-  transition: transform 0.3s ease;
-}
-
-.drawer-enter-from,
-.drawer-leave-to {
-  opacity: 0;
-}
-
-.drawer-enter-from > div > div,
-.drawer-leave-to > div > div {
-  transform: translateX(100%);
-}
-</style>
