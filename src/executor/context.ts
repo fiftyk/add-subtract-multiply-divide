@@ -43,6 +43,18 @@ export class ExecutionContext {
       return param.value;
     }
 
+    // 处理 composite 类型：递归解析嵌套的参数
+    if (param.type === 'composite') {
+      const compositeValue = param.value as Record<string, ParameterValue>;
+      const resolved: Record<string, unknown> = {};
+
+      for (const [key, nestedParam] of Object.entries(compositeValue)) {
+        resolved[key] = this.resolveParameterValue(nestedParam); // 递归解析
+      }
+
+      return resolved;
+    }
+
     // 解析引用，格式: "step.{stepId}.{path}"
     const refStr = param.value as string;
 

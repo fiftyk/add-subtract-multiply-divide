@@ -450,6 +450,95 @@ describe('ExecutionContext', () => {
     });
   });
 
+  describe('resolveParameterValue() - composite type', () => {
+    it('should resolve composite parameter with nested references', () => {
+      context.setStepResult(1, { category: '电子产品', quantity: 5 });
+      context.setStepResult(2, { color: '黑色', size: 'M' });
+      context.setStepResult(3, { finalPrice: 2450 });
+
+      const param: ParameterValue = {
+        type: 'composite',
+        value: {
+          productInfo: {
+            type: 'composite',
+            value: {
+              category: { type: 'reference', value: 'step.1.category' },
+              quantity: { type: 'reference', value: 'step.1.quantity' },
+            },
+          },
+          specs: { type: 'reference', value: 'step.2.result' },
+          payment: {
+            type: 'composite',
+            value: {
+              finalPrice: { type: 'reference', value: 'step.3.finalPrice' },
+              method: { type: 'literal', value: '支付宝' },
+            },
+          },
+        },
+      };
+
+      const resolved = context.resolveParameterValue(param);
+
+      expect(resolved).toEqual({
+        productInfo: {
+          category: '电子产品',
+          quantity: 5,
+        },
+        specs: { color: '黑色', size: 'M' },
+        payment: {
+          finalPrice: 2450,
+          method: '支付宝',
+        },
+      });
+    });
+
+    it('should resolve composite parameter with only literals', () => {
+      const param: ParameterValue = {
+        type: 'composite',
+        value: {
+          name: { type: 'literal', value: 'Test' },
+          count: { type: 'literal', value: 10 },
+        },
+      };
+
+      expect(context.resolveParameterValue(param)).toEqual({
+        name: 'Test',
+        count: 10,
+      });
+    });
+
+    it('should resolve deeply nested composite structures', () => {
+      context.setStepResult(1, { basePrice: 2250 });
+
+      const param: ParameterValue = {
+        type: 'composite',
+        value: {
+          level1: {
+            type: 'composite',
+            value: {
+              level2: {
+                type: 'composite',
+                value: {
+                  price: { type: 'reference', value: 'step.1.basePrice' },
+                  discount: { type: 'literal', value: 0.1 },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      expect(context.resolveParameterValue(param)).toEqual({
+        level1: {
+          level2: {
+            price: 2250,
+            discount: 0.1,
+          },
+        },
+      });
+    });
+  });
+
   describe('edge cases and special values', () => {
     it('should handle null as step result', () => {
       context.setStepResult(1, null);

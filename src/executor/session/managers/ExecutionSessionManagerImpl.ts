@@ -284,6 +284,7 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
         await this.sessionStorage.updateSession(sessionId, {
           status: 'waiting_input',
           currentStepId: nextPendingStepId,
+          stepResults: result.steps, // ✅ Executor 已经合并了 previousStepResults
           pendingInput: {
             stepId: nextPendingStepId,
             schema: pendingInputSchema!,
@@ -300,7 +301,7 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
         // 返回部分结果，包含 waitingForInput 字段供 CoreBridge 发送 SSE 事件
         return {
           planId: session.plan.id,
-          steps: result.steps,
+          steps: result.steps, // ✅ Executor 已��合并了 previousStepResults
           finalResult: undefined,
           success: true,
           error: undefined,

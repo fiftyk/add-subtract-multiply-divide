@@ -4,7 +4,7 @@ import { injectable, inject } from 'inversify';
 import { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
 import { ToolSelector } from '../tools/interfaces/ToolSelector.js';
 import { ToolFormatter } from '../tools/interfaces/ToolFormatter.js';
-import type { ExecutionPlan, PlanResult, PlanStep } from './types.js';
+import type { ExecutionPlan, PlanResult, PlanStep, ParameterValue } from './types.js';
 import { StepType } from './types.js';
 import { isFunctionCallStep, isConditionalStep } from './type-guards.js';
 import { PlannerLLMClient } from './interfaces/PlannerLLMClient.js';
@@ -194,12 +194,15 @@ export class PlannerImpl implements Planner {
    * 格式化参数用于显示
    */
   private formatParameters(
-    params: Record<string, { type: 'literal' | 'reference'; value: unknown }>
+    params: Record<string, ParameterValue>
   ): string {
     return Object.entries(params)
       .map(([name, param]) => {
         if (param.type === 'reference') {
           return `${name}=\${${param.value}}`;
+        }
+        if (param.type === 'composite') {
+          return `${name}={...}`;
         }
         return `${name}=${JSON.stringify(param.value)}`;
       })

@@ -50,6 +50,7 @@ import type { A2UIComponent } from '../../../dist/src/a2ui/types.js';
 import { sseManager } from './SSEManager.js';
 import { registerBuiltInMathFunctions } from '../functions/builtInMath.js';
 import { registerPatentFunctions } from '../functions/patents.js';
+import { registerProductConfigFunctions } from '../functions/productConfig.js';
 
 /**
  * Core Bridge Service
@@ -72,6 +73,7 @@ export class CoreBridge {
     if (typeof this.functionProvider.register === 'function') {
       registerBuiltInMathFunctions((fn) => this.functionProvider.register!(fn));
       registerPatentFunctions((fn) => this.functionProvider.register!(fn));
+      registerProductConfigFunctions((fn) => this.functionProvider.register!(fn));
     }
   }
 

@@ -139,47 +139,94 @@
               <span v-if="field.required" class="text-red-600">*</span>
             </label>
 
-            <!-- Text Input -->
+            <!-- Text Input (A2UI v0.8) -->
+            <textarea
+              v-if="field.type === 'text' && field.config?.multiline"
+              :id="field.id"
+              v-model="inputData[field.id]"
+              :required="field.required"
+              :rows="field.config?.rows || 3"
+              :placeholder="field.config?.placeholder"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            ></textarea>
             <input
-              v-if="field.type === 'text'"
+              v-else-if="field.type === 'text'"
               :id="field.id"
               v-model="inputData[field.id]"
               type="text"
               :required="field.required"
+              :placeholder="field.config?.placeholder"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
 
-            <!-- Number Input -->
+            <!-- Number Input (A2UI v0.8 - validation.range) -->
             <input
               v-else-if="field.type === 'number'"
               :id="field.id"
               v-model.number="inputData[field.id]"
               type="number"
               :required="field.required"
+              :min="field.validation?.range?.min"
+              :max="field.validation?.range?.max"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
 
-            <!-- Date Input -->
+            <!-- Boolean Input (A2UI v0.8 - checkbox) -->
+            <div v-else-if="field.type === 'boolean'" class="flex items-center space-x-2">
+              <input
+                :id="field.id"
+                type="checkbox"
+                v-model="inputData[field.id]"
+                :required="field.required"
+                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label :for="field.id" class="text-sm text-gray-700">
+                {{ field.description || field.label }}
+              </label>
+            </div>
+
+            <!-- Date Input (A2UI v0.8) -->
             <input
               v-else-if="field.type === 'date'"
               :id="field.id"
               v-model="inputData[field.id]"
               type="date"
               :required="field.required"
+              :min="field.config?.minDate"
+              :max="field.config?.maxDate"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
 
-            <!-- Select Dropdown -->
+            <!-- Single Select (A2UI v0.8 - dropdown) -->
             <select
-              v-else-if="field.type === 'select'"
+              v-else-if="field.type === 'single_select'"
               :id="field.id"
               v-model="inputData[field.id]"
               :required="field.required"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">请选择{{ field.label }}</option>
+              <option value="">{{ field.config?.placeholder || `请选择${field.label}` }}</option>
               <option
-                v-for="option in resolveSelectOptions(field)"
+                v-for="option in field.config?.options"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+
+            <!-- Multi Select (A2UI v0.8 - multiple dropdown) -->
+            <select
+              v-else-if="field.type === 'multi_select'"
+              :id="field.id"
+              v-model="inputData[field.id]"
+              :required="field.required"
+              multiple
+              :size="Math.min(field.config?.options?.length || 5, 5)"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option
+                v-for="option in field.config?.options"
                 :key="option.value"
                 :value="option.value"
               >
