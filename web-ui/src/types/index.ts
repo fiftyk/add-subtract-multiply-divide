@@ -190,6 +190,19 @@ export interface GetSessionResponse {
   session: Session
 }
 
+export interface ListSessionsResponse {
+  sessions: SessionSummary[]
+}
+
+export interface SessionSummary {
+  id: string
+  planId: string
+  status: Session['status']
+  createdAt: string
+  completedAt?: string
+  platform: string
+}
+
 export interface ListPlansResponse {
   plans: Plan[]
 }

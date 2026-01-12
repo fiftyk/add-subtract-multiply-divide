@@ -608,6 +608,32 @@ export class CoreBridge {
   }
 
   /**
+   * 按计划 ID 列出会话
+   *
+   * @param planId - 计划 ID (可选，如果不提供则返回所有会话)
+   * @returns 会话列表
+   */
+  async listSessionsByPlan(planId?: string): Promise<ExecutionSession[]> {
+    try {
+      if (planId) {
+        const sessions = await this.sessionStorage.listSessionsByPlan(planId);
+        // 按创建时间倒序排列 (最新的在前)
+        return sessions.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      } else {
+        const sessions = await this.sessionStorage.listSessions({});
+        return sessions.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      }
+    } catch (error) {
+      console.error(`[CoreBridge] Error listing sessions:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * 列出所有计划
    *
    * @returns 计划列表
@@ -705,6 +731,7 @@ export const coreBridge = {
   get resumeSessionWithSSE() { return getCoreBridge().resumeSessionWithSSE.bind(getCoreBridge()); },
   get resumeSession() { return getCoreBridge().resumeSession.bind(getCoreBridge()); },
   get getSession() { return getCoreBridge().getSession.bind(getCoreBridge()); },
+  get listSessionsByPlan() { return getCoreBridge().listSessionsByPlan.bind(getCoreBridge()); },
   get listPlans() { return getCoreBridge().listPlans.bind(getCoreBridge()); },
   get getPlan() { return getCoreBridge().getPlan.bind(getCoreBridge()); },
   get cancelSession() { return getCoreBridge().cancelSession.bind(getCoreBridge()); },

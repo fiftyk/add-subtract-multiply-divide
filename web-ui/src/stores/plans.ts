@@ -1,13 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { plansApi } from '../services/api'
-import type { Plan } from '../types'
+import { plansApi, sessionsApi } from '../services/api'
+import type { Plan, SessionSummary } from '../types'
 
 export const usePlansStore = defineStore('plans', () => {
   // State
   const plans = ref<Plan[]>([])
   const selectedPlan = ref<Plan | null>(null)
+  const planSessions = ref<SessionSummary[]>([])
   const loading = ref(false)
+  const sessionsLoading = ref(false)
   const error = ref<string | null>(null)
 
   // Getters
@@ -49,6 +51,22 @@ export const usePlansStore = defineStore('plans', () => {
     }
   }
 
+  async function loadPlanSessions(planId: string) {
+    sessionsLoading.value = true
+    error.value = null
+
+    try {
+      planSessions.value = await sessionsApi.list(planId)
+      console.log(`[PlansStore] Loaded ${planSessions.value.length} sessions for plan:`, planId)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to load sessions'
+      console.error('[PlansStore] Error loading sessions:', err)
+      throw err
+    } finally {
+      sessionsLoading.value = false
+    }
+  }
+
   function selectPlan(plan: Plan | null) {
     selectedPlan.value = plan
   }
@@ -61,7 +79,9 @@ export const usePlansStore = defineStore('plans', () => {
     // State
     plans,
     selectedPlan,
+    planSessions,
     loading,
+    sessionsLoading,
     error,
 
     // Getters
@@ -71,6 +91,7 @@ export const usePlansStore = defineStore('plans', () => {
     // Actions
     loadPlans,
     loadPlan,
+    loadPlanSessions,
     selectPlan,
     clearError
   }

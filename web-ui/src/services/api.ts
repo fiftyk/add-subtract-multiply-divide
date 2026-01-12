@@ -7,6 +7,8 @@ import type {
   ResumeSessionRequest,
   ResumeSessionResponse,
   GetSessionResponse,
+  ListSessionsResponse,
+  SessionSummary,
   ListPlansResponse,
   GetPlanResponse
 } from '../types'
@@ -45,6 +47,15 @@ export const plansApi = {
  * Sessions API
  */
 export const sessionsApi = {
+  /**
+   * List sessions (optionally filtered by planId)
+   */
+  async list(planId?: string): Promise<SessionSummary[]> {
+    const url = planId ? `/sessions?planId=${planId}` : '/sessions'
+    const response = await api.get<ListSessionsResponse>(url)
+    return response.data.sessions
+  },
+
   /**
    * Create and execute a new session
    */

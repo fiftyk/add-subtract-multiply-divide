@@ -15,6 +15,38 @@ import type {
  */
 export default async function sessionsRoutes(fastify: FastifyInstance) {
   /**
+   * GET /api/sessions
+   * List sessions (optionally filtered by planId)
+   */
+  fastify.get<{ Querystring: { planId?: string } }>(
+    '/',
+    async (request, reply) => {
+      const { planId } = request.query;
+
+      try {
+        const sessions = await coreBridge.listSessionsByPlan(planId);
+
+        return {
+          sessions: sessions.map(session => ({
+            id: session.id,
+            planId: session.planId,
+            status: session.status,
+            createdAt: session.createdAt,
+            completedAt: session.completedAt,
+            platform: session.platform
+          }))
+        };
+      } catch (error) {
+        console.error('Error listing sessions:', error);
+        return reply.status(500).send({
+          error: 'Failed to list sessions',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+  );
+
+  /**
    * POST /api/sessions/execute
    * Create and start executing a session
    */
