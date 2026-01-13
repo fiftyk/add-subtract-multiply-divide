@@ -43,6 +43,14 @@ import { MCPClient } from '../function-provider/transports/MCPClient.js';
 import { MCPServerConfigProvider } from '../mcp/interfaces/MCPServerConfigProvider.js';
 import { MCPServerConfigProviderImpl } from '../mcp/MCPServerConfigProviderImpl.js';
 import type { MCPServerConfig } from '../config/types.js';
+import { FunctionSearchService } from '../functions-service/interfaces/FunctionSearchService.js';
+import { SimpleFunctionSearchService } from '../functions-service/implementations/SimpleFunctionSearchService.js';
+import { FunctionCategoryService } from '../functions-service/interfaces/FunctionCategoryService.js';
+import { DefaultCategoryService } from '../functions-service/implementations/DefaultCategoryService.js';
+import { FunctionsService } from '../functions-service/interfaces/FunctionsService.js';
+import { FunctionsServiceImpl } from '../functions-service/implementations/FunctionsServiceImpl.js';
+import { FunctionService } from '../function-service/interfaces/FunctionService.js';
+import { FunctionServiceImpl } from '../function-service/implementations/FunctionServiceImpl.js';
 
 /**
  * 注册核心服务绑定（跨端共享）
@@ -106,8 +114,8 @@ export function registerCoreBindings(container: Container): void {
     });
   });
 
-  // CompositeFunctionProvider - 组合本地和远程函数提供者
-  container.bind(FunctionProvider).to(CompositeFunctionProvider);
+  // CompositeFunctionProvider - 组合本地和远程函数提供者（单例）
+  container.bind(FunctionProvider).to(CompositeFunctionProvider).inSingletonScope();
 
   // ============================================
   // Tools - 工具选择器和格式化器
@@ -204,4 +212,16 @@ export function registerCoreBindings(container: Container): void {
   // MockServiceFactory
   // ============================================
   container.bind<MockServiceFactory>(MockServiceFactory).to(MockServiceFactoryImpl);
+
+  // ============================================
+  // Functions Service - 函数管理服务
+  // ============================================
+  container.bind(FunctionSearchService).to(SimpleFunctionSearchService);
+  container.bind(FunctionCategoryService).to(DefaultCategoryService);
+  container.bind(FunctionsService).to(FunctionsServiceImpl);
+
+  // ============================================
+  // Function Service - 统一的函数管理服务（新）
+  // ============================================
+  container.bind(FunctionService).to(FunctionServiceImpl);
 }

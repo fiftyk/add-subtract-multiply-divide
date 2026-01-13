@@ -17,6 +17,13 @@
             >
               Plans
             </router-link>
+            <router-link
+              to="/functions"
+              class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+              active-class="bg-gray-100 text-gray-900"
+            >
+              Functions
+            </router-link>
           </nav>
         </div>
       </div>

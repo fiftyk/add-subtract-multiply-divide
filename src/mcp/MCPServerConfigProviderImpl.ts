@@ -22,9 +22,41 @@ export class MCPServerConfigProviderImpl implements MCPServerConfigProvider {
   private readonly configPath: string;
 
   constructor(@unmanaged() configPath?: string) {
-    // 默认从项目根目录加载配置文件
-    this.configPath = configPath || path.resolve(process.cwd(), 'fn-orchestrator.mcp.json');
+    // 如果提供了明确的路径，直接使用
+    if (configPath) {
+      this.configPath = configPath;
+    } else {
+      // 否则，从当前目录开始向上查找 fn-orchestrator.mcp.json
+      this.configPath = this.findConfigFile();
+    }
     this.loadConfig();
+  }
+
+  /**
+   * 从当前目录向上查找配置文件
+   */
+  private findConfigFile(): string {
+    const configFileName = 'fn-orchestrator.mcp.json';
+    let currentDir = process.cwd();
+    const root = path.parse(currentDir).root;
+
+    // 向上查找，直到找到配置文件或到达根目录
+    while (currentDir !== root) {
+      const configPath = path.join(currentDir, configFileName);
+      if (fs.existsSync(configPath)) {
+        return configPath;
+      }
+      // 移动到父目录
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        // 已到达根目录
+        break;
+      }
+      currentDir = parentDir;
+    }
+
+    // 如果没找到，返回当前目录的默认路径
+    return path.join(process.cwd(), configFileName);
   }
 
   /**

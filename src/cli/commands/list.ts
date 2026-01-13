@@ -1,9 +1,8 @@
 import container from '../../container/cli-container.js';
-import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
+import { FunctionService } from '../../function-service/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { A2UIService } from '../../a2ui/A2UIService.js';
-import { loadFunctions } from '../utils.js';
 
 interface ListFunctionsOptions {
   functions: string;
@@ -11,13 +10,13 @@ interface ListFunctionsOptions {
 
 /**
  * List Command - 列表查询命令
- * 
+ *
  * 使用工厂函数模式手动解析依赖，避免循环导入问题
  */
 export class ListCommand {
   constructor(
     private ui: A2UIService,
-    private functionProvider: FunctionProvider,
+    private functionService: FunctionService,
     private storage: Storage,
     private planner: Planner
   ) {}
@@ -26,18 +25,22 @@ export class ListCommand {
     try {
       this.ui.startSurface('list-functions');
 
-      await loadFunctions(this.functionProvider, options.functions);
-      const allFunctions = await this.functionProvider.list();
+      // 使用 FunctionService 初始化和加载函数
+      await this.functionService.initialize({
+        functionsPath: options.functions,
+        autoConnect: true,
+      });
 
-      if (allFunctions.length === 0) {
+      // 获取分类后的函数列表
+      const { local: localFunctions, remote: remoteFunctions } =
+        await this.functionService.getCategorizedFunctions();
+
+      if (localFunctions.length === 0 && remoteFunctions.length === 0) {
         this.ui.badge('没有找到已注册的函数', 'warning');
         this.ui.caption(`请检查函数定义文件: ${options.functions}`);
         this.ui.endSurface();
         process.exit(1);
       }
-
-      const localFunctions = allFunctions.filter(f => f.source === 'local');
-      const remoteFunctions = allFunctions.filter(f => f.source !== 'local');
 
       if (localFunctions.length > 0) {
         this.ui.heading(`📚 本地函数 (${localFunctions.length} 个):`);
@@ -139,7 +142,7 @@ export class ListCommand {
 function createListCommand(): ListCommand {
   return new ListCommand(
     container.get<A2UIService>(A2UIService),
-    container.get<FunctionProvider>(FunctionProvider),
+    container.get<FunctionService>(FunctionService),
     container.get<Storage>(Storage),
     container.get<Planner>(Planner)
   );

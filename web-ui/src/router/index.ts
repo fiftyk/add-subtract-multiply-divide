@@ -16,6 +16,14 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/functions',
+    name: 'functions',
+    component: () => import('../views/FunctionsView.vue'),
+    meta: {
+      title: 'Functions'
+    }
+  },
+  {
     path: '/plans/:id',
     name: 'plan-detail',
     component: () => import('../views/PlanDetailView.vue'),
