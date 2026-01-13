@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { Session, SurfaceUpdateEvent } from '../../types'
+import type { Session } from '../../types'
 
 // Mock the API module
 vi.mock('../../services/api', () => ({
@@ -219,7 +219,7 @@ describe('SessionStore', () => {
       await store.loadSession('session-123')
 
       expect(store.surfaceUpdates.length).toBe(1)
-      expect(store.surfaceUpdates[0].surfaceId).toBe('result-session-123-1')
+      expect(store.surfaceUpdates[0]?.surfaceId).toBe('result-session-123-1')
     })
 
     it('should generate Table component for array results', async () => {
@@ -254,12 +254,12 @@ describe('SessionStore', () => {
       await store.loadSession('session-123')
 
       expect(store.surfaceUpdates.length).toBe(1)
-      const components = store.surfaceUpdates[0].components
-      expect(components.length).toBe(1)
-      expect(components[0].id).toBe('table-1')
-      expect(components[0].component).toHaveProperty('Table')
-      expect((components[0].component as any).Table.headers).toEqual(['title', 'pn', 'inventor', 'pubDate'])
-      expect((components[0].component as any).Table.rows.length).toBe(2)
+      const components = store.surfaceUpdates[0]?.components
+      expect(components?.length).toBe(1)
+      expect(components?.[0]?.id).toBe('table-1')
+      expect(components?.[0]?.component).toHaveProperty('Table')
+      expect((components?.[0]?.component as any).Table.headers).toEqual(['title', 'pn', 'inventor', 'pubDate'])
+      expect((components?.[0]?.component as any).Table.rows.length).toBe(2)
     })
 
     it('should generate Card component for object results', async () => {
@@ -291,11 +291,11 @@ describe('SessionStore', () => {
       await store.loadSession('session-123')
 
       expect(store.surfaceUpdates.length).toBe(1)
-      const components = store.surfaceUpdates[0].components
-      expect(components.length).toBe(1)
-      expect(components[0].id).toBe('card-1')
-      expect(components[0].component).toHaveProperty('Card')
-      expect((components[0].component as any).Card.title).toBe('getStats')
+      const components = store.surfaceUpdates[0]?.components
+      expect(components?.length).toBe(1)
+      expect(components?.[0]?.id).toBe('card-1')
+      expect(components?.[0]?.component).toHaveProperty('Card')
+      expect((components?.[0]?.component as any).Card.title).toBe('getStats')
     })
 
     it('should generate Text component for primitive results', async () => {
@@ -327,11 +327,11 @@ describe('SessionStore', () => {
       await store.loadSession('session-123')
 
       expect(store.surfaceUpdates.length).toBe(1)
-      const components = store.surfaceUpdates[0].components
-      expect(components.length).toBe(1)
-      expect(components[0].id).toBe('text-1')
-      expect(components[0].component).toHaveProperty('Text')
-      expect((components[0].component as any).Text.text).toContain('8')
+      const components = store.surfaceUpdates[0]?.components
+      expect(components?.length).toBe(1)
+      expect(components?.[0]?.id).toBe('text-1')
+      expect(components?.[0]?.component).toHaveProperty('Text')
+      expect((components?.[0]?.component as any).Text.text).toContain('8')
     })
 
     it('should handle empty arrays', async () => {
@@ -363,9 +363,9 @@ describe('SessionStore', () => {
       await store.loadSession('session-123')
 
       expect(store.surfaceUpdates.length).toBe(1)
-      const components = store.surfaceUpdates[0].components
-      expect(components.length).toBe(1)
-      expect(components[0].component).toHaveProperty('Text')
+      const components = store.surfaceUpdates[0]?.components
+      expect(components?.length).toBe(1)
+      expect(components?.[0]?.component).toHaveProperty('Text')
     })
 
     it('should skip placeholder user input results (success: false, values: {})', async () => {

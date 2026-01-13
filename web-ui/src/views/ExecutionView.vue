@@ -440,7 +440,6 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSessionStore } from '../stores/session'
 import A2UIRenderer from '../components/A2UIRenderer.vue'
-import type { A2UIComponent } from '../types'
 
 const route = useRoute()
 const sessionStore = useSessionStore()
