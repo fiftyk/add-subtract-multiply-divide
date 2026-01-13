@@ -2,8 +2,9 @@
  * MCP FunctionProvider 接口定义
  */
 
-import type { FunctionMetadata, FunctionExecutionResult } from '../types.js';
+import type { FunctionMetadata } from '../types.js';
 import type { ParameterDef } from '../../registry/types.js';
+import type { RemoteFunctionResult } from '../transports/MCPClient.js';
 
 /**
  * 远程函数信息（MCP 格式）
@@ -32,7 +33,7 @@ export interface MCPClientInterface {
   has(name: string): Promise<boolean>;
   list(): Promise<MCPFunctionInfo[]>;
   get(name: string): Promise<MCPFunctionInfo | undefined>;
-  execute(name: string, params: Record<string, unknown>): Promise<FunctionExecutionResult>;
+  execute(name: string, params: Record<string, unknown>): Promise<RemoteFunctionResult>;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   isConnected(): boolean;
