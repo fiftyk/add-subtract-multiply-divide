@@ -167,7 +167,7 @@ export function getFunctionsDir(callerDir?: string): string {
   }
 
   // Project root functions directory
-  const projectRootDir = path.resolve(__dirname, '../../../../functions');
+  const projectRootDir = path.resolve(__dirname, '../../../functions');
 
   // Check if project root functions directory exists
   try {

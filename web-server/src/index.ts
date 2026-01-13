@@ -72,11 +72,23 @@ import { MockA2UIRenderer } from './services/WebA2UIRenderer.js';
 container.bind(A2UIRenderer).to(MockA2UIRenderer);
 console.log('[WebServer] Bound MockA2UIRenderer for web mode');
 
+// Initialize CoreBridge early to load functions
+import { getCoreBridge } from './services/CoreBridge.js';
+
+console.log('[WebServer] Initializing CoreBridge...');
+const coreBridge = getCoreBridge();
+
+// Wait for CoreBridge initialization to complete (including MCP connections)
+await coreBridge.waitForInitialization();
+console.log('[WebServer] CoreBridge initialized');
+
 const { default: sessionsRoutes } = await import('./routes/sessions.js');
 const { default: plansRoutes } = await import('./routes/plans.js');
+const { default: functionsRoutes } = await import('./routes/functions.js');
 
 await fastify.register(sessionsRoutes, { prefix: '/api/sessions' });
 await fastify.register(plansRoutes, { prefix: '/api/plans' });
+await fastify.register(functionsRoutes, { prefix: '/api/functions' });
 
 /**
  * Health check endpoint
@@ -99,7 +111,8 @@ fastify.get('/', async (request, reply) => {
     endpoints: {
       health: '/health',
       sessions: '/api/sessions',
-      plans: '/api/plans'
+      plans: '/api/plans',
+      functions: '/api/functions'
     }
   };
 });
@@ -129,6 +142,7 @@ const start = async () => {
     console.log(`🔗 Health Check: http://localhost:${PORT}/health`);
     console.log(`📝 Plans API: http://localhost:${PORT}/api/plans`);
     console.log(`🎯 Sessions API: http://localhost:${PORT}/api/sessions`);
+    console.log(`⚡ Functions API: http://localhost:${PORT}/api/functions`);
     console.log(`🌐 CORS enabled for: ${FRONTEND_URL}`);
     console.log('\nPress Ctrl+C to stop\n');
   } catch (err) {

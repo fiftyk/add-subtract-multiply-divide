@@ -39,6 +39,8 @@ import { Storage } from '../../../dist/src/storage/index.js';
 // @ts-ignore - Importing from parent project's dist folder
 import { FunctionProvider } from '../../../dist/src/function-provider/interfaces/FunctionProvider.js';
 // @ts-ignore - Importing from parent project's dist folder
+import { FunctionService } from '../../../dist/src/function-service/index.js';
+// @ts-ignore - Importing from parent project's dist folder
 import type { ExecutionPlan } from '../../../dist/src/planner/types.js';
 // @ts-ignore - Importing from parent project's dist folder
 import type { ExecutionSession } from '../../../dist/src/executor/session/types.js';
@@ -47,6 +49,8 @@ import type { ExecutionResult, StepResult } from '../../../dist/src/executor/typ
 // @ts-ignore - Importing from parent project's dist folder
 import type { A2UIComponent } from '../../../dist/src/a2ui/types.js';
 
+// @ts-ignore - Importing from parent project's dist folder
+import { FunctionService } from '../../../dist/src/function-service/index.js';
 import { sseManager } from './SSEManager.js';
 import { autoLoadFunctions, getFunctionsDir } from '../utils/AutoLoadFunctions.js';
 
@@ -59,25 +63,54 @@ export class CoreBridge {
   private sessionManager: ExecutionSessionManager;
   private sessionStorage: ExecutionSessionStorage;
   private planStorage: Storage;
+  private functionService: FunctionService;
   private functionProvider: FunctionProvider;
+  private initializationPromise: Promise<void>;
 
   constructor() {
     this.sessionManager = container.get<ExecutionSessionManager>(ExecutionSessionManager);
     this.sessionStorage = container.get<ExecutionSessionStorage>(ExecutionSessionStorage);
     this.planStorage = container.get<Storage>(Storage);
+    this.functionService = container.get<FunctionService>(FunctionService);
     this.functionProvider = container.get<FunctionProvider>(FunctionProvider);
 
-    // Auto-load all functions from the functions directory
-    if (typeof this.functionProvider.register === 'function') {
-      const functionsDir = getFunctionsDir(__dirname);
-      autoLoadFunctions(functionsDir, (fn) => this.functionProvider.register!(fn))
-        .then(count => {
-          console.log(`[CoreBridge] Auto-loaded ${count} built-in functions`);
-        })
-        .catch(error => {
-          console.error('[CoreBridge] Failed to auto-load functions:', error);
-        });
-    }
+    // 使用 FunctionService 初始化（仅连接 MCP servers）
+    this.initializationPromise = this.functionService
+      .initialize({
+        autoConnect: true,
+      })
+      .then(async () => {
+        console.log('[CoreBridge] FunctionService.initialize() completed');
+
+        // 调试：检查 functionProvider 的类型
+        console.log(`[CoreBridge] FunctionProvider type: ${this.functionProvider.getType()}`);
+
+        // 调试：尝试直接列举函数（触发懒加载）
+        const allFunctionsBeforeLoad = await this.functionProvider.list();
+        console.log(`[CoreBridge] Functions before local load: ${allFunctionsBeforeLoad.length} (${allFunctionsBeforeLoad.filter(f => f.type === 'remote').length} remote)`);
+
+        // 加载本地函数（使用 autoLoadFunctions 工具，因为 web-server 运行 TypeScript）
+        const functionsDir = getFunctionsDir(__dirname);
+        const count = await autoLoadFunctions(functionsDir, (fn) => this.functionProvider.register!(fn));
+        console.log(`[CoreBridge] Auto-loaded ${count} built-in functions`);
+
+        // 日志输出统计信息
+        const { local, remote } = await this.functionService.getCategorizedFunctions();
+        console.log(`[CoreBridge] Total: ${local.length} local functions, ${remote.length} remote functions`);
+        if (remote.length > 0) {
+          console.log(`[CoreBridge] Remote functions:`, remote.map(f => `${f.name} (${f.source})`).join(', '));
+        }
+      })
+      .catch(error => {
+        console.error('[CoreBridge] Failed to initialize FunctionService:', error);
+      });
+  }
+
+  /**
+   * 等待初始化完成
+   */
+  async waitForInitialization(): Promise<void> {
+    await this.initializationPromise;
   }
 
   /**
@@ -103,8 +136,9 @@ export class CoreBridge {
       if (plan.metadata?.usesMocks) {
         try {
           const planMocks = await this.planStorage.loadPlanMocks(planId);
+          const functionProvider = container.get<FunctionProvider>(FunctionProvider);
           planMocks.forEach((fn: any) => {
-            this.functionProvider.register?.(fn as any);
+            functionProvider.register?.(fn as any);
           });
           console.log(`[CoreBridge] Loaded ${planMocks.length} mock functions for plan ${planId}`);
         } catch (error) {
@@ -193,7 +227,8 @@ export class CoreBridge {
           surfaceId: `form-${sessionId}`,
           schema: (firstUserInputStep as any).schema,
           stepId: firstUserInputStep.stepId,
-          components, // 新增：进度和说明组件
+          // @ts-ignore - components 是扩展属性
+          components,
           timestamp: new Date().toISOString()
         });
 
@@ -531,7 +566,8 @@ export class CoreBridge {
           stepId: nextPendingStepId,
           surfaceId: `user-input-${nextPendingStepId}`,
           schema: pendingInputSchema,
-          components, // 新增：进度和说明组件
+          // @ts-ignore - components 是扩展属性
+          components,
           timestamp: new Date().toISOString()
         });
 
