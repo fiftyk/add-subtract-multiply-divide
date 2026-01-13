@@ -76,22 +76,62 @@ export class ExecutorImpl implements Executor {
 
   /**
    * 执行计划
+   *
+   * @param plan - 执行计划
+   * @param options - 执行选项
+   * @param options.startFromStep - 从指定步骤开始执行（用于恢复）
+   * @param options.initialContext - 初始上下文（用于恢复，包含之���步骤的结果）
+   * @param options.previousStepResults - 之前步骤的结果（用于恢复）
    */
-  async execute(plan: ExecutionPlan): Promise<ExecutionResult> {
+  async execute(
+    plan: ExecutionPlan,
+    options?: {
+      startFromStep?: number;
+      initialContext?: Record<string, unknown>;
+      previousStepResults?: StepResult[];
+    }
+  ): Promise<ExecutionResult> {
     // Validate plan before execution
     PlanValidator.validatePlan(plan);
 
-    this.logger.debug('📝 执行计划', { planId: plan.id, stepsCount: plan.steps.length });
+    const startFromStep = options?.startFromStep ?? 0;
+    const previousStepResults = options?.previousStepResults ?? [];
+
+    this.logger.debug('📝 执行计划', {
+      planId: plan.id,
+      stepsCount: plan.steps.length,
+      startFromStep,
+      resuming: startFromStep > 0
+    });
 
     const context = new ExecutionContext();
-    const stepResults: StepResult[] = [];
-    const startedAt = new Date().toISOString();
+
+    // 恢复之前步骤的结果到context（如果有）
+    if (previousStepResults.length > 0) {
+      for (const stepResult of previousStepResults) {
+        if (stepResult.success) {
+          if (stepResult.type === StepType.FUNCTION_CALL) {
+            context.setStepResult(stepResult.stepId, stepResult.result);
+          } else if (stepResult.type === StepType.USER_INPUT) {
+            context.setStepResult(stepResult.stepId, stepResult.values);
+          }
+        }
+      }
+      this.logger.debug('Context restored from previous step results', {
+        stepsRestored: previousStepResults.length
+      });
+    }
+
+    const stepResults: StepResult[] = [...previousStepResults];
+    const startedAt = previousStepResults[0]?.executedAt ?? new Date().toISOString();
 
     let finalResult: unknown = undefined;
     let overallSuccess = true;
     let overallError: string | undefined;
 
-    for (const step of plan.steps) {
+    // 从指定步骤开始执行
+    for (let i = startFromStep; i < plan.steps.length; i++) {
+      const step = plan.steps[i];
       const stepDesc = isFunctionCallStep(step)
         ? `function: ${step.functionName}`
         : 'user input';

@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { listCommand } from '../list.js';
-import { FunctionProvider } from '../../../function-provider/interfaces/FunctionProvider.js';
 import { Storage } from '../../../storage/interfaces/Storage.js';
 import { Planner } from '../../../planner/interfaces/IPlanner.js';
-import type { FunctionDefinition } from '../../../registry/types.js';
+import { FunctionService } from '../../../function-service/interfaces/FunctionService.js';
 import type { ExecutionPlan } from '../../../planner/types.js';
 
 // Mock A2UIService
@@ -25,20 +24,14 @@ vi.mock('../../../container/cli-container.js', () => ({
   },
 }));
 
-// Mock loadFunctions
-vi.mock('../../utils.js', () => ({
-  loadFunctions: vi.fn(),
-}));
-
 // Import after mocks
 import container from '../../../container/cli-container.js';
-import { loadFunctions } from '../../utils.js';
 import { A2UIService } from '../../../a2ui/A2UIService.js';
 
 describe('list command', () => {
-  let mockFunctionProvider: Partial<FunctionProvider>;
   let mockStorage: Partial<Storage>;
   let mockPlanner: Partial<Planner>;
+  let mockFunctionService: any;
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -49,13 +42,6 @@ describe('list command', () => {
       return undefined as never;
     }) as any);
 
-    vi.mocked(loadFunctions).mockResolvedValue(undefined);
-
-    mockFunctionProvider = {
-      list: vi.fn(),
-      register: vi.fn(),
-    };
-
     mockStorage = {
       listPlans: vi.fn(),
       loadPlan: vi.fn(),
@@ -65,11 +51,18 @@ describe('list command', () => {
       formatPlanForDisplay: vi.fn(),
     };
 
+    mockFunctionService = {
+      listFunctions: vi.fn().mockResolvedValue([]),
+      getCategorizedFunctions: vi.fn().mockResolvedValue({ local: [], remote: [] }),
+      initialize: vi.fn().mockResolvedValue(undefined),
+      isInitialized: vi.fn().mockReturnValue(true),
+    };
+
     vi.mocked(container.get).mockImplementation(<T,>(token: any): T => {
-      if (token === FunctionProvider) return mockFunctionProvider as T;
       if (token === Storage) return mockStorage as T;
       if (token === Planner) return mockPlanner as T;
       if (token === A2UIService) return mockA2UIService as T;
+      if (token === FunctionService) return mockFunctionService as T;
       throw new Error(`Unexpected token: ${token?.toString()}`);
     });
   });
@@ -82,7 +75,8 @@ describe('list command', () => {
     const options = { functions: './dist/functions/index.js' };
 
     it('should list local functions', async () => {
-      const mockFunctions: FunctionDefinition[] = [{
+      const localFunc = {
+        id: 'add',
         name: 'add',
         description: '加法运算',
         scenario: '两个数相加',
@@ -91,30 +85,37 @@ describe('list command', () => {
           { name: 'b', type: 'number', description: '第二个数' },
         ],
         returns: { type: 'number', description: '两数之和' },
-        implementation: (a: number, b: number) => a + b,
         source: 'local',
-      }];
+        type: 'local' as const,
+      };
 
-      (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockResolvedValue({
+        local: [localFunc],
+        remote: [],
+      });
 
       await listCommand.functions(options);
 
       expect(exitSpy).toHaveBeenCalledWith(0);
-      expect(loadFunctions).toHaveBeenCalledWith(mockFunctionProvider, options.functions);
+      expect(mockFunctionService.initialize).toHaveBeenCalled();
       expect(mockA2UIService.heading).toHaveBeenCalledWith(expect.stringContaining('本地函数'));
     });
 
     it('should list remote functions', async () => {
-      const mockFunctions: FunctionDefinition[] = [{
+      const remoteFunc = {
+        id: 'remoteTool',
         name: 'remoteTool',
         description: 'Remote tool description',
         parameters: [{ name: 'input', type: 'string', description: 'Input data' }],
         returns: { type: 'string', description: 'Output data' },
-        implementation: () => {},
         source: 'mcp-server-1',
-      }];
+        type: 'remote' as const,
+      };
 
-      (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockResolvedValue({
+        local: [],
+        remote: [remoteFunc],
+      });
 
       await listCommand.functions(options);
 
@@ -123,12 +124,13 @@ describe('list command', () => {
     });
 
     it('should list both local and remote functions', async () => {
-      const mockFunctions: FunctionDefinition[] = [
-        { name: 'localFunc', description: 'Local', parameters: [], returns: { type: 'void', description: '' }, implementation: () => {}, source: 'local' },
-        { name: 'remoteFunc', description: 'Remote', parameters: [], returns: { type: 'void', description: '' }, implementation: () => {}, source: 'remote' },
-      ];
+      const localFunc = { id: 'localFunc', name: 'localFunc', description: 'Local', parameters: [], returns: { type: 'void', description: '' }, source: 'local', type: 'local' as const };
+      const remoteFunc = { id: 'remoteFunc', name: 'remoteFunc', description: 'Remote', parameters: [], returns: { type: 'void', description: '' }, source: 'remote', type: 'remote' as const };
 
-      (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockResolvedValue({
+        local: [localFunc],
+        remote: [remoteFunc],
+      });
 
       await listCommand.functions(options);
 
@@ -137,7 +139,10 @@ describe('list command', () => {
     });
 
     it('should handle no functions found - exit with code 1', async () => {
-      vi.mocked(mockFunctionProvider.list!).mockResolvedValue([]);
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockResolvedValue({
+        local: [],
+        remote: [],
+      });
 
       await listCommand.functions(options);
 
@@ -146,7 +151,7 @@ describe('list command', () => {
     });
 
     it('should handle errors - exit with code 1', async () => {
-      (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Failed to list functions'));
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockRejectedValue(new Error('Failed to list functions'));
 
       await listCommand.functions(options);
 
@@ -155,17 +160,21 @@ describe('list command', () => {
     });
 
     it('should display function with scenario', async () => {
-      const mockFunctions: FunctionDefinition[] = [{
+      const localFunc = {
+        id: 'testFunc',
         name: 'testFunc',
         description: 'Test function',
         scenario: 'Use this when testing',
         parameters: [],
         returns: { type: 'void', description: 'No return' },
-        implementation: () => {},
         source: 'local',
-      }];
+        type: 'local' as const,
+      };
 
-      (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockResolvedValue({
+        local: [localFunc],
+        remote: [],
+      });
 
       await listCommand.functions(options);
 
@@ -174,16 +183,20 @@ describe('list command', () => {
     });
 
     it('should display remote function without parameters', async () => {
-      const mockFunctions: FunctionDefinition[] = [{
+      const remoteFunc = {
+        id: 'noParamFunc',
         name: 'noParamFunc',
         description: 'Function without parameters',
         parameters: [],
         returns: { type: 'string', description: 'Result' },
-        implementation: () => {},
         source: 'remote',
-      }];
+        type: 'remote' as const,
+      };
 
-      (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
+      vi.mocked(mockFunctionService.getCategorizedFunctions).mockResolvedValue({
+        local: [],
+        remote: [remoteFunc],
+      });
 
       await listCommand.functions(options);
 

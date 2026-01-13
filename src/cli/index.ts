@@ -4,6 +4,7 @@ import { planCommand } from './commands/plan.js';
 import { executeCommand } from './commands/execute.js';
 import { listCommand } from './commands/list.js';
 import { refineCommand } from './commands/refine.js';
+import * as sessionsCommand from './commands/sessions.js';
 import { ConfigManager } from '../config/index.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -91,5 +92,48 @@ program
   .option('-p, --prompt <text>', '单次改进指令')
   .option('-s, --session <sessionId>', '继续现有会话')
   .action(refineCommand);
+
+// sessions 命令
+program
+  .command('sessions')
+  .description('管理执行会话')
+  .addCommand(
+    new Command('list')
+      .description('列出执行会话')
+      .option('--plan <planId>', '按 plan 过滤')
+      .option('--status <status>', '按状态过滤 (pending, running, completed, failed)')
+      .action(sessionsCommand.listCommand)
+  )
+  .addCommand(
+    new Command('show')
+      .description('显示会话详情')
+      .argument('<sessionId>', '会话ID')
+      .action(sessionsCommand.showCommand)
+  )
+  .addCommand(
+    new Command('retry')
+      .description('重试失败的会话')
+      .argument('<sessionId>', '会话ID')
+      .option('--from-step <stepId>', '从指定步骤开始', (val) => {
+        const parsed = parseInt(val, 10);
+        if (isNaN(parsed) || parsed < 0) {
+          throw new Error(`--from-step 必须是非负整数，当前值: ${val}`);
+        }
+        return parsed;
+      })
+      .action(sessionsCommand.retryCommand)
+  )
+  .addCommand(
+    new Command('delete')
+      .description('删除会话')
+      .argument('<sessionId>', '会话ID')
+      .action(sessionsCommand.deleteCommand)
+  )
+  .addCommand(
+    new Command('stats')
+      .description('显示执行统计')
+      .argument('<planId>', '计划ID')
+      .action(sessionsCommand.statsCommand)
+  );
 
 program.parse();

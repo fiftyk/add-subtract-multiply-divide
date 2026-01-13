@@ -12,21 +12,36 @@ import { ExecutionSessionStore } from '../executor/session/interfaces/SessionSto
 import { MemorySessionStore } from '../executor/session/implementations/MemorySessionStore.js';
 
 /**
+ * 检查是否在 Web 服务器环境中运行
+ */
+function isWebServer(): boolean {
+  // 检查是否通过 web-server 启动（通过环境变量或模块检测）
+  const result = process.env.WEB_SERVER === 'true' ||
+    process.argv[1]?.includes('web-server') ||
+    process.argv[1]?.includes('dist/index.js');
+  console.error(`[CLI-Bindings] isWebServer check: env=${process.env.WEB_SERVER}, argv[1]=${process.argv[1]}, result=${result}`);
+  return result;
+}
+
+/**
  * 注册 CLI 端特有的服务绑定
  */
 export function registerCLIBindings(container: Container): void {
   // ============================================
-  // A2UIRenderer - CLIRenderer 实现
+  // A2UIRenderer - 仅在 CLI 模式下绑定
   // ============================================
-  container.bind(A2UIRenderer).to(CLIRenderer);
+  // 在 Web 服务器模式下不绑定 A2UIRenderer，因为 Web 场景不需要交互式输入
+  if (!isWebServer()) {
+    container.bind(A2UIRenderer).to(CLIRenderer);
 
-  // ============================================
-  // A2UIService - 使用 renderer 的高级 API
-  // ============================================
-  container.bind(A2UIService).toDynamicValue(() => {
-    const renderer = container.get<A2UIRenderer>(A2UIRenderer);
-    return new A2UIService(renderer);
-  });
+    // ============================================
+    // A2UIService - 使用 renderer 的高级 API
+    // ============================================
+    container.bind(A2UIService).toDynamicValue(() => {
+      const renderer = container.get<A2UIRenderer>(A2UIRenderer);
+      return new A2UIService(renderer);
+    });
+  }
 
   // ============================================
   // ExecutionSessionStore - 内存存储 (CLI 场景)

@@ -1,9 +1,9 @@
 /**
- * 参数值 - 可以是字面量或引用前一步的结果
+ * 参数值 - 可以是字面量、引用前一步的结果、或组合对象
  */
 export interface ParameterValue {
-  type: 'literal' | 'reference';
-  value: unknown; // 字面量值或引用路径如 "step.1.result"
+  type: 'literal' | 'reference' | 'composite';
+  value: unknown; // 字面量值、引用路径(如 "step.1.result")、或嵌套的 ParameterValue 对象
 }
 
 /**

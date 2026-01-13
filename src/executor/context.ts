@@ -43,8 +43,29 @@ export class ExecutionContext {
       return param.value;
     }
 
+    // 处理 composite 类型：递归解析嵌套的参数
+    if (param.type === 'composite') {
+      const compositeValue = param.value as Record<string, ParameterValue>;
+      const resolved: Record<string, unknown> = {};
+
+      for (const [key, nestedParam] of Object.entries(compositeValue)) {
+        resolved[key] = this.resolveParameterValue(nestedParam); // 递归解析
+      }
+
+      return resolved;
+    }
+
     // 解析引用，格式: "step.{stepId}.{path}"
     const refStr = param.value as string;
+
+    // 防御性检查：确保引用字符串有效
+    if (refStr === undefined || refStr === null || typeof refStr !== 'string') {
+      throw new ParameterResolutionError(
+        String(refStr),
+        'Invalid parameter reference: value is undefined or not a string'
+      );
+    }
+
     const match = refStr.match(/^step\.(\d+)\.(.+)$/);
 
     if (!match) {

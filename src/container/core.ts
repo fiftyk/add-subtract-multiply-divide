@@ -17,14 +17,18 @@ import { AnthropicPlanRefinementLLMClient } from '../services/adapters/Anthropic
 import { ConfigManager } from '../config/index.js';
 import { Planner } from '../planner/interfaces/IPlanner.js';
 import { PlanRefinementLLMClient } from '../services/interfaces/IPlanRefinementLLMClient.js';
-import { SessionStorage } from '../services/storage/interfaces/SessionStorage.js';
-import { SessionStorageImpl } from '../services/storage/SessionStorage.js';
+import { PlanRefinementSessionStorage } from '../services/storage/interfaces/PlanRefinementSessionStorage.js';
+import { PlanRefinementSessionStorageImpl } from '../services/storage/PlanRefinementSessionStorage.js';
 import { Storage } from '../storage/interfaces/Storage.js';
 import { StorageImpl } from '../storage/StorageImpl.js';
 import { Executor } from '../executor/interfaces/Executor.js';
-import { ExecutorImpl } from '../executor/implementations/ExecutorImpl.js';
+import { ConditionalExecutor } from '../executor/implementations/ConditionalExecutor.js';
 import { TimeoutStrategy } from '../executor/interfaces/TimeoutStrategy.js';
 import { NoTimeoutStrategy } from '../executor/implementations/NoTimeoutStrategy.js';
+import { ExecutionSessionStorage } from '../executor/session/interfaces/ExecutionSessionStorage.js';
+import { ExecutionSessionStorageImpl } from '../executor/session/storage/ExecutionSessionStorageImpl.js';
+import { ExecutionSessionManager } from '../executor/session/interfaces/ExecutionSessionManager.js';
+import { ExecutionSessionManagerImpl } from '../executor/session/managers/ExecutionSessionManagerImpl.js';
 import { LLMAdapter } from '../function-completion/interfaces/LLMAdapter.js';
 import { AnthropicLLMAdapter } from '../function-completion/adapters/AnthropicLLMAdapter.js';
 import { CLILLMAdapter } from '../function-completion/adapters/CLILLMAdapter.js';
@@ -39,6 +43,8 @@ import { MCPClient } from '../function-provider/transports/MCPClient.js';
 import { MCPServerConfigProvider } from '../mcp/interfaces/MCPServerConfigProvider.js';
 import { MCPServerConfigProviderImpl } from '../mcp/MCPServerConfigProviderImpl.js';
 import type { MCPServerConfig } from '../config/types.js';
+import { FunctionService } from '../function-service/interfaces/FunctionService.js';
+import { FunctionServiceImpl } from '../function-service/implementations/FunctionServiceImpl.js';
 
 /**
  * 注册核心服务绑定（跨端共享）
@@ -102,8 +108,8 @@ export function registerCoreBindings(container: Container): void {
     });
   });
 
-  // CompositeFunctionProvider - 组合本地和远程函数提供者
-  container.bind(FunctionProvider).to(CompositeFunctionProvider);
+  // CompositeFunctionProvider - 组合本地和远程函数提供者（单例）
+  container.bind(FunctionProvider).to(CompositeFunctionProvider).inSingletonScope();
 
   // ============================================
   // Tools - 工具选择器和格式化器
@@ -153,20 +159,33 @@ export function registerCoreBindings(container: Container): void {
     return new StorageImpl(config.storage.dataDir);
   });
 
-  container.bind<SessionStorage>(SessionStorage).toDynamicValue(() => {
+  container.bind<PlanRefinementSessionStorage>(PlanRefinementSessionStorage).toDynamicValue(() => {
     const config = ConfigManager.get();
-    return new SessionStorageImpl(config.storage.dataDir);
+    return new PlanRefinementSessionStorageImpl(config.storage.dataDir);
   });
 
   // ============================================
-  // Executor
+  // Executor - 使用 ConditionalExecutor 支持条件分支
   // ============================================
-  container.bind(Executor).to(ExecutorImpl);
+  container.bind(Executor).to(ConditionalExecutor);
 
   // ============================================
   // TimeoutStrategy - Default: NoTimeoutStrategy
   // ============================================
   container.bind(TimeoutStrategy).to(NoTimeoutStrategy);
+
+  // ============================================
+  // ExecutionSessionStorage - File-based persistent storage
+  // ============================================
+  container.bind(ExecutionSessionStorage).toDynamicValue(() => {
+    const config = ConfigManager.get();
+    return new ExecutionSessionStorageImpl(config.storage.dataDir);
+  });
+
+  // ============================================
+  // ExecutionSessionManager - Session lifecycle management
+  // ============================================
+  container.bind(ExecutionSessionManager).to(ExecutionSessionManagerImpl);
 
   // ============================================
   // LLMAdapter - 根据配置选择实现
@@ -187,4 +206,9 @@ export function registerCoreBindings(container: Container): void {
   // MockServiceFactory
   // ============================================
   container.bind<MockServiceFactory>(MockServiceFactory).to(MockServiceFactoryImpl);
+
+  // ============================================
+  // Function Service - 统一的函数管理服务
+  // ============================================
+  container.bind(FunctionService).to(FunctionServiceImpl);
 }

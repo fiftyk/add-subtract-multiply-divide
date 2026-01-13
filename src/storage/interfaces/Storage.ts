@@ -36,10 +36,24 @@ export interface Storage {
   loadPlanMocks(planId: string): Promise<unknown[]>;
   deletePlanWithMocks(planId: string): Promise<void>;
 
-  // ========== Execution 管理 ==========
+  // ========== Execution 管理 (已废弃) ==========
 
+  /**
+   * @deprecated 请使用 ExecutionSessionStorage 和 ExecutionSessionManager 代替
+   * @see src/executor/session/interfaces/ExecutionSessionStorage.ts
+   */
   saveExecution(result: ExecutionResult): Promise<string>;
+
+  /**
+   * @deprecated 请使用 ExecutionSessionStorage 和 ExecutionSessionManager 代替
+   * @see src/executor/session/interfaces/ExecutionSessionStorage.ts
+   */
   loadExecution(executionId: string): Promise<ExecutionResult | undefined>;
+
+  /**
+   * @deprecated 请使用 ExecutionSessionStorage 和 ExecutionSessionManager 代替
+   * @see src/executor/session/interfaces/ExecutionSessionStorage.ts
+   */
   listExecutions(): Promise<ExecutionResult[]>;
 
   // ========== 工具方法 ==========

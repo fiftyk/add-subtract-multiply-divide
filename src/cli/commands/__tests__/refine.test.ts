@@ -3,7 +3,7 @@ import { refineCommand } from '../refine.js';
 import { FunctionProvider } from '../../../function-provider/interfaces/FunctionProvider.js';
 import { Storage } from '../../../storage/interfaces/Storage.js';
 import { Planner } from '../../../planner/interfaces/IPlanner.js';
-import { SessionStorage, PlanRefinementLLMClient } from '../../../services/index.js';
+import { PlanRefinementSessionStorage, PlanRefinementLLMClient } from '../../../services/index.js';
 import type { ExecutionPlan } from '../../../planner/types.js';
 
 // Mock A2UIService
@@ -58,7 +58,7 @@ import { A2UIService } from '../../../a2ui/A2UIService.js';
 describe('refine command', () => {
   let mockFunctionProvider: Partial<FunctionProvider>;
   let mockStorage: Partial<Storage>;
-  let mockSessionStorage: Partial<SessionStorage>;
+  let mockSessionStorage: Partial<PlanRefinementSessionStorage>;
   let mockRefinementLLMClient: Partial<PlanRefinementLLMClient>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
@@ -89,7 +89,7 @@ describe('refine command', () => {
     vi.mocked(container.get).mockImplementation(<T,>(token: any): T => {
       if (token === FunctionProvider) return mockFunctionProvider as T;
       if (token === Storage) return mockStorage as T;
-      if (token === SessionStorage) return mockSessionStorage as T;
+      if (token === PlanRefinementSessionStorage) return mockSessionStorage as T;
       if (token === Planner) return {} as T;
       if (token === PlanRefinementLLMClient) return mockRefinementLLMClient as T;
       if (token === A2UIService) return mockA2UIService as T;

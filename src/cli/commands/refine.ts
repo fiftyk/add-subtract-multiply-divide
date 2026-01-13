@@ -1,6 +1,6 @@
 import { input } from '@inquirer/prompts';
 import container from '../../container/cli-container.js';
-import { InteractivePlanService, SessionStorage } from '../../services/index.js';
+import { InteractivePlanService, PlanRefinementSessionStorage } from '../../services/index.js';
 import { Storage } from '../../storage/index.js';
 import { Planner } from '../../planner/index.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
@@ -23,7 +23,7 @@ export class RefineCommand {
   constructor(
     private ui: A2UIService,
     private storage: Storage,
-    private sessionStorage: SessionStorage,
+    private sessionStorage: PlanRefinementSessionStorage,
     private planner: Planner,
     private refinementLLMClient: PlanRefinementLLMClient,
     private functionProvider: FunctionProvider
@@ -187,7 +187,7 @@ function createRefineCommand(): RefineCommand {
   return new RefineCommand(
     container.get<A2UIService>(A2UIService),
     container.get<Storage>(Storage),
-    container.get<SessionStorage>(SessionStorage),
+    container.get<PlanRefinementSessionStorage>(PlanRefinementSessionStorage),
     container.get<Planner>(Planner),
     container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient),
     container.get<FunctionProvider>(FunctionProvider)

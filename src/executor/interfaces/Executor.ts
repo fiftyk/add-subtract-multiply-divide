@@ -1,5 +1,5 @@
 import type { ExecutionPlan } from '../../planner/types.js';
-import type { ExecutionResult } from '../types.js';
+import type { ExecutionResult, StepResult } from '../types.js';
 import type { ILogger } from '../../logger/index.js';
 
 export const Executor = Symbol('Executor');
@@ -10,7 +10,14 @@ export interface ExecutorConfig {
 }
 
 export interface Executor {
-  execute(plan: ExecutionPlan): Promise<ExecutionResult>;
+  execute(
+    plan: ExecutionPlan,
+    options?: {
+      startFromStep?: number;
+      initialContext?: Record<string, unknown>;
+      previousStepResults?: StepResult[];
+    }
+  ): Promise<ExecutionResult>;
   formatResultForDisplay(result: ExecutionResult): string;
 
   /**

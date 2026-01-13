@@ -4,14 +4,24 @@ import { FunctionProvider } from '../../../function-provider/interfaces/Function
 import { Storage } from '../../../storage/interfaces/Storage.js';
 import { Executor } from '../../../executor/index.js';
 import { Planner } from '../../../planner/interfaces/IPlanner.js';
+import { ExecutionSessionManager } from '../../../executor/session/index.js';
 import type { ExecutionPlan } from '../../../planner/types.js';
 import type { ExecutionResult } from '../../../executor/types.js';
 import type { FunctionDefinition } from '../../../registry/types.js';
+import type { ExecutionSession } from '../../../executor/session/types.js';
 
 // Shared mock reference for executor mocks
 const sharedMockExecutor = {
   execute: vi.fn(),
   formatResultForDisplay: vi.fn(),
+};
+
+// Mock ExecutionSessionManager
+const mockSessionManager = {
+  createSession: vi.fn(),
+  executeSession: vi.fn(),
+  retrySession: vi.fn(),
+  resumeSession: vi.fn(),
 };
 
 // Mock A2UIService
@@ -89,6 +99,25 @@ describe('execute command', () => {
 
   const defaultOptions = { functions: './dist/functions/index.js', yes: false };
 
+  // Helper function to create mock session
+  function createMockSession(plan: ExecutionPlan, sessionId = 'session-test-123'): ExecutionSession {
+    return {
+      id: sessionId,
+      planId: plan.id,
+      basePlanId: plan.id,
+      plan,
+      status: 'pending',
+      currentStepId: 0,
+      stepResults: [],
+      context: {},
+      pendingInput: null,
+      retryCount: 0,
+      platform: 'cli',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    };
+  }
+
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
@@ -103,6 +132,12 @@ describe('execute command', () => {
     // Reset shared mock executor functions
     sharedMockExecutor.execute.mockReset();
     sharedMockExecutor.formatResultForDisplay.mockReset();
+
+    // Reset session manager mocks
+    mockSessionManager.createSession.mockReset();
+    mockSessionManager.executeSession.mockReset();
+    mockSessionManager.retrySession.mockReset();
+    mockSessionManager.resumeSession.mockReset();
 
     // Reset A2UIService mocks
     Object.values(mockA2UIService).forEach(mock => mock.mockReset());
@@ -156,6 +191,9 @@ describe('execute command', () => {
       }
       if (token === A2UIRenderer) {
         return mockA2UIRenderer as T;
+      }
+      if (token === ExecutionSessionManager) {
+        return mockSessionManager as T;
       }
       throw new Error(`Unexpected token: ${token?.toString()}`);
     });
@@ -225,6 +263,8 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(executablePlan, 'session-mocks');
+
       const mockFunctions: FunctionDefinition[] = [
         { name: 'customFunc', description: 'Custom function', parameters: [], returns: { type: 'string' }, implementation: () => {}, source: 'local' },
       ];
@@ -236,9 +276,9 @@ describe('execute command', () => {
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       vi.mocked(mockStorage.loadPlanMocks).mockResolvedValue(mockPlanMocks);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('done');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-123');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-mocks', { functions: './dist/functions/index.js', yes: true });
@@ -284,11 +324,13 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(executablePlan);
+
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('3');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-123');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-123', { functions: './dist/functions/index.js', yes: true });
@@ -322,8 +364,9 @@ describe('execute command', () => {
       expect(mockA2UIService.caption).toHaveBeenCalledWith(
         expect.stringContaining('已取消执行')
       );
-      // Executor should not be called
-      expect(mockExecutor.execute).not.toHaveBeenCalled();
+      // SessionManager should not be called
+      expect(mockSessionManager.createSession).not.toHaveBeenCalled();
+      expect(mockSessionManager.executeSession).not.toHaveBeenCalled();
     });
   });
 
@@ -363,22 +406,25 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(executablePlan);
+
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('3');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-123');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-123', { functions: './dist/functions/index.js', yes: true });
 
-      expect(mockExecutor.execute).toHaveBeenCalledWith(executablePlan);
-      expect(mockStorage.saveExecution).toHaveBeenCalledWith(mockResult);
+      expect(mockSessionManager.createSession).toHaveBeenCalledWith(executablePlan, 'cli');
+      expect(mockSessionManager.executeSession).toHaveBeenCalledWith(mockSession.id);
       expect(exitSpy).toHaveBeenCalledWith(0);
       expect(mockA2UIService.badge).toHaveBeenCalledWith(
         expect.stringContaining('执行成功'),
         'success'
       );
+      expect(mockA2UIService.caption).toHaveBeenCalledWith(`Session ID: ${mockSession.id}`);
     });
 
     it('should display loaded functions', async () => {
@@ -406,6 +452,8 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(executablePlan);
+
       const mockFunctions: FunctionDefinition[] = [
         { name: 'add', description: '加法', parameters: [], returns: { type: 'number' }, implementation: () => {}, source: 'local' },
         { name: 'subtract', description: '减法', parameters: [], returns: { type: 'number' }, implementation: () => {}, source: 'local' },
@@ -413,9 +461,9 @@ describe('execute command', () => {
 
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue(mockFunctions);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('3');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-123');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-123', { functions: './dist/functions/index.js', yes: true });
@@ -464,11 +512,13 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(executablePlan, 'session-fail');
+
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(failedResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(failedResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('Error: Division by zero');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-fail');
 
       await executeCommand('plan-fail', { functions: './dist/functions/index.js', yes: true });
 
@@ -476,6 +526,10 @@ describe('execute command', () => {
       expect(mockA2UIService.badge).toHaveBeenCalledWith(
         expect.stringContaining('执行失败'),
         'error'
+      );
+      expect(mockA2UIService.text).toHaveBeenCalledWith(
+        expect.stringContaining('sessions retry'),
+        'subheading'
       );
     });
   });
@@ -510,11 +564,25 @@ describe('execute command', () => {
         },
       };
 
+      const mockResult: ExecutionResult = {
+        planId: 'plan-mocks',
+        steps: [],
+        finalResult: 'done',
+        success: true,
+        startedAt: '2024-01-01T00:00:00.000Z',
+        completedAt: '2024-01-01T00:00:01.000Z',
+      };
+
+      const mockSession = createMockSession(planWithMocks);
+
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(planWithMocks);
       vi.mocked(mockStorage.loadPlanMocks).mockRejectedValue(
         new Error('Failed to load mocks')
       );
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
+      (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('done');
 
       await executeCommand('plan-mocks', { functions: './dist/functions/index.js', yes: true });
 
@@ -523,7 +591,7 @@ describe('execute command', () => {
         'warning'
       );
       // Should continue execution despite mock loading error
-      expect(mockExecutor.execute).toHaveBeenCalled();
+      expect(mockSessionManager.executeSession).toHaveBeenCalled();
     });
   });
 
@@ -546,11 +614,13 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(planWithoutMetadata);
+
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(planWithoutMetadata);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('done');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-123');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-simple', { functions: './dist/functions/index.js', yes: true });
@@ -580,14 +650,16 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(planWithEmptyMocks);
+
       // loadPlanMocks is still called when usesMocks is true, even if mockFunctions is empty
       vi.mocked(mockStorage.loadPlanMocks).mockResolvedValue([]);
 
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(planWithEmptyMocks);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('done');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-123');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-empty-mocks', { functions: './dist/functions/index.js', yes: true });
@@ -617,11 +689,13 @@ describe('execute command', () => {
         completedAt: '2024-01-01T00:00:01.000Z',
       };
 
+      const mockSession = createMockSession(executablePlan, 'session-display');
+
       vi.mocked(mockStorage.loadPlan).mockResolvedValue(executablePlan);
       (mockFunctionProvider.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-      (mockExecutor.execute as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+      mockSessionManager.createSession.mockResolvedValue(mockSession);
+      mockSessionManager.executeSession.mockResolvedValue(mockResult);
       (mockExecutor.formatResultForDisplay as ReturnType<typeof vi.fn>).mockReturnValue('最终结果: 42\n步骤数: 2');
-      vi.mocked(mockStorage.saveExecution).mockResolvedValue('exec-456');
       mockPlanner.formatPlanForDisplay.mockReturnValue('📋 计划内容');
 
       await executeCommand('plan-display', { functions: './dist/functions/index.js', yes: true });

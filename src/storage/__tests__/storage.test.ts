@@ -116,36 +116,15 @@ describe('Storage', () => {
     });
   });
 
-  describe('saveExecution', () => {
-    it('should save an execution result', async () => {
-      const result: ExecutionResult = {
-        planId: 'plan-001',
-        steps: [
-          {
-            stepId: 1,
-            functionName: 'add',
-            parameters: { a: 3, b: 5 },
-            result: 8,
-            success: true,
-            executedAt: new Date().toISOString(),
-          },
-        ],
-        finalResult: 8,
-        success: true,
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-      };
+  // ============================================
+  // Execution 管理方法已废弃
+  // ============================================
+  // 这些测试已被注释掉，因为对应的方法已废弃
+  // 请使用 ExecutionSessionStorage 和 ExecutionSessionManager
+  // 参考: src/executor/session/__tests__/
 
-      const id = await storage.saveExecution(result);
-
-      expect(id).toBeDefined();
-      const filePath = path.join(testDataDir, 'executions', `${id}.json`);
-      expect(fs.existsSync(filePath)).toBe(true);
-    });
-  });
-
-  describe('loadExecution', () => {
-    it('should load a saved execution', async () => {
+  describe.skip('saveExecution (已废弃)', () => {
+    it('should throw error indicating deprecation', async () => {
       const result: ExecutionResult = {
         planId: 'plan-001',
         steps: [],
@@ -155,12 +134,17 @@ describe('Storage', () => {
         completedAt: new Date().toISOString(),
       };
 
-      const id = await storage.saveExecution(result);
-      const loaded = await storage.loadExecution(id);
+      await expect(storage.saveExecution(result)).rejects.toThrow(
+        'saveExecution() 已废弃'
+      );
+    });
+  });
 
-      expect(loaded).toBeDefined();
-      expect(loaded?.planId).toBe('plan-001');
-      expect(loaded?.finalResult).toBe(42);
+  describe.skip('loadExecution (已废弃)', () => {
+    it('should throw error indicating deprecation', async () => {
+      await expect(storage.loadExecution('any-id')).rejects.toThrow(
+        'loadExecution() 已废弃'
+      );
     });
   });
 

@@ -9,7 +9,8 @@
 import 'reflect-metadata';
 import { injectable } from 'inversify';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport, type StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
   CallToolResultSchema,
   type ListToolsResultSchema,
@@ -84,7 +85,7 @@ export interface MCPClientConfig {
 @injectable()
 export class MCPClient {
   private client: Client;
-  private transport: StdioClientTransport | null = null;
+  private transport: StdioClientTransport | StreamableHTTPClientTransport | null = null;
   private readonly serverName: string;
   private readonly logger: ILogger;
   private tools: Map<string, RemoteFunctionInfo> = new Map();
@@ -124,15 +125,25 @@ export class MCPClient {
 
     this.logger.info(`Connecting to MCP server: ${this.serverName}`);
 
-    // 创建传输层
-    const stdioConfig = this.getStdioConfig();
-    this.transport = new StdioClientTransport({
-      command: stdioConfig.command,
-      args: stdioConfig.args || [],
-      env: stdioConfig.env,
-      cwd: stdioConfig.cwd,
-      stderr: 'inherit',
-    });
+    // 根据配置类型创建传输层
+    const transportConfig = this.config.transportConfig;
+
+    if (this.config.transportType === 'http') {
+      // HTTP 类型使用 Streamable HTTP 传输
+      const httpConfig = transportConfig as unknown as MCPHttpServerConfig;
+      this.logger.info(`Using HTTP transport: ${httpConfig.url}`);
+      this.transport = new StreamableHTTPClientTransport(new URL(httpConfig.url));
+    } else {
+      // Stdio 传输
+      const stdioConfig = transportConfig as unknown as MCPStdioServerConfig;
+      this.transport = new StdioClientTransport({
+        command: stdioConfig.command,
+        args: stdioConfig.args || [],
+        env: stdioConfig.env,
+        cwd: stdioConfig.cwd,
+        stderr: 'inherit',
+      });
+    }
 
     // 连接
     await this.client.connect(this.transport);
@@ -229,20 +240,6 @@ export class MCPClient {
   }
 
   /**
-   * 获取 stdio 配置
-   */
-  private getStdioConfig(): StdioServerParameters {
-    const config = this.getClientConfig();
-    const transportConfig = config.transportConfig as StdioServerParameters;
-    return {
-      command: transportConfig.command,
-      args: transportConfig.args || [],
-      env: transportConfig.env,
-      cwd: transportConfig.cwd,
-    };
-  }
-
-  /**
    * 获取客户端配置
    */
   private getClientConfig(): MCPClientConfig {
@@ -254,7 +251,9 @@ export class MCPClient {
    */
   private async fetchTools(): Promise<void> {
     try {
+      this.logger.debug('Fetching tools from MCP server...');
       const result = await this.client.listTools();
+      this.logger.debug(`Received tools response: ${JSON.stringify(result)}`);
 
       this.tools.clear();
 
@@ -274,9 +273,11 @@ export class MCPClient {
           } : undefined,
         });
       }
+      this.logger.info(`Fetched ${this.tools.size} tools from MCP server: ${this.serverName}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn('Failed to fetch tools from MCP server', { error: errorMessage });
+      const stack = error instanceof Error ? error.stack : '';
+      this.logger.warn('Failed to fetch tools from MCP server', { error: errorMessage, stack });
       throw error;
     }
   }

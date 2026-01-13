@@ -39,6 +39,12 @@ export interface CompositeFunctionProviderConfig {
  * - 提供统一的函数发现和执行接口
  * - 按优先级路由函数调用
  *
+ * 函数名格式支持：
+ * - "functionName" - 使用 first-wins 策略（本地优先）
+ * - "local:functionName" - 指定使用本地函数
+ * - "mcp:serverName:functionName" - 指定使用某个 MCP server 的函数
+ *   例如: "mcp:filesystem:search_patents", "mcp:patent-api:get_patent_details"
+ *
  * 使用场景：
  * - 同时使用本地函数和 MCP 远程函数
  * - 同时使用多个 MCP 服务器
@@ -96,6 +102,73 @@ export class CompositeFunctionProvider implements FunctionProvider {
   }
 
   /**
+   * 解析带前缀的函数名
+   *
+   * 格式：
+   * - "local:functionName" -> { source: "local", name: "functionName" }
+   * - "mcp:serverName:functionName" -> { source: "mcp://serverName", name: "functionName" }
+   * - "mcp:functionName" -> { source: "mcp", name: "functionName" }
+   * - "functionName" -> { source: null, name: "functionName" }
+   */
+  private parsePrefixedName(name: string): { source: string | null; name: string } {
+    const parts = name.split(':');
+
+    // 没有前缀
+    if (parts.length === 1 || (parts.length === 2 && parts[0] === '')) {
+      return { source: null, name: parts[parts.length - 1] };
+    }
+
+    // local:functionName
+    if (parts[0] === 'local') {
+      return { source: 'local', name: parts.slice(1).join(':') };
+    }
+
+    // mcp:serverName:functionName 或 mcp:functionName
+    if (parts[0] === 'mcp') {
+      if (parts.length >= 3) {
+        // mcp:serverName:functionName -> source: "mcp://serverName"
+        const serverName = parts[1];
+        return { source: `mcp://${serverName}`, name: parts.slice(2).join(':') };
+      } else {
+        // mcp:functionName (没有指定 server)
+        return { source: 'mcp', name: parts[1] };
+      }
+    }
+
+    // 未知前缀，保持原样
+    return { source: null, name };
+  }
+
+  /**
+   * 根据 source 查找对应的 Provider
+   */
+  private findProviderBySource(source: string): FunctionProvider | undefined {
+    // 查找本地 Provider
+    if (source === 'local') {
+      return this.localProvider || this.providers.find(p => p.getSource() === 'local');
+    }
+
+    // 查找 MCP Provider - source 格式: "mcp" 或 "mcp://serverName"
+    if (source === 'mcp') {
+      // 只有 "mcp" 前缀，查找第一个 MCP Provider
+      return this.providers.find(p => p.getSource()?.startsWith('mcp'));
+    }
+
+    // 处理 mcp:serverName 格式或 mcp://serverName 格式
+    if (source.startsWith('mcp:') || source.startsWith('mcp://')) {
+      // 提取 serverName: mcp:server -> server, mcp://server -> server
+      const serverName = source.replace(/^mcp:(\/\/)?/, '');
+      if (!serverName) {
+        return undefined;
+      }
+      // 查找特定 server 的 MCP Provider
+      return this.providers.find(p => p.getSource() === `mcp://${serverName}`);
+    }
+
+    return undefined;
+  }
+
+  /**
    * 列出所有可用函数
    */
   async list(): Promise<FunctionMetadata[]> {
@@ -121,8 +194,17 @@ export class CompositeFunctionProvider implements FunctionProvider {
    * 检查函数是否存在
    */
   async has(name: string): Promise<boolean> {
+    const { source, name: fnName } = this.parsePrefixedName(name);
+
+    if (source) {
+      // 指定了 source，直接从对应 Provider 查找
+      const provider = this.findProviderBySource(source);
+      return provider ? await provider.has(fnName) : false;
+    }
+
+    // 未指定 source，使用 first-wins 策略
     for (const provider of this.providers) {
-      if (await provider.has(name)) {
+      if (await provider.has(fnName)) {
         return true;
       }
     }
@@ -133,8 +215,17 @@ export class CompositeFunctionProvider implements FunctionProvider {
    * 获取函数元数据
    */
   async get(name: string): Promise<FunctionMetadata | undefined> {
+    const { source, name: fnName } = this.parsePrefixedName(name);
+
+    if (source) {
+      // 指定了 source，直接从对应 Provider 查找
+      const provider = this.findProviderBySource(source);
+      return provider ? await provider.get(fnName) : undefined;
+    }
+
+    // 未指定 source，使用 first-wins 策略
     for (const provider of this.providers) {
-      const fn = await provider.get(name);
+      const fn = await provider.get(fnName);
       if (fn) {
         return fn;
       }
@@ -144,22 +235,51 @@ export class CompositeFunctionProvider implements FunctionProvider {
 
   /**
    * 执行函数
-   * 自动路由到第一个拥有该函数的 Provider
+   * 支持带 source 前缀的函数名格式
    */
   async execute(
     name: string,
     params: Record<string, unknown>
   ): Promise<FunctionExecutionResult> {
-    // 找到第一个拥有该函数的 Provider
+    const { source, name: fnName } = this.parsePrefixedName(name);
+
+    if (source) {
+      // 指定了 source，从对应 Provider 执行
+      const provider = this.findProviderBySource(source);
+      if (!provider) {
+        return {
+          success: false,
+          error: `Provider not found for source: ${source}`,
+          metadata: {
+            provider: this.getSource(),
+          },
+        };
+      }
+
+      // 检查函数是否存在
+      if (!(await provider.has(fnName))) {
+        return {
+          success: false,
+          error: `Function "${fnName}" not found in provider: ${source}`,
+          metadata: {
+            provider: this.getSource(),
+          },
+        };
+      }
+
+      return provider.execute(fnName, params);
+    }
+
+    // 未指定 source，使用 first-wins 策略
     for (const provider of this.providers) {
-      if (await provider.has(name)) {
-        return provider.execute(name, params);
+      if (await provider.has(fnName)) {
+        return provider.execute(fnName, params);
       }
     }
 
     return {
       success: false,
-      error: `Function not found: ${name}`,
+      error: `Function not found: ${fnName}`,
       metadata: {
         provider: this.getSource(),
       },

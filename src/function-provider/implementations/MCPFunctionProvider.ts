@@ -158,12 +158,11 @@ export class MCPFunctionProvider implements FunctionProvider {
 
       return {
         success: result.success,
-        result: result.result,
+        result: result.content,
         error: result.error,
         metadata: {
           executionTime: Date.now() - startTime,
           provider: this.getSource(),
-          ...result.metadata,
         },
       };
     } catch (error) {

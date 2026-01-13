@@ -2,10 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Planner } from '../planner/interfaces/IPlanner.js';
 import type { Storage } from '../storage/index.js';
 import type { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
-import { SessionStorage } from './storage/interfaces/SessionStorage.js';
+import { PlanRefinementSessionStorage } from './storage/interfaces/PlanRefinementSessionStorage.js';
 import type { PlanRefinementLLMClient } from './interfaces/IPlanRefinementLLMClient.js';
 import type {
-  InteractionSession,
+  PlanRefinementSession,
   VersionedPlan,
   SessionMessage,
   CreatePlanOptions,
@@ -30,7 +30,7 @@ export class InteractivePlanService {
   constructor(
     private planner: Planner,
     private storage: Storage,
-    private sessionStorage: SessionStorage,
+    private sessionStorage: PlanRefinementSessionStorage,
     private refinementLLMClient: PlanRefinementLLMClient,
     private functionProvider: FunctionProvider
   ) {}
@@ -61,7 +61,7 @@ export class InteractivePlanService {
     await this.storage.savePlanVersion(planResult.plan, basePlanId, 1);
 
     // 创建或获取 session
-    let session: InteractionSession;
+    let session: PlanRefinementSession;
     if (options.sessionId) {
       const existing = await this.sessionStorage.loadSession(options.sessionId);
       if (existing) {
@@ -151,7 +151,7 @@ export class InteractivePlanService {
     }
 
     // 加载或创建 session
-    let session: InteractionSession;
+    let session: PlanRefinementSession;
     if (sessionId) {
       const existing = await this.sessionStorage.loadSession(sessionId);
       if (!existing) {
@@ -254,7 +254,7 @@ export class InteractivePlanService {
    * @param sessionId - Session ID
    * @returns Session 对象
    */
-  async getSession(sessionId: string): Promise<InteractionSession | null> {
+  async getSession(sessionId: string): Promise<PlanRefinementSession | null> {
     return this.sessionStorage.loadSession(sessionId);
   }
 
@@ -264,7 +264,7 @@ export class InteractivePlanService {
   private createNewSession(
     planId: string,
     sessionId?: string
-  ): InteractionSession {
+  ): PlanRefinementSession {
     return {
       sessionId: sessionId || `session-${uuidv4().slice(0, 8)}`,
       planId,
@@ -281,7 +281,7 @@ export class InteractivePlanService {
    */
   private async findOrCreateSession(
     planId: string
-  ): Promise<InteractionSession> {
+  ): Promise<PlanRefinementSession> {
     // 查找与此 plan 相关的活跃 session
     const sessions = await this.sessionStorage.listSessions();
     const activeSession = sessions.find(

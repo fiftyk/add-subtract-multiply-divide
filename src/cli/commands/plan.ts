@@ -9,7 +9,7 @@ import { loadFunctions } from '../utils.js';
 import { PlannerWithMockSupport } from '../../function-completion/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { LoggerFactory } from '../../logger/index.js';
-import { InteractivePlanService, PlanRefinementLLMClient, SessionStorage } from '../../services/index.js';
+import { InteractivePlanService, PlanRefinementLLMClient, PlanRefinementSessionStorage } from '../../services/index.js';
 import type { ExecutionPlan } from '../../planner/types.js';
 import { isFunctionCallStep } from '../../planner/type-guards.js';
 import type { AppConfig } from '../../config/types.js';
@@ -30,7 +30,7 @@ export class PlanCommand {
     private basePlanner: Planner,
     private storage: Storage,
     private executor: Executor,
-    private sessionStorage: SessionStorage,
+    private sessionStorage: PlanRefinementSessionStorage,
     private refinementLLMClient: PlanRefinementLLMClient
   ) {}
 
@@ -270,7 +270,7 @@ function createPlanCommand(): PlanCommand {
     container.get<Planner>(Planner),
     container.get<Storage>(Storage),
     container.get<Executor>(Executor),
-    container.get<SessionStorage>(SessionStorage),
+    container.get<PlanRefinementSessionStorage>(PlanRefinementSessionStorage),
     container.get<PlanRefinementLLMClient>(PlanRefinementLLMClient)
   );
 }
