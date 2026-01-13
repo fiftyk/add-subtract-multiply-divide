@@ -1,20 +1,20 @@
 <template>
   <div class="flex flex-col lg:flex-row gap-6 items-start">
-    <div class="flex-1 min-w-0">
-      <div class="mb-6">
-        <router-link to="/plans" class="text-blue-600 hover:text-blue-700 flex items-center">
+    <!-- Back Link -->
+    <div class="mb-6 lg:hidden">
+      <router-link to="/plans" class="text-blue-600 hover:text-blue-700 flex items-center">
         ← Back to Plans
       </router-link>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="text-center py-12">
+    <div v-if="loading" class="flex-1 min-w-0 text-center py-12">
       <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       <p class="mt-4 text-gray-600">Loading session...</p>
     </div>
 
     <!-- Error Message -->
-    <div v-else-if="error" class="p-4 bg-red-50 border border-red-200 rounded-lg">
+    <div v-else-if="error" class="flex-1 min-w-0 p-4 bg-red-50 border border-red-200 rounded-lg">
       <p class="text-red-800">{{ error }}</p>
       <button
         @click="sessionStore.clearError"
