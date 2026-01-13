@@ -93,8 +93,7 @@ describe('MCPFunctionProvider', () => {
     }),
     execute: vi.fn().mockResolvedValue({
       success: true,
-      result: 8,
-      metadata: { executionTime: 5, provider: 'mcp://test-server' },
+      content: 8,
     }),
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn().mockResolvedValue(undefined),

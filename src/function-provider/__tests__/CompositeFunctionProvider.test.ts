@@ -213,4 +213,111 @@ describe('CompositeFunctionProvider', () => {
       expect(shared!.source).toBe('p1');
     });
   });
+
+  describe('source-prefixed function names', () => {
+    describe('local: prefix', () => {
+      it('should execute local function with local: prefix', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', [
+          { id: 'search', name: 'search', description: 'Local search', scenario: 'Local search', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+        ]);
+        const remoteProvider = createMockProvider('mcp://server', 'remote', [
+          { id: 'search', name: 'search', description: 'Remote search', scenario: 'Remote search', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+        ]);
+        const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+        const result = await provider.execute('local:search', {});
+        expect(result.success).toBe(true);
+        expect(result.result).toBe('local-search-result');
+      });
+
+      it('should check local function existence with local: prefix', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', [
+          { id: 'localOnly', name: 'localOnly', description: 'Local only', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+        ]);
+        const remoteProvider = createMockProvider('mcp://server', 'remote', []);
+        const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+        expect(await provider.has('local:localOnly')).toBe(true);
+        expect(await provider.has('local:nonexistent')).toBe(false);
+      });
+
+      it('should get local function metadata with local: prefix', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', [
+          { id: 'getData', name: 'getData', description: 'Local getData', scenario: 'Local', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+        ]);
+        const provider = new CompositeFunctionProvider([localProvider]);
+
+        const result = await provider.get('local:getData');
+        expect(result).toBeDefined();
+        expect(result!.source).toBe('local');
+      });
+    });
+
+    describe('mcp: prefix', () => {
+      it('should execute MCP function with mcp:serverName: prefix', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', []);
+        const remoteProvider = createMockProvider('mcp://server', 'remote', [
+          { id: 'search_patents', name: 'search_patents', description: 'Search patents', scenario: 'Patent search', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+        ]);
+        const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+        const result = await provider.execute('mcp:server:search_patents', {});
+        expect(result.success).toBe(true);
+        expect(result.result).toBe('mcp://server-search_patents-result');
+      });
+
+      it('should execute MCP function with mcp: prefix (no server)', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', []);
+        const remoteProvider = createMockProvider('mcp://server', 'remote', [
+          { id: 'get_details', name: 'get_details', description: 'Get details', scenario: 'Details', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+        ]);
+        const provider = new CompositeFunctionProvider([localProvider, remoteProvider]);
+
+        const result = await provider.execute('mcp:get_details', {});
+        expect(result.success).toBe(true);
+        expect(result.result).toBe('mcp://server-get_details-result');
+      });
+
+      it('should return error when MCP provider not found', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', []);
+        const provider = new CompositeFunctionProvider([localProvider]);
+
+        const result = await provider.execute('mcp:nonexistent:func', {});
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('Provider not found');
+      });
+
+      it('should return error when MCP function not found in provider', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const remoteProvider = createMockProvider('mcp://server', 'remote', [
+          { id: 'existing', name: 'existing', description: 'Existing', scenario: 'Existing', parameters: [], returns: { type: 'void', description: '' }, type: 'remote', source: 'mcp://server' },
+        ]);
+        const provider = new CompositeFunctionProvider([remoteProvider]);
+
+        const result = await provider.execute('mcp:server:nonexistent', {});
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('Function "nonexistent" not found');
+      });
+    });
+
+    describe('function name with colons', () => {
+      it('should handle function names containing colons', async () => {
+        const { CompositeFunctionProvider } = await import('../CompositeFunctionProvider.js');
+        const localProvider = createMockProvider('local', 'local', [
+          { id: 'ns:func', name: 'ns:func', description: 'Namespaced function', scenario: 'Namespace', parameters: [], returns: { type: 'void', description: '' }, type: 'local', source: 'local' },
+        ]);
+        const provider = new CompositeFunctionProvider([localProvider]);
+
+        const result = await provider.execute('ns:func', {});
+        expect(result.success).toBe(true);
+        expect(result.result).toBe('local-ns:func-result');
+      });
+    });
+  });
 });
