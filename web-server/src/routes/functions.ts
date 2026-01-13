@@ -7,15 +7,15 @@ import type { FastifyInstance } from 'fastify';
 // @ts-ignore - Importing from parent project's dist folder
 import container from '../../../dist/src/container/cli-container.js';
 // @ts-ignore - Importing from parent project's dist folder
-import type { FunctionsService as IFunctionsService } from '../../../dist/src/functions-service/index.js';
+import type { FunctionService as IFunctionService } from '../../../dist/src/function-service/interfaces/FunctionService.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { FunctionsService } from '../../../dist/src/functions-service/index.js';
+import { FunctionService } from '../../../dist/src/function-service/interfaces/FunctionService.js';
 // @ts-ignore - Importing from parent project's dist folder
 import { FunctionProvider } from '../../../dist/src/function-provider/interfaces/FunctionProvider.js';
 
-// Helper to get FunctionsService from container (lazy evaluation)
-function getFunctionsService(): IFunctionsService {
-  return container.get<IFunctionsService>(FunctionsService as any);
+// Helper to get FunctionService from container (lazy evaluation)
+function getFunctionService(): IFunctionService {
+  return container.get<IFunctionService>(FunctionService as any);
 }
 
 // Helper to get FunctionProvider from container (lazy evaluation)
@@ -29,30 +29,12 @@ function getFunctionProvider(): FunctionProvider {
 export default async function functionsRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/functions
-   * List all functions with optional filtering
-   *
-   * Query parameters:
-   * - type: 'local' | 'remote' (optional)
-   * - source: source identifier (optional)
-   * - limit: number (optional)
-   * - offset: number (optional)
+   * List all functions
    */
   fastify.get('/', async (request, reply) => {
     try {
-      const functionsService = getFunctionsService();
-      const { type, source, limit, offset } = request.query as {
-        type?: 'local' | 'remote';
-        source?: string;
-        limit?: string;
-        offset?: string;
-      };
-
-      const functions = await functionsService.listFunctions({
-        type,
-        source,
-        limit: limit ? parseInt(limit, 10) : undefined,
-        offset: offset ? parseInt(offset, 10) : undefined,
-      });
+      const functionService = getFunctionService();
+      const functions = await functionService.listFunctions();
 
       console.log(`[FunctionsRoute] Returning ${functions.length} functions`);
 
@@ -71,25 +53,16 @@ export default async function functionsRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /api/functions/search
-   * Search functions
+   * Search functions by name or description
    *
    * Query parameters:
    * - q: search query (required)
-   * - type: 'local' | 'remote' (optional)
-   * - source: source identifier (optional)
-   * - limit: number (optional)
-   * - offset: number (optional)
+   * - type: filter by type (all/local/mcp), default: all
    */
   fastify.get('/search', async (request, reply) => {
     try {
-      const functionsService = getFunctionsService();
-      const { q, type, source, limit, offset } = request.query as {
-        q?: string;
-        type?: 'local' | 'remote';
-        source?: string;
-        limit?: string;
-        offset?: string;
-      };
+      const functionService = getFunctionService();
+      const { q, type = 'all' } = request.query as { q?: string; type?: string };
 
       if (!q) {
         return reply.status(400).send({
@@ -98,15 +71,30 @@ export default async function functionsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await functionsService.search({
+      // Simple search implementation - filter functions by name/description
+      const allFunctions = await functionService.listFunctions();
+      const query = q.toLowerCase();
+
+      // First filter by search query
+      let results = allFunctions.filter(
+        fn =>
+          fn.name.toLowerCase().includes(query) ||
+          fn.description.toLowerCase().includes(query)
+      );
+
+      // Then filter by type
+      if (type === 'local') {
+        results = results.filter(fn => fn.type === 'local');
+      } else if (type === 'mcp') {
+        results = results.filter(fn => fn.type === 'remote');
+      }
+
+      return {
+        functions: results,
+        total: results.length,
         query: q,
         type,
-        source,
-        limit: limit ? parseInt(limit, 10) : undefined,
-        offset: offset ? parseInt(offset, 10) : undefined,
-      });
-
-      return result;
+      };
     } catch (error) {
       console.error('Error searching functions:', error);
       return reply.status(500).send({
@@ -117,134 +105,13 @@ export default async function functionsRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * GET /api/functions/suggest
-   * Get search suggestions (autocomplete)
-   *
-   * Query parameters:
-   * - q: search query (required)
-   * - limit: number (optional, default: 10)
-   */
-  fastify.get('/suggest', async (request, reply) => {
-    try {
-      const functionsService = getFunctionsService();
-      const { q, limit } = request.query as {
-        q?: string;
-        limit?: string;
-      };
-
-      if (!q) {
-        return reply.status(400).send({
-          error: 'Missing query parameter',
-          message: 'Query parameter "q" is required',
-        });
-      }
-
-      const suggestions = await functionsService.suggest(
-        q,
-        limit ? parseInt(limit, 10) : undefined
-      );
-
-      return {
-        suggestions,
-      };
-    } catch (error) {
-      console.error('Error getting suggestions:', error);
-      return reply.status(500).send({
-        error: 'Failed to get suggestions',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  });
-
-  /**
-   * GET /api/functions/categories
-   * List all function categories
-   */
-  fastify.get('/categories', async (request, reply) => {
-    try {
-      const functionsService = getFunctionsService();
-      const categories = await functionsService.listCategories();
-
-      return {
-        categories,
-      };
-    } catch (error) {
-      console.error('Error listing categories:', error);
-      return reply.status(500).send({
-        error: 'Failed to list categories',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  });
-
-  /**
-   * GET /api/functions/categories/:id
-   * Get a specific category
-   */
-  fastify.get<{ Params: { id: string } }>(
-    '/categories/:id',
-    async (request, reply) => {
-      const functionsService = getFunctionsService();
-      const { id } = request.params;
-
-      try {
-        const category = await functionsService.getCategory(id);
-
-        if (!category) {
-          return reply.status(404).send({
-            error: 'Category not found',
-            message: `Category "${id}" does not exist`,
-          });
-        }
-
-        return {
-          category,
-        };
-      } catch (error) {
-        console.error('Error getting category:', error);
-        return reply.status(500).send({
-          error: 'Failed to get category',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-  );
-
-  /**
-   * GET /api/functions/categories/:id/functions
-   * Get functions in a specific category
-   */
-  fastify.get<{ Params: { id: string } }>(
-    '/categories/:id/functions',
-    async (request, reply) => {
-      const functionsService = getFunctionsService();
-      const { id } = request.params;
-
-      try {
-        const functions = await functionsService.getFunctionsByCategory(id);
-
-        return {
-          functions,
-          total: functions.length,
-        };
-      } catch (error) {
-        console.error('Error getting functions by category:', error);
-        return reply.status(500).send({
-          error: 'Failed to get functions by category',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-  );
-
-  /**
    * GET /api/functions/categorized
-   * Get all functions grouped by category
+   * Get all functions grouped by category (local/remote)
    */
   fastify.get('/categorized', async (request, reply) => {
     try {
-      const functionsService = getFunctionsService();
-      const categorized = await functionsService.getAllCategorized();
+      const functionService = getFunctionService();
+      const categorized = await functionService.getCategorizedFunctions();
 
       return {
         categorized,
@@ -265,11 +132,12 @@ export default async function functionsRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { name: string } }>(
     '/:name',
     async (request, reply) => {
-      const functionsService = getFunctionsService();
+      const functionService = getFunctionService();
       const { name } = request.params;
 
       try {
-        const fn = await functionsService.getFunction(name);
+        const allFunctions = await functionService.listFunctions();
+        const fn = allFunctions.find(f => f.name === name);
 
         if (!fn) {
           return reply.status(404).send({
