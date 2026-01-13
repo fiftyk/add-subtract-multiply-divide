@@ -137,9 +137,35 @@ async function loadFunctionModule(
 
 /**
  * Get the functions directory path
- * Resolves to the project root's functions directory
+ * Reads from FUNCTIONS_DIR env variable, falls back to project root's functions directory
  */
 export function getFunctionsDir(callerDir?: string): string {
+  // First check environment variable
+  const envFunctionsDir = process.env.FUNCTIONS_DIR;
+  if (envFunctionsDir) {
+    // If it's an absolute path, use it directly
+    if (path.isAbsolute(envFunctionsDir)) {
+      try {
+        if (statSync(envFunctionsDir).isDirectory()) {
+          return envFunctionsDir;
+        }
+      } catch {
+        // Directory doesn't exist, continue to fallback
+      }
+    } else {
+      // It's a relative path, resolve from callerDir or web-server directory
+      const baseDir = callerDir || path.dirname(fileURLToPath(import.meta.url));
+      const resolvedPath = path.resolve(baseDir, envFunctionsDir);
+      try {
+        if (statSync(resolvedPath).isDirectory()) {
+          return resolvedPath;
+        }
+      } catch {
+        // Directory doesn't exist, continue to fallback
+      }
+    }
+  }
+
   // Project root functions directory
   const projectRootDir = path.resolve(__dirname, '../../../../functions');
 
