@@ -48,9 +48,7 @@ import type { ExecutionResult, StepResult } from '../../../dist/src/executor/typ
 import type { A2UIComponent } from '../../../dist/src/a2ui/types.js';
 
 import { sseManager } from './SSEManager.js';
-import { registerBuiltInMathFunctions } from '../functions/builtInMath.js';
-import { registerPatentFunctions } from '../functions/patents.js';
-import { registerProductConfigFunctions } from '../functions/productConfig.js';
+import { autoLoadFunctions, getFunctionsDir } from '../utils/AutoLoadFunctions.js';
 
 /**
  * Core Bridge Service
@@ -69,11 +67,16 @@ export class CoreBridge {
     this.planStorage = container.get<Storage>(Storage);
     this.functionProvider = container.get<FunctionProvider>(FunctionProvider);
 
-    // Register built-in math functions
+    // Auto-load all functions from the functions directory
     if (typeof this.functionProvider.register === 'function') {
-      registerBuiltInMathFunctions((fn) => this.functionProvider.register!(fn));
-      registerPatentFunctions((fn) => this.functionProvider.register!(fn));
-      registerProductConfigFunctions((fn) => this.functionProvider.register!(fn));
+      const functionsDir = getFunctionsDir(__dirname);
+      autoLoadFunctions(functionsDir, (fn) => this.functionProvider.register!(fn))
+        .then(count => {
+          console.log(`[CoreBridge] Auto-loaded ${count} built-in functions`);
+        })
+        .catch(error => {
+          console.error('[CoreBridge] Failed to auto-load functions:', error);
+        });
     }
   }
 
