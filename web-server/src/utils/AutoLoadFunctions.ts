@@ -2,7 +2,10 @@
  * Auto-load Functions Utility
  *
  * Automatically discovers and loads all function modules from the functions directory.
- * Supports files that export `registerXxxFunctions` or `xxxFunctions` as default.
+ * Supports:
+ * - registerXxxFunctions pattern (register function)
+ * - xxxFunctions array export
+ * - Direct function exports (export const xxx = {...})
  */
 
 import { readdirSync, statSync } from 'fs';
@@ -104,6 +107,28 @@ async function loadFunctionModule(
       return;
     }
 
+    // Try to find directly exported function definitions
+    // These are objects with 'name', 'description', 'parameters', 'returns', 'implementation'
+    const directExports = Object.keys(module).filter(key => {
+      const exportValue = module[key];
+      // Check if it's a function definition object (has name, description, implementation)
+      return exportValue &&
+             typeof exportValue === 'object' &&
+             exportValue !== null &&
+             typeof exportValue.implementation === 'function' &&
+             exportValue.name &&
+             exportValue.parameters;
+    });
+
+    if (directExports.length > 0) {
+      for (const exportName of directExports) {
+        registerFn(module[exportName]);
+      }
+      console.log(`[AutoLoadFunctions] Registered ${directExports.length} direct function(s) from: ${fileName}`);
+      loadedCount.value++;
+      return;
+    }
+
     console.warn(`[AutoLoadFunctions] No functions found in: ${fileName}`);
   } catch (error) {
     console.error(`[AutoLoadFunctions] Error loading module ${fileName}:`, error);
@@ -112,21 +137,22 @@ async function loadFunctionModule(
 
 /**
  * Get the functions directory path
- * Resolves relative to the caller or uses a default path
+ * Resolves to the project root's functions directory
  */
 export function getFunctionsDir(callerDir?: string): string {
-  const defaultDir = join(__dirname, '../functions');
+  // Project root functions directory
+  const projectRootDir = path.resolve(__dirname, '../../../../functions');
 
-  if (callerDir) {
-    const callerFunctionsDir = join(callerDir, 'functions');
-    try {
-      if (statSync(callerFunctionsDir).isDirectory()) {
-        return callerFunctionsDir;
-      }
-    } catch {
-      // Directory doesn't exist, use default
+  // Check if project root functions directory exists
+  try {
+    if (statSync(projectRootDir).isDirectory()) {
+      return projectRootDir;
     }
+  } catch {
+    // Directory doesn't exist
   }
 
+  // Fallback to web-server's functions directory
+  const defaultDir = join(__dirname, '../functions');
   return defaultDir;
 }
