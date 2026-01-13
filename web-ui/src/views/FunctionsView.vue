@@ -30,6 +30,23 @@
         </svg>
       </div>
 
+      <!-- Filter Tabs -->
+      <div class="mt-3 flex gap-2">
+        <button
+          v-for="filter in filters"
+          :key="filter.value"
+          @click="selectedFilter = filter.value"
+          :class="[
+            'px-4 py-2 text-sm rounded-lg transition-colors',
+            selectedFilter === filter.value
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          ]"
+        >
+          {{ filter.label }}
+        </button>
+      </div>
+
       <!-- Search Results Count -->
       <div v-if="searchQuery && searchResults" class="mt-2 text-sm text-gray-600">
         Found {{ searchResults.total }} function{{ searchResults.total !== 1 ? 's' : '' }}
@@ -60,8 +77,11 @@
           <div class="flex items-start justify-between mb-2">
             <div class="flex-1">
               <h3 class="text-lg font-semibold text-gray-900 font-mono">{{ fn.name }}</h3>
-              <p class="text-sm text-gray-500 mt-1">
-                {{ fn.type === 'local' ? '🏠 Local' : '🔌 ' + fn.source }}
+              <p v-if="fn.source" class="text-sm text-gray-500 mt-1">
+                🔌 from {{ fn.source }}
+              </p>
+              <p v-else class="text-sm text-gray-500 mt-1">
+                🏠 Local
               </p>
             </div>
             <button
@@ -133,7 +153,10 @@
               class="bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow"
             >
               <div class="flex items-start justify-between mb-2">
-                <h3 class="text-lg font-semibold text-gray-900 font-mono">{{ fn.name }}</h3>
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900 font-mono">{{ fn.name }}</h3>
+                  <p v-if="fn.source" class="text-sm text-gray-500">🔌 from {{ fn.source }}</p>
+                </div>
                 <button
                   @click="openExecuteDialog(fn)"
                   class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
@@ -267,7 +290,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 interface FunctionMetadata {
   name: string
@@ -317,6 +340,14 @@ interface ExecuteDialogState {
 
 const API_BASE_URL = 'http://localhost:3000/api'
 
+// Filter options
+const filters = [
+  { label: 'All', value: 'all' },
+  { label: 'Local', value: 'local' },
+  { label: 'MCP', value: 'mcp' }
+]
+const selectedFilter = ref('all')
+
 const loading = ref(false)
 const error = ref<string | null>(null)
 const categorized = ref<CategorizedFunctions[] | null>(null)
@@ -346,7 +377,38 @@ const loadCategorizedFunctions = async () => {
       throw new Error(`Failed to load functions: ${response.statusText}`)
     }
     const data = await response.json()
-    categorized.value = data.categorized || []
+
+    // Transform { local: [], remote: [] } to CategorizedFunctions[] format
+    const rawCategorized = data.categorized || { local: [], remote: [] }
+    const result: CategorizedFunctions[] = []
+
+    if (rawCategorized.local && rawCategorized.local.length > 0) {
+      result.push({
+        category: {
+          id: 'local',
+          name: 'Local Functions',
+          description: 'Built-in functions available locally',
+          count: rawCategorized.local.length,
+          icon: '📦',
+        },
+        functions: rawCategorized.local,
+      })
+    }
+
+    if (rawCategorized.remote && rawCategorized.remote.length > 0) {
+      result.push({
+        category: {
+          id: 'remote',
+          name: 'Remote Functions (MCP)',
+          description: 'Functions from MCP servers',
+          count: rawCategorized.remote.length,
+          icon: '🔗',
+        },
+        functions: rawCategorized.remote,
+      })
+    }
+
+    categorized.value = result
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Unknown error'
     console.error('Error loading functions:', e)
@@ -360,14 +422,18 @@ const searchFunctions = async (query: string) => {
   error.value = null
 
   try {
-    const response = await fetch(`${API_BASE_URL}/functions/search?q=${encodeURIComponent(query)}`)
+    // Pass filter type to backend
+    const response = await fetch(
+      `${API_BASE_URL}/functions/search?q=${encodeURIComponent(query)}&type=${selectedFilter.value}`
+    )
     if (!response.ok) {
       throw new Error(`Search failed: ${response.statusText}`)
     }
     const data = await response.json()
+
     searchResults.value = {
       functions: data.functions || [],
-      total: data.total || 0
+      total: data.functions?.length || 0
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Unknown error'
@@ -481,5 +547,12 @@ const executeFunction = async () => {
 
 onMounted(() => {
   loadCategorizedFunctions()
+})
+
+// Watch filter changes and re-search
+watch(selectedFilter, () => {
+  if (searchQuery.value.trim()) {
+    searchFunctions(searchQuery.value.trim())
+  }
 })
 </script>
