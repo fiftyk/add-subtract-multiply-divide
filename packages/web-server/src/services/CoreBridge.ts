@@ -14,18 +14,27 @@ const __dirname = path.dirname(__filename);
 
 // Initialize ConfigManager if not already initialized
 if (!ConfigManager.isInitialized()) {
-  // Set STORAGE_DATA_DIR to parent directory's .data folder
-  const rootDir = path.resolve(__dirname, '../../../');
-  const dataDir = path.join(rootDir, '.data');
+  console.log(`[CoreBridge] STORAGE_DATA_DIR from env: ${process.env.STORAGE_DATA_DIR}`);
+  console.log(`[CoreBridge] cwd: ${process.cwd()}`);
 
-  // Override environment variable for correct path
-  process.env.STORAGE_DATA_DIR = dataDir;
+  // Use STORAGE_DATA_DIR from environment if set, otherwise use default
+  if (!process.env.STORAGE_DATA_DIR) {
+    // Set STORAGE_DATA_DIR to parent directory's .data folder
+    const rootDir = path.resolve(__dirname, '../../../');
+    const dataDir = path.join(rootDir, '.data');
+    process.env.STORAGE_DATA_DIR = dataDir;
+  } else {
+    // Convert relative path to absolute path
+    if (!path.isAbsolute(process.env.STORAGE_DATA_DIR)) {
+      process.env.STORAGE_DATA_DIR = path.resolve(process.cwd(), process.env.STORAGE_DATA_DIR);
+    }
+  }
 
   ConfigManager.initialize({
     autoComplete: false,
     maxRetries: 3
   });
-  console.log(`[CoreBridge] ConfigManager initialized with dataDir: ${dataDir}`);
+  console.log(`[CoreBridge] ConfigManager initialized with dataDir: ${process.env.STORAGE_DATA_DIR}`);
 }
 
 import { ExecutionSessionManager } from '@fn-orchestrator/core/executor/session/index.js';

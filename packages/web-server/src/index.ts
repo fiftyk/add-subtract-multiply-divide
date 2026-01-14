@@ -54,14 +54,14 @@ await fastify.register(fastifyStatic, {
 });
 
 /**
- * Register routes (using dynamic imports to ensure ConfigManager is initialized first)
+ * Register routes (using dynamic imports to ensure ConfigManager is initialized after dotenv)
  */
 
 // Import web server container (includes MockA2UIRenderer binding)
-import container from './container/web-server-container.js';
+const { default: container } = await import('./container/web-server-container.js');
 
 // Initialize CoreBridge early to load functions
-import { getCoreBridge } from './services/CoreBridge.js';
+const { getCoreBridge } = await import('./services/CoreBridge.js');
 
 console.log('[WebServer] Initializing CoreBridge...');
 const coreBridge = getCoreBridge(container);
