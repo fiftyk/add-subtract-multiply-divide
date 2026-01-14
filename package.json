@@ -1,24 +1,30 @@
 {
-  "name": "add-subtract-multiply-divide",
+  "name": "fn-orchestrator-monorepo",
   "version": "2.0.0",
-  "description": "基于 LLM 的函数编排系统",
+  "description": "基于 LLM 的函数编排系统 - Monorepo",
+  "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "bin": {
-    "fn-orchestrator": "dist/src/cli/index.js"
-  },
   "scripts": {
-    "build": "tsc",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "dev": "tsx src/cli/index.ts",
-    "start": "node dist/cli/index.js"
+    "build": "pnpm -r --filter './packages/**' run build",
+    "build:core": "pnpm --filter @fn-orchestrator/core build",
+    "build:cli": "pnpm --filter @fn-orchestrator/cli build",
+    "build:web-server": "pnpm --filter @fn-orchestrator/web-server build",
+    "build:web-ui": "pnpm --filter @fn-orchestrator/web-ui build",
+    "dev:cli": "pnpm --filter @fn-orchestrator/cli dev",
+    "dev:web-server": "pnpm --filter @fn-orchestrator/web-server dev",
+    "dev:web-ui": "pnpm --filter @fn-orchestrator/web-ui dev",
+    "dev:web": "concurrently \"pnpm dev:web-server\" \"pnpm dev:web-ui\"",
+    "test": "pnpm -r run test",
+    "test:run": "pnpm -r run test:run",
+    "clean": "pnpm -r run clean && rm -rf node_modules .pnpm-store",
+    "typecheck": "pnpm -r exec tsc --noEmit"
   },
   "keywords": [
     "llm",
     "function",
     "orchestration",
-    "claude"
+    "claude",
+    "monorepo"
   ],
   "author": "fiftyk",
   "repository": {
@@ -30,25 +36,7 @@
     "url": "https://github.com/fiftyk/add-subtract-multiply-divide/issues"
   },
   "license": "MIT",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0",
-    "@inquirer/prompts": "^8.1.0",
-    "@modelcontextprotocol/sdk": "^1.25.1",
-    "chalk": "^5.3.0",
-    "commander": "^12.0.0",
-    "dotenv": "^17.2.3",
-    "inversify": "^7.10.8",
-    "reflect-metadata": "^0.2.2",
-    "uuid": "^9.0.0",
-    "zod": "^4.2.1"
-  },
   "devDependencies": {
-    "@types/inversify": "^2.0.32",
-    "@types/node": "^20.19.27",
-    "@types/uuid": "^9.0.0",
-    "@vitest/coverage-v8": "^1.6.1",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.0",
-    "vitest": "^1.0.0"
+    "concurrently": "^9.2.1"
   }
 }
