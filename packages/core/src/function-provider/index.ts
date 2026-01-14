@@ -8,6 +8,7 @@ export type {
   ProviderType,
   FunctionMetadata,
   FunctionExecutionResult,
+  FunctionExecutionError,
 } from './types.js';
 
 // 接口和符号

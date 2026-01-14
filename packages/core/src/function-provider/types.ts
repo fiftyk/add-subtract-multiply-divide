@@ -65,3 +65,34 @@ export interface FunctionExecutionResult {
     [key: string]: unknown;
   };
 }
+
+/**
+ * 函数执行错误
+ * 当函数执行失败时抛出此错误
+ */
+export class FunctionExecutionError extends Error {
+  public readonly functionName: string;
+  public readonly result: FunctionExecutionResult;
+
+  constructor(functionName: string, result: FunctionExecutionResult) {
+    super(result.error || `Function execution failed: ${functionName}`);
+    this.name = 'FunctionExecutionError';
+    this.functionName = functionName;
+    this.result = result;
+
+    // Capture stack trace
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, FunctionExecutionError);
+    }
+  }
+
+  /**
+   * 从 FunctionExecutionResult 创建错误
+   */
+  static fromResult(name: string, result: FunctionExecutionResult): FunctionExecutionError {
+    if (result.success) {
+      throw new Error('Cannot create error from successful result');
+    }
+    return new FunctionExecutionError(name, result);
+  }
+}

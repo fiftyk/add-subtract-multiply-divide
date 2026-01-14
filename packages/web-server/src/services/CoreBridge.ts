@@ -8,6 +8,7 @@ import { ConfigManager } from '@fn-orchestrator/core/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { Container } from 'inversify';
+import container from '../container/web-server-container.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -902,15 +903,15 @@ export function getCoreBridge(container: Container): CoreBridge {
 
 // For backwards compatibility, export coreBridge as a getter
 export const coreBridge = {
-  get createAndExecuteSession() { return getCoreBridge().createAndExecuteSession.bind(getCoreBridge()); },
-  get executeSessionWithSSE() { return getCoreBridge().executeSessionWithSSE.bind(getCoreBridge()); },
-  get executeSession() { return getCoreBridge().executeSession.bind(getCoreBridge()); },
-  get resumeSessionWithSSE() { return getCoreBridge().resumeSessionWithSSE.bind(getCoreBridge()); },
-  get resumeSession() { return getCoreBridge().resumeSession.bind(getCoreBridge()); },
-  get getSession() { return getCoreBridge().getSession.bind(getCoreBridge()); },
-  get listSessionsByPlan() { return getCoreBridge().listSessionsByPlan.bind(getCoreBridge()); },
-  get listPlans() { return getCoreBridge().listPlans.bind(getCoreBridge()); },
-  get getPlan() { return getCoreBridge().getPlan.bind(getCoreBridge()); },
-  get cancelSession() { return getCoreBridge().cancelSession.bind(getCoreBridge()); },
-  get retrySession() { return getCoreBridge().retrySession.bind(getCoreBridge()); }
+  get createAndExecuteSession() { return getCoreBridge(container).createAndExecuteSession.bind(getCoreBridge(container)); },
+  get executeSessionWithSSE() { return getCoreBridge(container).executeSessionWithSSE.bind(getCoreBridge(container)); },
+  get executeSession() { return getCoreBridge(container).executeSession.bind(getCoreBridge(container)); },
+  get resumeSessionWithSSE() { return getCoreBridge(container).resumeSessionWithSSE.bind(getCoreBridge(container)); },
+  get resumeSession() { return getCoreBridge(container).resumeSession.bind(getCoreBridge(container)); },
+  get getSession() { return getCoreBridge(container).getSession.bind(getCoreBridge(container)); },
+  get listSessionsByPlan() { return getCoreBridge(container).listSessionsByPlan.bind(getCoreBridge(container)); },
+  get listPlans() { return getCoreBridge(container).listPlans.bind(getCoreBridge(container)); },
+  get getPlan() { return getCoreBridge(container).getPlan.bind(getCoreBridge(container)); },
+  get cancelSession() { return getCoreBridge(container).cancelSession.bind(getCoreBridge(container)); },
+  get retrySession() { return getCoreBridge(container).retrySession.bind(getCoreBridge(container)); }
 };

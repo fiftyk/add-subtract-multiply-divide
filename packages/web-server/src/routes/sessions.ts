@@ -116,14 +116,14 @@ export default async function sessionsRoutes(fastify: FastifyInstance) {
       // Cleanup on disconnect
       request.raw.on('close', () => {
         clearInterval(heartbeatInterval);
-        sseManager.removeConnection(sessionId, reply.raw);
+        sseManager.removeConnectionByResponse(sessionId, reply.raw);
         console.log(`[SSE] Client disconnected from session ${sessionId}`);
       });
 
       request.raw.on('error', (error) => {
         console.error(`[SSE] Connection error for session ${sessionId}:`, error);
         clearInterval(heartbeatInterval);
-        sseManager.removeConnection(sessionId, reply.raw);
+        sseManager.removeConnectionByResponse(sessionId, reply.raw);
       });
     }
   );

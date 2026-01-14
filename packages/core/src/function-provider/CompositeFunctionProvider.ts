@@ -6,6 +6,7 @@
 import 'reflect-metadata';
 import { injectable, inject, optional, unmanaged, multiInject } from 'inversify';
 import type { FunctionMetadata, FunctionExecutionResult } from './types.js';
+import { FunctionExecutionError } from './types.js';
 import type { FunctionDefinition } from '../registry/types.js';
 import { FunctionProvider } from './interfaces/FunctionProvider.js';
 import { LocalFunctionProviderSymbol, AllRemoteFunctionProvidersSymbol } from './symbols.js';
@@ -284,6 +285,27 @@ export class CompositeFunctionProvider implements FunctionProvider {
         provider: this.getSource(),
       },
     };
+  }
+
+  /**
+   * 执行函数，失败时抛出异常
+   *
+   * @param name - 函数名（支持前缀格式）
+   * @param params - 函数参数
+   * @returns 执行结果
+   * @throws FunctionExecutionError - 函数执行失败时抛出
+   */
+  async executeOrThrow(
+    name: string,
+    params: Record<string, unknown>
+  ): Promise<FunctionExecutionResult> {
+    const result = await this.execute(name, params);
+
+    if (!result.success) {
+      throw new FunctionExecutionError(name, result);
+    }
+
+    return result;
   }
 
   /**
