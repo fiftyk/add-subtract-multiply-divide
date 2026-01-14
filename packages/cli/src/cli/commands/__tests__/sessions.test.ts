@@ -6,9 +6,9 @@ import {
   deleteCommand,
   statsCommand,
 } from '../sessions.js';
-import type { ExecutionSession, ExecutionStats } from '../../../executor/session/types.js';
-import type { ExecutionPlan } from '../../../planner/types.js';
-import type { ExecutionResult } from '../../../executor/types.js';
+import type { ExecutionSession, ExecutionStats } from '@fn-orchestrator/core/executor/session/types.js';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
+import type { ExecutionResult } from '@fn-orchestrator/core/executor/types.js';
 
 // Mock A2UIService
 const mockA2UIService = {
@@ -53,10 +53,10 @@ vi.mock('../../../container/cli-container.js', () => ({
 
 // Import after mocks
 import container from '../../../container/cli-container.js';
-import { A2UIService } from '../../../a2ui/A2UIService.js';
-import { ExecutionSessionStorage, ExecutionSessionManager } from '../../../executor/session/index.js';
-import { Executor } from '../../../executor/index.js';
-import { Planner } from '../../../planner/index.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
+import { ExecutionSessionStorage, ExecutionSessionManager } from '@fn-orchestrator/core/executor/session/index.js';
+import { Executor } from '@fn-orchestrator/core/executor';
+import { Planner } from '@fn-orchestrator/core/planner';
 
 describe('sessions command', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;

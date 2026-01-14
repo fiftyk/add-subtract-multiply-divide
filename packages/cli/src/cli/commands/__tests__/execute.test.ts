@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { executeCommand } from '../execute.js';
-import { FunctionProvider } from '../../../function-provider/interfaces/FunctionProvider.js';
-import { Storage } from '../../../storage/interfaces/Storage.js';
-import { Executor } from '../../../executor/index.js';
-import { Planner } from '../../../planner/interfaces/IPlanner.js';
-import { ExecutionSessionManager } from '../../../executor/session/index.js';
-import type { ExecutionPlan } from '../../../planner/types.js';
-import type { ExecutionResult } from '../../../executor/types.js';
-import type { FunctionDefinition } from '../../../registry/types.js';
-import type { ExecutionSession } from '../../../executor/session/types.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
+import { Storage } from '@fn-orchestrator/core/storage/interfaces/Storage.js';
+import { Executor } from '@fn-orchestrator/core/executor';
+import { Planner } from '@fn-orchestrator/core/planner/interfaces/IPlanner.js';
+import { ExecutionSessionManager } from '@fn-orchestrator/core/executor/session/index.js';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
+import type { ExecutionResult } from '@fn-orchestrator/core/executor/types.js';
+import type { FunctionDefinition } from '@fn-orchestrator/core/registry/types.js';
+import type { ExecutionSession } from '@fn-orchestrator/core/executor/session/types.js';
 
 // Shared mock reference for executor mocks
 const sharedMockExecutor = {
@@ -66,16 +66,16 @@ vi.mock('../../utils.js', () => ({
 vi.mock('@inquirer/prompts');
 
 // Mock executors - use shared mock reference
-vi.mock('../../../executor/implementations/ExecutorImpl.js', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../../executor/implementations/ExecutorImpl.js')>();
+vi.mock('@fn-orchestrator/core/executor/implementations/ExecutorImpl.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@fn-orchestrator/core/executor/implementations/ExecutorImpl.js')>();
   return {
     ...original,
     ExecutorImpl: vi.fn().mockImplementation(() => sharedMockExecutor),
   };
 });
 
-vi.mock('../../../executor/implementations/ConditionalExecutor.js', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../../executor/implementations/ConditionalExecutor.js')>();
+vi.mock('@fn-orchestrator/core/executor/implementations/ConditionalExecutor.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@fn-orchestrator/core/executor/implementations/ConditionalExecutor.js')>();
   return {
     ...original,
     ConditionalExecutor: vi.fn().mockImplementation(() => sharedMockExecutor),
@@ -85,8 +85,8 @@ vi.mock('../../../executor/implementations/ConditionalExecutor.js', async (impor
 // Import after mocks
 import container from '../../../container/cli-container.js';
 import { loadFunctions } from '../../utils.js';
-import { A2UIService } from '../../../a2ui/A2UIService.js';
-import { A2UIRenderer } from '../../../a2ui/A2UIRenderer.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
+import { A2UIRenderer } from '@fn-orchestrator/core/a2ui/A2UIRenderer.js';
 
 describe('execute command', () => {
   let mockFunctionProvider: Partial<FunctionProvider>;

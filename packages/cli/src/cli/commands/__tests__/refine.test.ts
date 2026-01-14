@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { refineCommand } from '../refine.js';
-import { FunctionProvider } from '../../../function-provider/interfaces/FunctionProvider.js';
-import { Storage } from '../../../storage/interfaces/Storage.js';
-import { Planner } from '../../../planner/interfaces/IPlanner.js';
-import { PlanRefinementSessionStorage, PlanRefinementLLMClient } from '../../../services/index.js';
-import type { ExecutionPlan } from '../../../planner/types.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
+import { Storage } from '@fn-orchestrator/core/storage/interfaces/Storage.js';
+import { Planner } from '@fn-orchestrator/core/planner/interfaces/IPlanner.js';
+import { PlanRefinementSessionStorage, PlanRefinementLLMClient } from '@fn-orchestrator/core/services';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
 
 // Mock A2UIService
 const mockA2UIService = {
@@ -53,7 +53,7 @@ vi.mock('@inquirer/prompts', async () => {
 
 // Import after mocks
 import container from '../../../container/cli-container.js';
-import { A2UIService } from '../../../a2ui/A2UIService.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 
 describe('refine command', () => {
   let mockFunctionProvider: Partial<FunctionProvider>;

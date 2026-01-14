@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { planCommand } from '../plan.js';
-import { FunctionProvider } from '../../../function-provider/interfaces/FunctionProvider.js';
-import { Storage } from '../../../storage/interfaces/Storage.js';
-import { Planner } from '../../../planner/interfaces/IPlanner.js';
-import { Executor } from '../../../executor/index.js';
-import { MockServiceFactory } from '../../../function-completion/interfaces/MockServiceFactory.js';
-import { PlanRefinementSessionStorage, PlanRefinementLLMClient } from '../../../services/index.js';
-import type { ExecutionPlan } from '../../../planner/types.js';
-import type { FunctionDefinition } from '../../../registry/types.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
+import { Storage } from '@fn-orchestrator/core/storage/interfaces/Storage.js';
+import { Planner } from '@fn-orchestrator/core/planner/interfaces/IPlanner.js';
+import { Executor } from '@fn-orchestrator/core/executor';
+import { MockServiceFactory } from '@fn-orchestrator/core/function-completion/interfaces/MockServiceFactory.js';
+import { PlanRefinementSessionStorage, PlanRefinementLLMClient } from '@fn-orchestrator/core/services';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
+import type { FunctionDefinition } from '@fn-orchestrator/core/registry/types.js';
 
 // Mock A2UIService
 const mockA2UIService = {
@@ -55,9 +55,9 @@ vi.mock('@inquirer/prompts');
 // Import after mocks
 import container, { MockServiceFactory as MockServiceFactoryToken } from '../../../container/cli-container.js';
 import { loadFunctions } from '../../utils.js';
-import { ConfigManager } from '../../../config/index.js';
-import { LoggerFactory } from '../../../logger/index.js';
-import { A2UIService } from '../../../a2ui/A2UIService.js';
+import { ConfigManager } from '@fn-orchestrator/core/config';
+import { LoggerFactory } from '@fn-orchestrator/core/logger';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 
 describe('plan command', () => {
   let mockFunctionProvider: Partial<FunctionProvider>;

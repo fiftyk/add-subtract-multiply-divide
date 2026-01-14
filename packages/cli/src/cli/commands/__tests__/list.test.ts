@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { listCommand } from '../list.js';
-import { Storage } from '../../../storage/interfaces/Storage.js';
-import { Planner } from '../../../planner/interfaces/IPlanner.js';
-import { FunctionService } from '../../../function-service/interfaces/FunctionService.js';
-import type { ExecutionPlan } from '../../../planner/types.js';
+import { Storage } from '@fn-orchestrator/core/storage/interfaces/Storage.js';
+import { Planner } from '@fn-orchestrator/core/planner/interfaces/IPlanner.js';
+import { FunctionService } from '@fn-orchestrator/core/function-service/interfaces/FunctionService.js';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
 
 // Mock A2UIService
 const mockA2UIService = {
@@ -26,7 +26,7 @@ vi.mock('../../../container/cli-container.js', () => ({
 
 // Import after mocks
 import container from '../../../container/cli-container.js';
-import { A2UIService } from '../../../a2ui/A2UIService.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 
 describe('list command', () => {
   let mockStorage: Partial<Storage>;
