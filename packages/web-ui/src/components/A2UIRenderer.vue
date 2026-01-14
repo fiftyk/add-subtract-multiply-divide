@@ -40,6 +40,74 @@ function formatCellValue(value: unknown): string {
   }
   return String(value)
 }
+
+// 查找子组件
+function findChildComponents(childId: string) {
+  return props.components.filter(c => c.id === childId)
+}
+
+// 获取 Row 样式
+function getRowStyle(props: Record<string, unknown>): Record<string, string> {
+  const distribution = props.distribution as { literalString: string } | undefined
+  const gap = props.gap as number | undefined
+
+  const justifyContent = distribution?.literalString || 'flex-start'
+
+  return {
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: getJustifyContent(justifyContent),
+    gap: gap ? `${gap}px` : '8px'
+  }
+}
+
+// 获取 Column 样式
+function getColumnStyle(props: Record<string, unknown>): Record<string, string> {
+  const distribution = props.distribution as { literalString: string } | undefined
+  const gap = props.gap as number | undefined
+
+  const alignItems = distribution?.literalString || 'flex-start'
+
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: getAlignItems(alignItems),
+    gap: gap ? `${gap}px` : '8px'
+  }
+}
+
+function getJustifyContent(value: string): string {
+  const map: Record<string, string> = {
+    'start': 'flex-start',
+    'center': 'center',
+    'end': 'flex-end',
+    'space-between': 'space-between',
+    'space-around': 'space-around',
+    'space-evenly': 'space-evenly'
+  }
+  return map[value] || 'flex-start'
+}
+
+function getAlignItems(value: string): string {
+  const map: Record<string, string> = {
+    'start': 'flex-start',
+    'center': 'center',
+    'end': 'flex-end'
+  }
+  return map[value] || 'flex-start'
+}
+
+// 获取 CheckBox 的 checked 状态
+function getCheckBoxChecked(props: Record<string, unknown>): boolean {
+  const checked = props.checked as { literalBoolean?: boolean } | undefined
+  return checked?.literalBoolean || false
+}
+
+// 获取 CheckBox 的 label 文本
+function getCheckBoxLabel(props: Record<string, unknown>): string {
+  const label = props.label as { literalString?: string } | undefined
+  return label?.literalString || ''
+}
 </script>
 
 <template>
@@ -128,6 +196,80 @@ function formatCellValue(value: unknown): string {
 
       <!-- Divider 组件 -->
       <div v-else-if="comp.type === 'Divider'" class="a2ui-divider" :class="(comp.props.style as string || 'solid')"></div>
+
+      <!-- List 组件 -->
+      <div v-else-if="comp.type === 'List'" class="a2ui-list">
+        <div
+          v-for="(item, index) in (comp.props.children as string[] | undefined)"
+          :key="index"
+          class="a2ui-list-item"
+          :class="{ 'a2ui-list-ordered': comp.props.ordered }"
+        >
+          <span v-if="comp.props.ordered" class="a2ui-list-number">{{ index + 1 }}.</span>
+          <span class="a2ui-list-content">{{ item }}</span>
+        </div>
+      </div>
+
+      <!-- Row 组件 (水平布局) -->
+      <div v-else-if="comp.type === 'Row'" class="a2ui-row" :style="getRowStyle(comp.props)">
+        <div
+          v-for="childId in (comp.props.children as string[] | undefined)"
+          :key="childId"
+          class="a2ui-row-item"
+        >
+          <!-- Row 子元素需要通过 ID 查找实际组件 -->
+          <template v-for="childComp in findChildComponents(childId)" :key="childComp.id + '-' + childComp.type">
+            <A2UIRenderer :components="[childComp]" />
+          </template>
+        </div>
+      </div>
+
+      <!-- Column 组件 (垂直布局) -->
+      <div v-else-if="comp.type === 'Column'" class="a2ui-column" :style="getColumnStyle(comp.props)">
+        <div
+          v-for="childId in (comp.props.children as string[] | undefined)"
+          :key="childId"
+          class="a2ui-column-item"
+        >
+          <template v-for="childComp in findChildComponents(childId)" :key="childComp.id + '-' + childComp.type">
+            <A2UIRenderer :components="[childComp]" />
+          </template>
+        </div>
+      </div>
+
+      <!-- Button 组件 -->
+      <button
+        v-else-if="comp.type === 'Button'"
+        class="a2ui-button"
+        :class="(comp.props.variant as string || 'primary')"
+        :disabled="Boolean(comp.props.disabled)"
+      >
+        {{ comp.props.label }}
+      </button>
+
+      <!-- Slider 组件 -->
+      <div v-else-if="comp.type === 'Slider'" class="a2ui-slider">
+        <label v-if="comp.props.label" class="a2ui-slider-label">{{ comp.props.label }}</label>
+        <input
+          type="range"
+          class="a2ui-slider-input"
+          :min="(comp.props.minValue as number | undefined) || 0"
+          :max="(comp.props.maxValue as number | undefined) || 100"
+          :value="(comp.props.value as number)"
+        />
+        <span class="a2ui-slider-value">{{ comp.props.value }}</span>
+      </div>
+
+      <!-- CheckBox 组件 -->
+      <div v-else-if="comp.type === 'CheckBox'" class="a2ui-checkbox">
+        <input
+          type="checkbox"
+          class="a2ui-checkbox-input"
+          :checked="getCheckBoxChecked(comp.props)"
+          disabled
+        />
+        <label class="a2ui-checkbox-label">{{ getCheckBoxLabel(comp.props) }}</label>
+      </div>
 
       <!-- 其他不支持的组件类型 -->
       <div v-else class="a2ui-unsupported">
@@ -313,6 +455,165 @@ function formatCellValue(value: unknown): string {
     transparent 8px,
     transparent 16px
   );
+}
+
+/* List 样式 */
+.a2ui-list {
+  margin: 0.5rem 0;
+}
+
+.a2ui-list-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.a2ui-list-item::before {
+  content: '•';
+  color: #9ca3af;
+  margin-right: 0.5rem;
+}
+
+.a2ui-list-ordered .a2ui-list-number {
+  color: #6b7280;
+  margin-right: 0.5rem;
+  font-weight: 500;
+}
+
+.a2ui-list-ordered .a2ui-list-item::before {
+  content: none;
+}
+
+/* Row 样式 */
+.a2ui-row {
+  display: flex;
+  flex-direction: row;
+  margin: 0.5rem 0;
+  flex-wrap: wrap;
+}
+
+.a2ui-row-item {
+  flex-shrink: 0;
+}
+
+/* Column 样式 */
+.a2ui-column {
+  display: flex;
+  flex-direction: column;
+  margin: 0.5rem 0;
+}
+
+.a2ui-column-item {
+  flex-shrink: 0;
+}
+
+/* Button 样式 */
+.a2ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.a2ui-button.primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.a2ui-button.primary:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.a2ui-button.secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.a2ui-button.secondary:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.a2ui-button.danger {
+  background-color: #ef4444;
+  color: white;
+}
+
+.a2ui-button.danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+.a2ui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Slider 样式 */
+.a2ui-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.a2ui-slider-label {
+  font-size: 0.875rem;
+  color: #374151;
+  min-width: 60px;
+}
+
+.a2ui-slider-input {
+  flex: 1;
+  height: 0.375rem;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.a2ui-slider-input::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.a2ui-slider-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* CheckBox 样式 */
+.a2ui-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+}
+
+.a2ui-checkbox-input {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+  border-color: #d1d5db;
+  cursor: pointer;
+}
+
+.a2ui-checkbox-label {
+  font-size: 0.875rem;
+  color: #374151;
 }
 
 /* Unsupported 样式 */
