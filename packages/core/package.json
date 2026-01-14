@@ -22,7 +22,8 @@
     "./tools": "./dist/tools/index.js",
     "./logger": "./dist/logger/index.js",
     "./validation": "./dist/validation/index.js",
-    "./errors": "./dist/errors/index.js"
+    "./errors": "./dist/errors/index.js",
+    "./*": "./dist/*"
   },
   "scripts": {
     "build": "tsc -b",

@@ -1,11 +1,11 @@
 import { input, confirm } from '@inquirer/prompts';
 import container from '../../container/cli-container.js';
-import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import { Executor } from '../../executor/index.js';
-import { Storage } from '../../storage/index.js';
-import { Planner } from '../../planner/index.js';
-import { A2UIService } from '../../a2ui/A2UIService.js';
-import { ExecutionSessionManager } from '../../executor/session/index.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
+import { Executor } from '@fn-orchestrator/core/executor';
+import { Storage } from '@fn-orchestrator/core/storage';
+import { Planner } from '@fn-orchestrator/core/planner';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
+import { ExecutionSessionManager } from '@fn-orchestrator/core/executor/session/index.js';
 import { loadFunctions } from '../utils.js';
 
 interface ExecuteOptions {

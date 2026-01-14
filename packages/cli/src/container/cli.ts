@@ -5,11 +5,11 @@
  */
 
 import type { Container } from 'inversify';
-import { A2UIRenderer } from '../a2ui/A2UIRenderer.js';
-import { CLIRenderer } from '../a2ui/adapters/CLIRenderer.js';
-import { A2UIService } from '../a2ui/A2UIService.js';
-import { ExecutionSessionStore } from '../executor/session/interfaces/SessionStore.js';
-import { MemorySessionStore } from '../executor/session/implementations/MemorySessionStore.js';
+import { A2UIRenderer } from '@fn-orchestrator/core/a2ui/A2UIRenderer.js';
+import { CLIRenderer } from '@fn-orchestrator/core/a2ui/adapters/CLIRenderer.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
+import { ExecutionSessionStore } from '@fn-orchestrator/core/executor/session/interfaces/SessionStore.js';
+import { MemorySessionStore } from '@fn-orchestrator/core/executor/session/implementations/MemorySessionStore.js';
 
 /**
  * 检查是否在 Web 服务器环境中运行

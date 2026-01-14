@@ -1,14 +1,14 @@
 /**
  * CLI Container - CLI 端专用容器
- * 
+ *
  * 仅加载核心服务 + CLI 特有服务，不加载 Web 端实现
  */
 
 import 'reflect-metadata';
 import { Container } from 'inversify';
-import { registerCoreBindings } from './core.js';
+import { registerCoreBindings } from '@fn-orchestrator/core/container/core.js';
 import { registerCLIBindings } from './cli.js';
-import { MockServiceFactory } from '../function-completion/factory/MockServiceFactory.js';
+import { MockServiceFactory } from '@fn-orchestrator/core/function-completion/factory/MockServiceFactory.js';
 
 const container = new Container({
   defaultScope: 'Singleton',

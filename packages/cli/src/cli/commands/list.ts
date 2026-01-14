@@ -1,8 +1,8 @@
 import container from '../../container/cli-container.js';
-import { FunctionService } from '../../function-service/index.js';
-import { Storage } from '../../storage/index.js';
-import { Planner } from '../../planner/index.js';
-import { A2UIService } from '../../a2ui/A2UIService.js';
+import { FunctionService } from '@fn-orchestrator/core/function-service';
+import { Storage } from '@fn-orchestrator/core/storage';
+import { Planner } from '@fn-orchestrator/core/planner';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 
 interface ListFunctionsOptions {
   functions: string;

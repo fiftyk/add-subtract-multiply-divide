@@ -5,17 +5,17 @@
  */
 
 import container from '../../container/cli-container.js';
-import { A2UIService } from '../../a2ui/A2UIService.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 import {
   ExecutionSessionStorage,
   ExecutionSessionManager,
   type ExecutionSession,
   type ExecutionStats,
   type ListSessionsOptions,
-} from '../../executor/session/index.js';
-import type { ExecutionStatus } from '../../a2ui/types.js';
-import { Executor } from '../../executor/index.js';
-import { Planner } from '../../planner/index.js';
+} from '@fn-orchestrator/core/executor/session/index.js';
+import type { ExecutionStatus } from '@fn-orchestrator/core/a2ui/types.js';
+import { Executor } from '@fn-orchestrator/core/executor';
+import { Planner } from '@fn-orchestrator/core/planner';
 
 /**
  * List sessions command

@@ -1,19 +1,19 @@
 import { input } from '@inquirer/prompts';
 import { v4 as uuidv4 } from 'uuid';
 import container, { MockServiceFactory } from '../../container/cli-container.js';
-import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import { Planner } from '../../planner/index.js';
-import { Storage } from '../../storage/index.js';
-import { Executor } from '../../executor/index.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
+import { Planner } from '@fn-orchestrator/core/planner';
+import { Storage } from '@fn-orchestrator/core/storage';
+import { Executor } from '@fn-orchestrator/core/executor';
 import { loadFunctions } from '../utils.js';
-import { PlannerWithMockSupport } from '../../function-completion/index.js';
-import { ConfigManager } from '../../config/index.js';
-import { LoggerFactory } from '../../logger/index.js';
-import { InteractivePlanService, PlanRefinementLLMClient, PlanRefinementSessionStorage } from '../../services/index.js';
-import type { ExecutionPlan } from '../../planner/types.js';
-import { isFunctionCallStep } from '../../planner/type-guards.js';
-import type { AppConfig } from '../../config/types.js';
-import { A2UIService } from '../../a2ui/A2UIService.js';
+import { PlannerWithMockSupport } from '@fn-orchestrator/core/function-completion';
+import { ConfigManager } from '@fn-orchestrator/core/config';
+import { LoggerFactory } from '@fn-orchestrator/core/logger';
+import { InteractivePlanService, PlanRefinementLLMClient, PlanRefinementSessionStorage } from '@fn-orchestrator/core/services';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
+import { isFunctionCallStep } from '@fn-orchestrator/core/planner/type-guards.js';
+import type { AppConfig } from '@fn-orchestrator/core/config/types.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 
 interface PlanOptions {
   functions: string;

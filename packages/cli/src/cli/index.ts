@@ -5,7 +5,7 @@ import { executeCommand } from './commands/execute.js';
 import { listCommand } from './commands/list.js';
 import { refineCommand } from './commands/refine.js';
 import * as sessionsCommand from './commands/sessions.js';
-import { ConfigManager } from '../config/index.js';
+import { ConfigManager } from '@fn-orchestrator/core/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 

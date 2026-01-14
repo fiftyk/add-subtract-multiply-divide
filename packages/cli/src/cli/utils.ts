@@ -1,8 +1,8 @@
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { pathToFileURL } from 'url';
-import type { FunctionDefinition } from '../registry/types.js';
-import type { FunctionProvider } from '../function-provider/interfaces/FunctionProvider.js';
+import type { FunctionDefinition } from '@fn-orchestrator/core/registry/types.js';
+import type { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
 
 /**
  * 加载函数定义文件

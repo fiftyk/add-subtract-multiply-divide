@@ -1,13 +1,13 @@
 import { input } from '@inquirer/prompts';
 import container from '../../container/cli-container.js';
-import { InteractivePlanService, PlanRefinementSessionStorage } from '../../services/index.js';
-import { Storage } from '../../storage/index.js';
-import { Planner } from '../../planner/index.js';
-import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
-import { PlanRefinementLLMClient } from '../../services/interfaces/IPlanRefinementLLMClient.js';
-import { A2UIService } from '../../a2ui/A2UIService.js';
-import type { ExecutionPlan } from '../../planner/types.js';
-import { isFunctionCallStep } from '../../planner/type-guards.js';
+import { InteractivePlanService, PlanRefinementSessionStorage } from '@fn-orchestrator/core/services';
+import { Storage } from '@fn-orchestrator/core/storage';
+import { Planner } from '@fn-orchestrator/core/planner';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
+import { PlanRefinementLLMClient } from '@fn-orchestrator/core/services/interfaces/IPlanRefinementLLMClient.js';
+import { A2UIService } from '@fn-orchestrator/core/a2ui/A2UIService.js';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
+import { isFunctionCallStep } from '@fn-orchestrator/core/planner/type-guards.js';
 
 interface RefineOptions {
   prompt?: string;
