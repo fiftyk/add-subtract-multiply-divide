@@ -6,6 +6,7 @@ dist/
 *.log
 .env
 .DS_Store
+pnpm-lock.yaml
 
 # MCP configuration (may contain sensitive tokens)
 fn-orchestrator.mcp.json

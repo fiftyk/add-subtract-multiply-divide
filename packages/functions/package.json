@@ -1,0 +1,26 @@
+{
+  "name": "@fn-orchestrator/functions",
+  "version": "1.0.0",
+  "description": "Built-in functions for fn-orchestrator",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./math": "./dist/math.js",
+    "./patents": "./dist/patents.js",
+    "./productConfig": "./dist/productConfig.js",
+    "./*": "./dist/*"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@fn-orchestrator/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "typescript": "^5.3.0"
+  }
+}
