@@ -166,8 +166,8 @@ export function getFunctionsDir(callerDir?: string): string {
     }
   }
 
-  // Project root functions directory
-  const projectRootDir = path.resolve(__dirname, '../../../functions');
+  // Project root functions directory - look in src/_modules for TypeScript source
+  const projectRootDir = path.resolve(__dirname, '../../../functions/src/_modules');
 
   // Check if project root functions directory exists
   try {

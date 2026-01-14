@@ -74,12 +74,20 @@ export class CoreBridge {
     this.functionProvider = container.get<FunctionProvider>(FunctionProvider);
 
     // 使用 FunctionService 初始化（仅连接 MCP servers）
+    // 注意：即使 MCP 连接失败，也要继续加载本地函数
     this.initializationPromise = this.functionService
       .initialize({
         autoConnect: true,
       })
       .then(async () => {
-        console.log('[CoreBridge] FunctionService.initialize() completed');
+        console.log('[CoreBridge] FunctionService MCP connection completed');
+      })
+      .catch(async (error) => {
+        console.warn('[CoreBridge] FunctionService MCP connection failed, continuing with local functions only:', error.message);
+      })
+      .finally(async () => {
+        // 无论 MCP 连接是否成功，都要加载本地函数
+        console.log('[CoreBridge] Loading local functions...');
 
         // 调试：检查 functionProvider 的类型
         console.log(`[CoreBridge] FunctionProvider type: ${this.functionProvider.getType()}`);
@@ -99,9 +107,6 @@ export class CoreBridge {
         if (remote.length > 0) {
           console.log(`[CoreBridge] Remote functions:`, remote.map(f => `${f.name} (${f.source})`).join(', '));
         }
-      })
-      .catch(error => {
-        console.error('[CoreBridge] Failed to initialize FunctionService:', error);
       });
   }
 

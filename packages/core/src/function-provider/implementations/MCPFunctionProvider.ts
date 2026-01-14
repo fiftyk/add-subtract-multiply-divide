@@ -180,9 +180,15 @@ export class MCPFunctionProvider implements FunctionProvider {
   /**
    * 初始化 Provider
    * 建立与 MCP Server 的连接
+   * 注意：如果连接失败，会记录警告并继续，不抛出异常
    */
   async initialize(): Promise<void> {
-    await this.client.connect();
+    try {
+      await this.client.connect();
+    } catch (error) {
+      // 连接失败时记录警告，不抛出异常，以便本地函数可以继续加载
+      console.warn(`[MCPFunctionProvider] Failed to connect to MCP server ${this.client.getServerName()}: ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   /**
