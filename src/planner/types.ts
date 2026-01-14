@@ -30,23 +30,40 @@ export interface BasePlanStep {
 }
 
 /**
- * 函数调用步骤(原有)
+ * 函数调用步骤
  */
 export interface FunctionCallStep extends BasePlanStep {
   type: StepType.FUNCTION_CALL;
   functionName: string;
   parameters: Record<string, ParameterValue>;
-  dependsOn?: number[]; // 预留：依赖的步骤 ID
+  dependsOn?: number[];
+
+  /**
+   * A2UI 结果界面定义
+   * 用于展示函数调用结果
+   * A2UI v0.8 扁平邻接表结构
+   */
+  resultUI?: import('../a2ui/types.js').SurfaceDefinition;
 }
 
 /**
- * 用户输入步骤(新增)
+ * 用户输入步骤
  */
 export interface UserInputStep extends BasePlanStep {
   type: StepType.USER_INPUT;
 
-  /** A2UI Schema */
-  schema: import('../a2ui/types.js').A2UISchema;
+  /**
+   * A2UI Schema (向后兼容)
+   * 如果未提供 inputUI，则使用此 schema
+   */
+  schema?: import('../a2ui/types.js').A2UISchema;
+
+  /**
+   * A2UI 输入界面定义
+   * 使用 A2UI v0.8 扁平邻接表结构
+   * 优先级高于 schema
+   */
+  inputUI?: import('../a2ui/types.js').SurfaceDefinition;
 
   /**
    * 输入结果的存储名称(可选)

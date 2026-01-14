@@ -21,6 +21,7 @@ import { Executor } from '../../interfaces/Executor.js';
 import { Storage } from '../../../storage/interfaces/Storage.js';
 import { LoggerFactory } from '../../../logger/index.js';
 import type { ILogger } from '../../../logger/index.js';
+import { buildSchemaFromInputUI } from '../../../a2ui/A2UIService.js';
 
 /**
  * ExecutionSessionManagerImpl
@@ -279,7 +280,45 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
 
         // 获取下一个用户输入步骤的模式
         const nextStep = session.plan.steps.find(s => s.stepId === nextPendingStepId);
-        const pendingInputSchema = nextStep?.type === StepType.USER_INPUT ? nextStep.schema : undefined;
+
+        if (!nextStep || nextStep.type !== StepType.USER_INPUT) {
+          throw new Error('Next step is not a user input step');
+        }
+
+        // Build context with step results for resolving dynamic options
+        const contextWithResults: Record<string, unknown> = { ...updatedContext };
+        for (const stepResult of result.steps) {
+          if (stepResult.type === 'function_call' && stepResult.success) {
+            let resultValue: unknown = stepResult.result;
+            // Parse JSON string results (handle Python-style dict strings)
+            if (typeof resultValue === 'string') {
+              try {
+                // Try standard JSON parse first
+                resultValue = JSON.parse(resultValue);
+              } catch {
+                // Try to parse as Python-style dict string
+                let normalized = resultValue as string;
+                // Replace single quotes with double quotes
+                normalized = normalized.replace(/'/g, '"');
+                // Replace Python None/True/False with JSON null/true/false
+                normalized = normalized.replace(/\bNone\b/g, 'null');
+                normalized = normalized.replace(/\bTrue\b/g, 'true');
+                normalized = normalized.replace(/\bFalse\b/g, 'false');
+                try {
+                  resultValue = JSON.parse(normalized);
+                } catch {
+                  // Keep as string if parsing fails
+                }
+              }
+            }
+            contextWithResults[`step${stepResult.stepId}`] = { result: resultValue };
+          } else if (stepResult.type === 'user_input' && stepResult.success) {
+            contextWithResults[`step${stepResult.stepId}`] = { result: (stepResult as any).values };
+          }
+        }
+
+        // Build schema with resolved options from inputUI
+        const pendingInputSchema = buildSchemaFromInputUI(nextStep, contextWithResults);
 
         await this.sessionStorage.updateSession(sessionId, {
           status: 'waiting_input',
@@ -287,7 +326,7 @@ export class ExecutionSessionManagerImpl implements IExecutionSessionManager {
           stepResults: result.steps, // ✅ Executor 已经合并了 previousStepResults
           pendingInput: {
             stepId: nextPendingStepId,
-            schema: pendingInputSchema!,
+            schema: pendingInputSchema,
             surfaceId: `user-input-${nextPendingStepId}`,
           },
           result: undefined, // 清除之前的结果，因为还没有完成

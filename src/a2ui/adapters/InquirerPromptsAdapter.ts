@@ -6,7 +6,17 @@
  */
 
 import { input, confirm, select, checkbox, number } from '@inquirer/prompts';
-import type { SelectFieldProps, TextFieldProps } from '../types.js';
+import type { TextFieldProps, MultipleChoiceProps, TextValue } from '../types.js';
+
+/**
+ * Extract string from TextValue (returns literalString or path placeholder)
+ * Also handles plain strings for backward compatibility
+ */
+function getTextValue(value: TextValue | string): string {
+  if (typeof value === 'string') return value;
+  if ('literalString' in value) return value.literalString;
+  return `[${value.path}]`;
+}
 
 /**
  * Simplified props for confirm prompt (only needs label)
@@ -25,22 +35,41 @@ export interface DateInputProps {
 }
 
 /**
+ * Simplified props for select prompt
+ */
+export interface SelectInputProps {
+  label: string;
+  name: string;
+  options: Array<{ value: string | number; label: string; description?: string }>;
+}
+
+/**
+ * Simplified props for text input
+ */
+export interface TextInputProps {
+  label: string;
+  name: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+/**
  * Prompt adapter interface for A2UI input components
  */
 export interface PromptAdapter {
-  text(props: TextFieldProps): Promise<string>;
+  text(props: TextInputProps): Promise<string>;
   number(props: TextFieldProps): Promise<number | undefined>;
   confirm(props: ConfirmProps): Promise<boolean>;
   date(props: DateInputProps): Promise<string>;
-  select(props: SelectFieldProps): Promise<string | number>;
-  multiSelect(props: SelectFieldProps): Promise<(string | number)[]>;
+  select(props: SelectInputProps): Promise<string | number>;
+  multiSelect(props: SelectInputProps): Promise<(string | number)[]>;
 }
 
 /**
  * Implementation using @inquirer/prompts
  */
 export class InquirerPromptsAdapter implements PromptAdapter {
-  async text(props: TextFieldProps): Promise<string> {
+  async text(props: TextInputProps): Promise<string> {
     return await input({
       message: props.label,
       default: props.placeholder,
@@ -54,14 +83,16 @@ export class InquirerPromptsAdapter implements PromptAdapter {
   }
 
   async number(props: TextFieldProps): Promise<number | undefined> {
-    const defaultValue = props.placeholder
+    const label = getTextValue(props.label);
+    const placeholder = props.placeholder ? getTextValue(props.placeholder) : undefined;
+    const defaultValue = placeholder
       ? (() => {
-          const parsed = parseFloat(props.placeholder);
+          const parsed = parseFloat(placeholder);
           return isNaN(parsed) ? undefined : parsed;
         })()
       : undefined;
     return await number({
-      message: props.label,
+      message: label,
       default: defaultValue,
       required: false,
     });
@@ -96,7 +127,7 @@ export class InquirerPromptsAdapter implements PromptAdapter {
     });
   }
 
-  async select(props: SelectFieldProps): Promise<string | number> {
+  async select(props: SelectInputProps): Promise<string | number> {
     return await select({
       message: props.label,
       choices: props.options.map((opt) => ({
@@ -107,7 +138,7 @@ export class InquirerPromptsAdapter implements PromptAdapter {
     });
   }
 
-  async multiSelect(props: SelectFieldProps): Promise<(string | number)[]> {
+  async multiSelect(props: SelectInputProps): Promise<(string | number)[]> {
     return await checkbox({
       message: props.label,
       choices: props.options.map((opt) => ({

@@ -20,16 +20,37 @@ import type {
   ProgressProps,
   BadgeProps,
   ColumnProps,
-  DateFieldProps,
-  SelectFieldProps,
+  DateTimeInputProps,
+  MultipleChoiceProps,
   RowProps,
-  TableProps,
+  TextValue,
+  ChildrenValue,
 } from '../types.js';
 import { getPromptAdapter, type PromptAdapter, type ConfirmProps } from './InquirerPromptsAdapter.js';
 
 interface Surface {
   rootId: string;
   components: Map<string, A2UIComponent>;
+  /** Execution context for resolving BoundValue paths */
+  context?: Record<string, unknown>;
+}
+
+/**
+ * Extract text from a TextValue (resolves literalString, returns path for error)
+ * Also handles plain strings for backward compatibility
+ */
+function getTextValue(value: TextValue | string): string {
+  if (typeof value === 'string') return value;
+  if ('literalString' in value) return value.literalString;
+  return `[${value.path}]`;
+}
+
+/**
+ * Extract children IDs from ChildrenValue
+ */
+function getChildrenIds(children: ChildrenValue, context: Record<string, unknown>): string[] {
+  if ('explicitList' in children) return children.explicitList;
+  return []; // Dynamic children require context resolution
 }
 
 @injectable()
@@ -93,28 +114,35 @@ export class CLIRenderer implements A2UIRenderer {
       throw new Error(`Component not found: ${componentId}`);
     }
 
-    const [[type, props]] = Object.entries(comp.component);
-    const p = props as unknown;
+    const [[type, rawProps]] = Object.entries(comp.component);
+    const props = rawProps as unknown;
 
     switch (type) {
       case 'TextField': {
-        const tfProps = p as TextFieldProps;
+        const tfProps = props as TextFieldProps;
+        const label = getTextValue(tfProps.label);
+        const placeholder = tfProps.placeholder ? getTextValue(tfProps.placeholder) : undefined;
+        const required = tfProps.required && 'literalBoolean' in tfProps.required ? tfProps.required.literalBoolean : false;
+        // Extract path from text binding for payload key
+        const pathParts = tfProps.text.path.split('/').filter(p => p);
+        const name = pathParts[pathParts.length - 1];
+
         const value = await this.promptAdapter.text({
-          label: tfProps.label,
-          placeholder: tfProps.placeholder,
-          required: tfProps.required,
-          name: tfProps.name,
+          label,
+          placeholder,
+          required,
+          name,
         });
         return {
           name: 'submit',
           surfaceId,
           componentId,
-          payload: { [tfProps.name]: value },
+          payload: { [name]: value },
         };
       }
 
       case 'Button': {
-        const btnProps = p as ButtonProps;
+        const btnProps = props as ButtonProps;
         const confirmed = await this.promptAdapter.confirm({ label: btnProps.label });
         return {
           name: confirmed ? btnProps.action : 'cancel',
@@ -123,8 +151,64 @@ export class CLIRenderer implements A2UIRenderer {
         };
       }
 
+      case 'DateTimeInput': {
+        const dtProps = props as DateTimeInputProps;
+        const label = getTextValue(dtProps.label);
+        const minDate = dtProps.minDatetime?.literalString;
+        const maxDate = dtProps.maxDatetime?.literalString;
+        const pathParts = dtProps.datetime.path.split('/').filter(p => p);
+        const name = pathParts[pathParts.length - 1];
+
+        const value = await this.promptAdapter.date({
+          label,
+          minDate,
+          maxDate,
+        });
+        return {
+          name: 'submit',
+          surfaceId,
+          componentId,
+          payload: { [name]: value },
+        };
+      }
+
+      case 'MultipleChoice': {
+        const mcProps = props as MultipleChoiceProps;
+        const label = getTextValue(mcProps.label);
+        const pathParts = mcProps.selections.path.split('/').filter(p => p);
+        const name = pathParts[pathParts.length - 1];
+
+        // Build options from explicitList or show message for dynamic options
+        let options: Array<{ value: string | number; label: string }> = [];
+        if ('explicitList' in mcProps.options) {
+          options = mcProps.options.explicitList;
+        } else {
+          // Dynamic options - show placeholder
+          console.log(chalk.yellow(`[Dynamic options at ${mcProps.options.path} - requires context]`));
+          return {
+            name: 'submit',
+            surfaceId,
+            componentId,
+            payload: { [name]: [] },
+          };
+        }
+
+        const value = await this.promptAdapter.multiSelect({
+          label,
+          name,
+          options,
+        });
+        return {
+          name: 'submit',
+          surfaceId,
+          componentId,
+          payload: { [name]: value },
+        };
+      }
+
+      // Legacy support for old component names
       case 'DateField': {
-        const dateProps = p as DateFieldProps;
+        const dateProps = props as { label: string; name: string; minDate?: string; maxDate?: string };
         const value = await this.promptAdapter.date({
           label: dateProps.label,
           minDate: dateProps.minDate,
@@ -139,7 +223,7 @@ export class CLIRenderer implements A2UIRenderer {
       }
 
       case 'SelectField': {
-        const selectProps = p as SelectFieldProps;
+        const selectProps = props as { label: string; name: string; options: Array<{ value: string | number; label: string }>; multiSelect?: boolean };
         const value = selectProps.multiSelect
           ? await this.promptAdapter.multiSelect({
               label: selectProps.label,
@@ -226,31 +310,37 @@ export class CLIRenderer implements A2UIRenderer {
         console.log(pad + chalk.dim('─'.repeat(40)));
         break;
 
-      case 'Table':
-        this.renderTable(props as TableProps, pad);
-        break;
-
       default:
         console.log(pad + chalk.yellow(`[Unknown: ${type}]`));
     }
   }
 
   private renderText(props: TextProps, pad: string): void {
-    switch (props.style) {
-      case 'heading':
-        console.log(pad + chalk.bold.white(props.text));
+    const text = getTextValue(props.text);
+    const usageHint = props.usageHint?.literalString;
+
+    switch (usageHint) {
+      case 'h1':
+        console.log(pad + chalk.bold.whiteBright.underline(text));
         break;
-      case 'subheading':
-        console.log(pad + chalk.bold(props.text));
+      case 'h2':
+        console.log(pad + chalk.bold.white(text));
+        break;
+      case 'h3':
+        console.log(pad + chalk.bold(text));
+        break;
+      case 'h4':
+        console.log(pad + chalk.bold.cyan(text));
+        break;
+      case 'h5':
+        console.log(pad + chalk.cyan(text));
         break;
       case 'caption':
-        console.log(pad + chalk.dim(props.text));
+        console.log(pad + chalk.dim(text));
         break;
-      case 'code':
-        console.log(pad + chalk.cyan(props.text));
-        break;
+      case 'body':
       default:
-        console.log(pad + props.text);
+        console.log(pad + text);
     }
   }
 
@@ -269,7 +359,8 @@ export class CLIRenderer implements A2UIRenderer {
   }
 
   private renderColumn(surface: Surface, props: ColumnProps, indent: number): void {
-    for (const childId of props.children) {
+    const childIds = getChildrenIds(props.children, surface.context || {});
+    for (const childId of childIds) {
       const child = surface.components.get(childId);
       if (child) {
         this.renderComponent(surface, child, indent);
@@ -281,8 +372,9 @@ export class CLIRenderer implements A2UIRenderer {
     const pad = '  '.repeat(indent);
     const gap = props.gap || 2;
     const renderedChildren: string[] = [];
+    const childIds = getChildrenIds(props.children, surface.context || {});
 
-    for (const childId of props.children) {
+    for (const childId of childIds) {
       const child = surface.components.get(childId);
       if (child) {
         // Capture the output of rendering each child
@@ -308,30 +400,55 @@ export class CLIRenderer implements A2UIRenderer {
   }
 
   private captureText(props: TextProps): string[] {
-    switch (props.style) {
-      case 'heading':
-        return [chalk.bold.white(props.text)];
-      case 'subheading':
-        return [chalk.bold(props.text)];
+    const text = getTextValue(props.text);
+    const usageHint = props.usageHint?.literalString;
+
+    switch (usageHint) {
+      case 'h1':
+        return [chalk.bold.whiteBright.underline(text)];
+      case 'h2':
+        return [chalk.bold.white(text)];
+      case 'h3':
+        return [chalk.bold(text)];
+      case 'h4':
+        return [chalk.bold.cyan(text)];
+      case 'h5':
+        return [chalk.cyan(text)];
       case 'caption':
-        return [chalk.dim(props.text)];
-      case 'code':
-        return [chalk.cyan(props.text)];
+        return [chalk.dim(text)];
+      case 'body':
       default:
-        return [props.text];
+        return [text];
     }
   }
 
   private renderList(surface: Surface, props: ListProps, indent: number): void {
     const pad = '  '.repeat(indent);
-    props.children.forEach((childId, index) => {
-      const child = surface.components.get(childId);
-      if (child) {
-        const marker = props.ordered ? `${index + 1}.` : '•';
-        process.stdout.write(pad + chalk.dim(marker) + ' ');
-        this.renderComponent(surface, child, 0);
+    const childIds = getChildrenIds(props.children, surface.context || {});
+    const direction = props.direction?.literalString;
+
+    if (direction === 'horizontal') {
+      // Horizontal list
+      const items: string[] = [];
+      for (const childId of childIds) {
+        const child = surface.components.get(childId);
+        if (child) {
+          const lines = this.captureRenderComponent(surface, child);
+          items.push(lines.join(' '));
+        }
       }
-    });
+      console.log(pad + items.join('  '));
+    } else {
+      // Vertical list (default)
+      childIds.forEach((childId, index) => {
+        const child = surface.components.get(childId);
+        if (child) {
+          const marker = props.ordered ? `${index + 1}.` : '•';
+          process.stdout.write(pad + chalk.dim(marker) + ' ');
+          this.renderComponent(surface, child, 0);
+        }
+      });
+    }
   }
 
   private renderProgress(props: ProgressProps, pad: string): void {
@@ -365,47 +482,5 @@ export class CLIRenderer implements A2UIRenderer {
       ? chalk.dim(`[ ${props.label} ]`)
       : chalk.cyan(`[ ${props.label} ]`);
     console.log(pad + label);
-  }
-
-  private renderTable(props: TableProps, pad: string): void {
-    if (props.headers.length === 0) return;
-
-    // Calculate column widths
-    const colWidths = props.headers.map((h, i) => {
-      const maxRowLength = Math.max(
-        h.length,
-        ...props.rows.map(row => String(row[i] ?? '').length)
-      );
-      return maxRowLength + 2; // Add padding
-    });
-
-    // Helper to truncate/pad cell content
-    const formatCell = (content: string | number | boolean | null, width: number): string => {
-      const str = String(content ?? '');
-      if (str.length > width - 2) {
-        return ' ' + str.slice(0, width - 3) + '..';
-      }
-      return ' ' + str.padEnd(width - 1);
-    };
-
-    // Render header separator
-    const separator = pad + colWidths.map(w => '─'.repeat(w)).join('─┼─');
-    console.log(pad + '┌' + colWidths.map(w => '─'.repeat(w)).join('─┬─') + '┐');
-
-    // Render header
-    const headerLine = pad + '│' + props.headers.map((h, i) => formatCell(h, colWidths[i])).join('│') + '│';
-    console.log(headerLine);
-
-    // Render header-row separator
-    console.log(separator);
-
-    // Render rows
-    for (const row of props.rows) {
-      const rowLine = pad + '│' + row.map((cell, i) => formatCell(cell, colWidths[i])).join('│') + '│';
-      console.log(rowLine);
-    }
-
-    // Render bottom separator
-    console.log(pad + '└' + colWidths.map(w => '─'.repeat(w)).join('─┴─') + '┘');
   }
 }

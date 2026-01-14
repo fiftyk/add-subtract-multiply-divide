@@ -1,9 +1,41 @@
 /**
  * A2UI Types - Agent to User Interface Protocol
- * 
+ *
  * Based on Google A2UI v0.8 specification
  * https://github.com/google/A2UI
  */
+
+// ================ BoundValue (A2UI Core) ================
+
+/**
+ * A2UI 绑定值 - 支持字面量和路径引用
+ * 用于所有需要动态数据的属性
+ *
+ * A2UI v0.8 规范定义
+ */
+export type BoundValue =
+  | { literalString: string }
+  | { literalNumber: number }
+  | { literalBoolean: boolean }
+  | { literalArray: unknown[] }
+  | { path: string };
+
+/** 文本值绑定 */
+export type TextValue = { literalString: string } | { path: string };
+
+/** 数字值绑定 */
+export type NumberValue = { literalNumber: number } | { path: string };
+
+/** 布尔值绑定 */
+export type BooleanValue = { literalBoolean: boolean } | { path: string };
+
+/** 数组值绑定 */
+export type ArrayValue = { literalArray: unknown[] } | { path: string };
+
+/** 子元素列表绑定 */
+export type ChildrenValue =
+  | { explicitList: string[] }
+  | { path: string };
 
 // ================ A2UI Schema (Form Input) ================
 
@@ -148,7 +180,8 @@ export interface A2UIUserAction {
 // ================ Built-in Component Types ================
 
 /**
- * Standard component types supported by A2UI
+ * Standard component types supported by A2UI v0.8
+ * Based on official specification
  */
 export type StandardComponentType =
   | 'Text'
@@ -160,36 +193,75 @@ export type StandardComponentType =
   | 'TextField'
   | 'Progress'
   | 'Badge'
-  | 'Divider';
+  | 'Divider'
+  | 'MultipleChoice'
+  | 'CheckBox'
+  | 'DateTimeInput'
+  | 'Slider'
+  | 'Image'
+  | 'Icon'
+  | 'AudioPlayer'
+  | 'Video'
+  | 'Tabs'
+  | 'Modal';
 
 // ================ Component Props Definitions ================
 
+/**
+ * Text Component - 显示文本
+ * A2UI v0.8: Text
+ */
 export interface TextProps {
-  text: string;
-  style?: 'default' | 'heading' | 'subheading' | 'caption' | 'code';
+  /** 文本内容（支持字面量或路径引用） */
+  text: TextValue;
+  /** 文本样式提示 */
+  usageHint?: { literalString: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'caption' | 'body' };
 }
 
+/**
+ * Card Component - 卡片容器
+ * A2UI v0.8: Card
+ */
 export interface CardProps {
   title?: string;
   content?: string;
   children?: string[];
 }
 
+/**
+ * Row Component - 水平布局
+ * A2UI v0.8: Row
+ */
 export interface RowProps {
-  children: string[];
+  children: ChildrenValue;
+  distribution?: { literalString: 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly' };
   gap?: number;
 }
 
+/**
+ * Column Component - 垂直布局
+ * A2UI v0.8: Column
+ */
 export interface ColumnProps {
-  children: string[];
+  children: ChildrenValue;
+  distribution?: { literalString: 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly' };
   gap?: number;
 }
 
+/**
+ * List Component - 列表
+ * A2UI v0.8: List
+ */
 export interface ListProps {
-  children: string[];
+  children: ChildrenValue;
+  direction?: { literalString: 'horizontal' | 'vertical' };
   ordered?: boolean;
 }
 
+/**
+ * Button Component - 按钮
+ * A2UI v0.8: Button
+ */
 export interface ButtonProps {
   label: string;
   action: string;
@@ -197,49 +269,120 @@ export interface ButtonProps {
   disabled?: boolean;
 }
 
+/**
+ * TextField Component - 文本输入
+ * A2UI v0.8: TextField
+ */
 export interface TextFieldProps {
-  label: string;
-  name: string;
-  placeholder?: string;
-  required?: boolean;
-  multiline?: boolean;
+  /** 标签文本 */
+  label: TextValue;
+  /** 输入值绑定路径 */
+  text: { path: string };
+  /** 输入类型 */
+  textFieldType?: { literalString: 'shortText' | 'longText' | 'number' | 'email' | 'password' };
+  /** 占位符 */
+  placeholder?: TextValue;
+  /** 是否必填 */
+  required?: BooleanValue;
 }
 
+/**
+ * Progress Component - 进度条
+ * A2UI v0.8: Progress
+ */
 export interface ProgressProps {
   value: number;
   max?: number;
   label?: string;
 }
 
+/**
+ * Badge Component - 徽章
+ * A2UI v0.8: Badge
+ */
 export interface BadgeProps {
   text: string;
   variant?: 'success' | 'warning' | 'error' | 'info';
 }
 
+/**
+ * Divider Component - 分隔线
+ * A2UI v0.8: Divider
+ */
 export interface DividerProps {
   style?: 'solid' | 'dashed';
 }
 
-export interface DateFieldProps {
-  label: string;
-  name: string;
-  minDate?: string;
-  maxDate?: string;
+/**
+ * DateTimeInput Component - 日期时间输入
+ * A2UI v0.8: DateTimeInput
+ */
+export interface DateTimeInputProps {
+  label: TextValue;
+  datetime: { path: string };
+  enableDate?: BooleanValue;
+  enableTime?: BooleanValue;
+  minDatetime?: { literalString: string };
+  maxDatetime?: { literalString: string };
 }
 
-export interface SelectFieldProps {
-  label: string;
-  name: string;
-  options: Array<{ value: string | number; label: string; description?: string }>;
-  multiSelect?: boolean;
+/**
+ * MultipleChoice Component - 多选组件
+ * A2UI v0.8: MultipleChoice
+ */
+export interface MultipleChoiceProps {
+  /** 标签文本 */
+  label: TextValue;
+  /** 用户选择绑定路径 */
+  selections: { path: string };
+  /** 选项列表（静态或动态） */
+  options:
+    | { path: string }
+    | { explicitList: Array<{ label: string; value: string }> };
+  /** 选项对象中用作标签的字段名 */
+  optionLabel?: string;
+  /** 选项对象中用作值的字段名 */
+  optionValue?: string;
+  /** 最大选择数量 */
+  maxAllowedSelections?: NumberValue;
+  /** 最小选择数量 */
+  minAllowedSelections?: NumberValue;
 }
 
-export interface TableProps {
-  headers: string[];
-  rows: Array<Array<string | number | boolean | null>>;
+/**
+ * CheckBox Component - 复选框
+ * A2UI v0.8: CheckBox
+ */
+export interface CheckBoxProps {
+  label: TextValue;
+  checked: BooleanValue;
+}
+
+/**
+ * Slider Component - 滑块
+ * A2UI v0.8: Slider
+ */
+export interface SliderProps {
+  label: TextValue;
+  value: NumberValue;
+  minValue?: NumberValue;
+  maxValue?: NumberValue;
 }
 
 // ================ Surface ================
+
+/**
+ * Surface Definition - A2UI v0.8 表面定义
+ * 用于定义输入界面和结果展示界面
+ */
+export interface SurfaceDefinition {
+  /** 表面标识符 */
+  surfaceId: string;
+  /** 根组件 ID */
+  root: string;
+  /** 组件列表（扁平邻接表） */
+  components: A2UIComponent[];
+}
 
 /**
  * Surface - represents a rendering surface with components

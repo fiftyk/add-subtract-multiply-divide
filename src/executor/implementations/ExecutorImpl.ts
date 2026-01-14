@@ -23,7 +23,7 @@ import { PlanValidator } from '../../validation/index.js';
 import { ConfigManager } from '../../config/index.js';
 import { A2UIRenderer } from '../../a2ui/A2UIRenderer.js';
 import type { A2UIRenderer as A2UIRendererType } from '../../a2ui/A2UIRenderer.js';
-import type { A2UIComponent } from '../../a2ui/types.js';
+import type { A2UIComponent, SurfaceDefinition } from '../../a2ui/types.js';
 import { FunctionProvider } from '../../function-provider/interfaces/FunctionProvider.js';
 import { TimeoutStrategy } from '../interfaces/TimeoutStrategy.js';
 import { NoTimeoutStrategy } from './NoTimeoutStrategy.js';
@@ -335,7 +335,7 @@ export class ExecutorImpl implements Executor {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async executeUserInput(
     step: UserInputStep,
-    _context: ExecutionContext
+    context: ExecutionContext
   ): Promise<UserInputResult> {
     const executedAt = new Date().toISOString();
 
@@ -353,9 +353,56 @@ export class ExecutorImpl implements Executor {
       const surfaceId = `user-input-${step.stepId}`;
       this.a2uiRenderer.begin(surfaceId, 'root');
 
+      // Collect input using inputUI (A2UI v0.8) if available, otherwise use schema
+      if (step.inputUI) {
+        // Use inputUI for user input (A2UI v0.8 format)
+        const ui = step.inputUI;
+
+        // Send all components
+        this.a2uiRenderer.update(surfaceId, ui.components);
+
+        // Find all input components (TextField, MultipleChoice, DateTimeInput, Button)
+        const inputComponents = ui.components.filter((comp) => {
+          const [[type]] = Object.entries(comp.component);
+          return ['TextField', 'MultipleChoice', 'DateTimeInput', 'Button'].includes(type);
+        });
+
+        if (inputComponents.length === 0) {
+          throw new Error('No input component found in inputUI');
+        }
+
+        // Collect values from all input components
+        const values: Record<string, unknown> = {};
+        for (const component of inputComponents) {
+          const action = await this.a2uiRenderer.requestInput(surfaceId, component.id);
+          if (action.payload) {
+            Object.assign(values, action.payload);
+          }
+        }
+
+        // Clean up surface
+        this.a2uiRenderer.end(surfaceId);
+
+        this.logger.info('User input received (A2UI)', {
+          stepId: step.stepId,
+          fieldCount: Object.keys(values).length,
+        });
+
+        return {
+          stepId: step.stepId,
+          type: StepType.USER_INPUT,
+          values,
+          skipped: false,
+          timestamp: Date.now(),
+          success: true,
+          executedAt,
+        };
+      }
+
+      // Fall back to schema-based input (backward compatibility)
       // Collect input for each field sequentially
       const values: Record<string, unknown> = {};
-      for (const field of step.schema.fields) {
+      for (const field of step.schema!.fields) {
         const componentId = `field-${field.id}`;
 
         // Create component based on field type

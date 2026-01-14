@@ -48,6 +48,10 @@ import type { ExecutionSession } from '../../../dist/src/executor/session/types.
 import type { ExecutionResult, StepResult } from '../../../dist/src/executor/types.js';
 // @ts-ignore - Importing from parent project's dist folder
 import type { A2UIComponent } from '../../../dist/src/a2ui/types.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { buildSchemaFromInputUI, resolvePath } from '../../../dist/src/a2ui/A2UIService.js';
+// @ts-ignore - Importing from parent project's dist folder
+import { StepType } from '../../../dist/src/planner/types.js';
 
 // @ts-ignore - Importing from parent project's dist folder
 import { FunctionService } from '../../../dist/src/function-service/index.js';
@@ -208,14 +212,18 @@ export class CoreBridge {
           }
         });
 
+        // Build schema - for first step, context is empty (no previous step results)
+        const firstStepSchema = (firstUserInputStep as any).inputUI
+          ? buildSchemaFromInputUI(firstUserInputStep as any, {})
+          : (firstUserInputStep as any).schema;
+
         // Card 组件 - 步骤说明
-        const schema = (firstUserInputStep as any).schema;
         components.push({
           id: `card-${firstUserInputStep.stepId}`,
           component: {
             Card: {
-              title: schema?.title || (firstUserInputStep as any).description || '步骤说明',
-              content: schema?.description || '请填写以下信息'
+              title: firstStepSchema?.title || (firstUserInputStep as any).description || '步骤说明',
+              content: firstStepSchema?.description || '请填写以下信息'
             }
           }
         });
@@ -225,7 +233,7 @@ export class CoreBridge {
           type: 'inputRequested',
           sessionId,
           surfaceId: `form-${sessionId}`,
-          schema: (firstUserInputStep as any).schema,
+          schema: firstStepSchema,
           stepId: firstUserInputStep.stepId,
           // @ts-ignore - components 是扩展属性
           components,
@@ -238,7 +246,7 @@ export class CoreBridge {
           currentStepId: firstUserInputStep.stepId,
           pendingInput: {
             stepId: firstUserInputStep.stepId,
-            schema: (firstUserInputStep as any).schema,
+            schema: firstStepSchema,
             surfaceId: `form-${sessionId}`
           }
         });
@@ -514,7 +522,41 @@ export class CoreBridge {
         // 需要更多用户输入，更新会话状态并发射 inputRequested 事件
         const session = await this.sessionStorage.loadSession(sessionId);
         const nextStep = session?.plan.steps.find((s: any) => s.stepId === nextPendingStepId);
-        const pendingInputSchema = nextStep?.type === 'user_input' ? (nextStep as any).schema : { fields: [] };
+
+        // Build context from step results for resolving dynamic options
+        const contextWithResults: Record<string, unknown> = {};
+        if (result.steps) {
+          for (const stepResult of result.steps) {
+            if (stepResult.type === 'function_call' && stepResult.success) {
+              let resultValue: unknown = (stepResult as any).result;
+              // Parse JSON string results (handle Python-style dict strings)
+              if (typeof resultValue === 'string') {
+                try {
+                  resultValue = JSON.parse(resultValue);
+                } catch {
+                  let normalized = resultValue as string;
+                  normalized = normalized.replace(/'/g, '"');
+                  normalized = normalized.replace(/\bNone\b/g, 'null');
+                  normalized = normalized.replace(/\bTrue\b/g, 'true');
+                  normalized = normalized.replace(/\bFalse\b/g, 'false');
+                  try {
+                    resultValue = JSON.parse(normalized);
+                  } catch {
+                    // Keep as string if parsing fails
+                  }
+                }
+              }
+              contextWithResults[`step${stepResult.stepId}`] = { result: resultValue };
+            } else if (stepResult.type === 'user_input' && stepResult.success) {
+              contextWithResults[`step${stepResult.stepId}`] = { result: (stepResult as any).values };
+            }
+          }
+        }
+
+        // Build schema with resolved options from inputUI
+        const pendingInputSchema = nextStep?.type === 'user_input' && (nextStep as any).inputUI
+          ? buildSchemaFromInputUI(nextStep as any, contextWithResults)
+          : (nextStep?.type === 'user_input' ? (nextStep as any).schema : { fields: [] });
 
         await this.sessionStorage.updateSession(sessionId, {
           status: 'waiting_input',
@@ -631,11 +673,44 @@ export class CoreBridge {
 
         // 检查是否又遇到用户输入步骤
         if (step.type === 'user_input') {
+          // Build context from step results for resolving dynamic options
+          const contextForStep: Record<string, unknown> = {};
+          if (session.stepResults) {
+            for (const stepResult of session.stepResults) {
+              if (stepResult.type === 'function_call' && stepResult.success) {
+                let resultValue: unknown = (stepResult as any).result;
+                if (typeof resultValue === 'string') {
+                  try {
+                    resultValue = JSON.parse(resultValue);
+                  } catch {
+                    let normalized = resultValue as string;
+                    normalized = normalized.replace(/'/g, '"');
+                    normalized = normalized.replace(/\bNone\b/g, 'null');
+                    normalized = normalized.replace(/\bTrue\b/g, 'true');
+                    normalized = normalized.replace(/\bFalse\b/g, 'false');
+                    try {
+                      resultValue = JSON.parse(normalized);
+                    } catch {
+                      // Keep as string
+                    }
+                  }
+                }
+                contextForStep[`step${stepResult.stepId}`] = { result: resultValue };
+              } else if (stepResult.type === 'user_input' && stepResult.success) {
+                contextForStep[`step${stepResult.stepId}`] = { result: (stepResult as any).values };
+              }
+            }
+          }
+
+          const stepSchema = (step as any).inputUI
+            ? buildSchemaFromInputUI(step as any, contextForStep)
+            : (step as any).schema;
+
           sseManager.emit(sessionId, {
             type: 'inputRequested',
             sessionId,
             surfaceId: `form-${sessionId}`,
-            schema: (step as any).schema,
+            schema: stepSchema,
             stepId: step.stepId,
             timestamp: new Date().toISOString()
           });
@@ -644,7 +719,7 @@ export class CoreBridge {
             status: 'waiting_input',
             pendingInput: {
               stepId: step.stepId,
-              schema: (step as any).schema,
+              schema: stepSchema,
               surfaceId: `form-${sessionId}`
             }
           });
