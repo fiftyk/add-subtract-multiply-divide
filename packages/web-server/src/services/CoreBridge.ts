@@ -4,10 +4,10 @@
  * 封装对核心服务的访问，提供简洁的 API 供 Web Server 使用
  */
 
-// @ts-ignore - Importing from parent project's dist folder
 import { ConfigManager } from '@fn-orchestrator/core/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import type { Container } from 'inversify';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,33 +28,18 @@ if (!ConfigManager.isInitialized()) {
   console.log(`[CoreBridge] ConfigManager initialized with dataDir: ${dataDir}`);
 }
 
-// @ts-ignore - Importing from parent project's dist folder
-import container from '@fn-orchestrator/core/container/cli-container.js';
-// @ts-ignore - Importing from parent project's dist folder
 import { ExecutionSessionManager } from '@fn-orchestrator/core/executor/session/index.js';
-// @ts-ignore - Importing from parent project's dist folder
 import { ExecutionSessionStorage } from '@fn-orchestrator/core/executor/session/index.js';
-// @ts-ignore - Importing from parent project's dist folder
 import { Storage } from '@fn-orchestrator/core/storage';
-// @ts-ignore - Importing from parent project's dist folder
 import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
-// @ts-ignore - Importing from parent project's dist folder
 import { FunctionService } from '@fn-orchestrator/core/function-service';
-// @ts-ignore - Importing from parent project's dist folder
 import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
-// @ts-ignore - Importing from parent project's dist folder
 import type { ExecutionSession } from '@fn-orchestrator/core/executor/session/types.js';
-// @ts-ignore - Importing from parent project's dist folder
 import type { ExecutionResult, StepResult } from '@fn-orchestrator/core/executor/types.js';
-// @ts-ignore - Importing from parent project's dist folder
 import type { A2UIComponent } from '@fn-orchestrator/core/a2ui/types.js';
-// @ts-ignore - Importing from parent project's dist folder
 import { buildSchemaFromInputUI, resolvePath } from '@fn-orchestrator/core/a2ui/A2UIService.js';
-// @ts-ignore - Importing from parent project's dist folder
 import { StepType } from '@fn-orchestrator/core/planner/types.js';
 
-// @ts-ignore - Importing from parent project's dist folder
-import { FunctionService } from '@fn-orchestrator/core/function-service';
 import { sseManager } from './SSEManager.js';
 import { autoLoadFunctions, getFunctionsDir } from '../utils/AutoLoadFunctions.js';
 
@@ -71,7 +56,7 @@ export class CoreBridge {
   private functionProvider: FunctionProvider;
   private initializationPromise: Promise<void>;
 
-  constructor() {
+  constructor(container: Container) {
     this.sessionManager = container.get<ExecutionSessionManager>(ExecutionSessionManager);
     this.sessionStorage = container.get<ExecutionSessionStorage>(ExecutionSessionStorage);
     this.planStorage = container.get<Storage>(Storage);
@@ -899,9 +884,9 @@ export class CoreBridge {
 // Lazy singleton instance
 let _coreBridgeInstance: CoreBridge | null = null;
 
-export function getCoreBridge(): CoreBridge {
+export function getCoreBridge(container: Container): CoreBridge {
   if (!_coreBridgeInstance) {
-    _coreBridgeInstance = new CoreBridge();
+    _coreBridgeInstance = new CoreBridge(container);
   }
   return _coreBridgeInstance;
 }

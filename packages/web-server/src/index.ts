@@ -57,26 +57,14 @@ await fastify.register(fastifyStatic, {
  * Register routes (using dynamic imports to ensure ConfigManager is initialized first)
  */
 
-// Import container and bind mock A2UIRenderer for web server mode
-// @ts-ignore - Importing from parent project's dist folder
-import container from '@fn-orchestrator/core/container/cli-container.js';
-// @ts-ignore - Importing from parent project's dist folder
-import { A2UIRenderer } from '@fn-orchestrator/core/a2ui/A2UIRenderer.js';
-// @ts-ignore - Importing local service
-import { MockA2UIRenderer } from './services/WebA2UIRenderer.js';
-
-// Bind mock A2UIRenderer for web server mode
-// This is needed because Executor expects A2UIRenderer to be bound
-// In web mode, UI updates are handled via SSE events instead
-// We always bind in web server context (this file is only used in web server)
-container.bind(A2UIRenderer).to(MockA2UIRenderer);
-console.log('[WebServer] Bound MockA2UIRenderer for web mode');
+// Import web server container (includes MockA2UIRenderer binding)
+import container from './container/web-server-container.js';
 
 // Initialize CoreBridge early to load functions
 import { getCoreBridge } from './services/CoreBridge.js';
 
 console.log('[WebServer] Initializing CoreBridge...');
-const coreBridge = getCoreBridge();
+const coreBridge = getCoreBridge(container);
 
 // Wait for CoreBridge initialization to complete (including MCP connections)
 await coreBridge.waitForInitialization();
