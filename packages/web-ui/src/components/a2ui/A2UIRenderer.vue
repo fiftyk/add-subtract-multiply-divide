@@ -16,12 +16,7 @@ import type { A2UIComponentDefinition } from './types.js'
 import { getGlobalRegistry, registerA2UIComponent } from './registry/index.js'
 
 // Import all components (auto-registered on load)
-import { A2UITextField } from './inputs/index.js'
-import { A2UICheckBox } from './inputs/index.js'
-import { A2UIDateTimeInput } from './inputs/index.js'
-import { A2UIMultipleChoice } from './inputs/index.js'
-import { A2UISlider } from './inputs/index.js'
-import { A2UIButton } from './inputs/index.js'
+import { A2UITextField, A2UICheckBox, A2UIDateTimeInput, A2UIMultipleChoice, A2UISlider, A2UIButton } from './inputs/index.js'
 import { A2UIText, A2UIBadge, A2UIProgress, A2UIDivider, A2UIList, A2UITable, A2UICard } from './display/index.js'
 import { A2UIRow, A2UIColumn } from './layout/index.js'
 
@@ -32,9 +27,9 @@ const props = defineProps<{
 // Get the component registry
 const registry = getGlobalRegistry()
 
-// Register all A2UI components (OCP: registration happens once, components can be extended)
+// Register all A2UI v0.8 components (OCP: registration happens once, components can be extended)
 function initializeRegistry(): void {
-  // Input components
+  // Standard A2UI v0.8 Input components
   registerA2UIComponent('TextField', A2UITextField)
   registerA2UIComponent('CheckBox', A2UICheckBox)
   registerA2UIComponent('DateTimeInput', A2UIDateTimeInput)

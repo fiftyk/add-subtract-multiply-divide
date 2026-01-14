@@ -57,43 +57,87 @@ export interface A2UISurfaceDefinition {
 // Input Component Interfaces
 // ============================================
 
+// ============================================
+// A2UI v0.8 Component Interfaces
+// Based on Google A2UI specification
+// https://github.com/google/A2UI
+// ============================================
+
+/**
+ * TextField Component - A2UI v0.8
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
+ */
 export interface TextFieldProps {
+  /** 标签文本 */
   label: TextValue
-  name: { literalString: string }
+  /** 文本值绑定路径（用于数据绑定） */
+  text?: TextValue
+  /** 输入类型 */
+  textFieldType?: { literalString: 'shortText' | 'longText' | 'number' | 'date' | 'obscured' }
+  /** 占位符 */
   placeholder?: TextValue
+  /** 是否必填 */
   required?: BooleanValue
-  multiline?: BooleanValue
-  textFieldType?: { literalString: 'shortText' | 'longText' | 'number' | 'email' | 'password' }
-  value?: TextValue
+  /** 描述文本 */
+  description?: TextValue
+  /** 禁用状态 */
   disabled?: BooleanValue
 }
 
-export interface CheckBoxProps {
-  label: TextValue
-  checked?: BooleanValue
-  disabled?: BooleanValue
-}
-
+/**
+ * DateTimeInput Component - A2UI v0.8
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
+ */
 export interface DateTimeInputProps {
-  label: TextValue
-  name: { literalString: string }
-  mode?: { literalString: 'date' | 'time' | 'datetime-local' }
-  value?: TextValue
+  /** 日期时间值绑定路径（用于数据绑定） */
+  value: TextValue
+  /** 是否启用日期选择 */
+  enableDate?: BooleanValue
+  /** 是否启用时间选择 */
+  enableTime?: BooleanValue
+  /** 标签文本 */
+  label?: TextValue
+  /** 最小日期/时间 */
   minDate?: TextValue
+  /** 最大日期/时间 */
   maxDate?: TextValue
+  /** 是否必填 */
   required?: BooleanValue
+  /** 禁用状态 */
   disabled?: BooleanValue
 }
 
+// ============================================
+// A2UI v0.8 Specification - MultipleChoice Options Format
+// ============================================
+
+/**
+ * MultipleChoice Component - A2UI v0.8
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
+ *
+ * A2UI v0.8 规范定义：
+ * - selections: 用户选择绑定路径（literalArray 静态数组 或 path 动态路径）
+ * - options: 静态选项数组，每个选项有 label 和 value
+ * - maxAllowedSelections: 最大选择数量
+ */
 export interface MultipleChoiceProps {
-  label: TextValue
-  name: { literalString: string }
-  options: Array<{ value: string; label: string }>
-  selections?: { path: string } | { explicitList: Array<string> }
-  optionLabel?: string
-  optionValue?: string
+  /** 用户选择绑定路径（literalArray 静态数组 或 path 动态路径） */
+  selections: { literalArray: string[] } | { path: string }
+  /** 静态选项列表（每个选项有 label 和 value） */
+  options: Array<{
+    label: { literalString?: string; path?: string }
+    value: string
+  }>
+  /** 最大选择数量 */
   maxAllowedSelections?: NumberValue
+  /** 最小选择数量 */
   minAllowedSelections?: NumberValue
+  /** 标签文本 */
+  label?: TextValue
+  /** 是否必填 */
   required?: BooleanValue
 }
 
@@ -107,10 +151,38 @@ export interface SliderProps {
   disabled?: BooleanValue
 }
 
+/**
+ * Button Component - A2UI v0.8
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
+ *
+ * A2UI v0.8 规范定义：
+ * - child: 要显示的组件ID
+ * - action: 动作配置（name 和可选的 context）
+ */
 export interface ButtonProps {
-  label: TextValue
-  variant?: { literalString: 'primary' | 'secondary' | 'danger' | 'ghost' }
+  /** 要显示的组件ID */
+  child: string
+  /** 是否为主要按钮 */
+  primary?: BooleanValue
+  /** 动作配置 */
+  action?: {
+    name: string
+    context?: Array<{
+      key: string
+      value: { path?: string; literalString?: string; literalNumber?: number; literalBoolean?: boolean }
+    }>
+  }
+  /** 禁用状态 */
   disabled?: BooleanValue
+}
+
+/**
+ * Action context item for Button action
+ */
+export interface ButtonActionContextItem {
+  key: string
+  value: { path?: string; literalString?: string; literalNumber?: number; literalBoolean?: boolean }
 }
 
 // ============================================

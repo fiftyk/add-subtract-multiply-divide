@@ -261,29 +261,45 @@ export interface ListProps {
 /**
  * Button Component - 按钮
  * A2UI v0.8: Button
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
  */
 export interface ButtonProps {
-  label: string;
-  action: string;
-  variant?: 'primary' | 'secondary' | 'danger';
-  disabled?: boolean;
+  /** 要显示的组件ID */
+  child: string;
+  /** 是否为主要按钮 */
+  primary?: BooleanValue;
+  /** 动作配置 */
+  action?: {
+    name: string;
+    context?: Array<{
+      key: string;
+      value: { path?: string; literalString?: string; literalNumber?: number; literalBoolean?: boolean };
+    }>;
+  };
+  /** 禁用状态 */
+  disabled?: BooleanValue;
 }
 
 /**
  * TextField Component - 文本输入
  * A2UI v0.8: TextField
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
  */
 export interface TextFieldProps {
   /** 标签文本 */
   label: TextValue;
-  /** 输入值绑定路径 */
-  text: { path: string };
+  /** 文本值绑定路径（用于数据绑定） */
+  text?: TextValue;
   /** 输入类型 */
-  textFieldType?: { literalString: 'shortText' | 'longText' | 'number' | 'email' | 'password' };
+  textFieldType?: { literalString: 'shortText' | 'longText' | 'number' | 'date' | 'obscured' };
   /** 占位符 */
   placeholder?: TextValue;
   /** 是否必填 */
   required?: BooleanValue;
+  /** 描述文本 */
+  description?: TextValue;
 }
 
 /**
@@ -316,37 +332,50 @@ export interface DividerProps {
 /**
  * DateTimeInput Component - 日期时间输入
  * A2UI v0.8: DateTimeInput
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
  */
 export interface DateTimeInputProps {
-  label: TextValue;
-  datetime: { path: string };
+  /** 日期时间值绑定路径（用于数据绑定） */
+  value: TextValue;
+  /** 是否启用日期选择 */
   enableDate?: BooleanValue;
+  /** 是否启用时间选择 */
   enableTime?: BooleanValue;
-  minDatetime?: { literalString: string };
-  maxDatetime?: { literalString: string };
+  /** 标签文本 */
+  label?: TextValue;
+  /** 最小日期/时间 */
+  minDate?: TextValue;
+  /** 最大日期/时间 */
+  maxDate?: TextValue;
+  /** 是否必填 */
+  required?: BooleanValue;
+  /** 是否禁用 */
+  disabled?: BooleanValue;
 }
 
 /**
  * MultipleChoice Component - 多选组件
  * A2UI v0.8: MultipleChoice
+ *
+ * @see https://github.com/google/A2UI/blob/main/specification/v0_8/json/standard_catalog_definition.json
  */
 export interface MultipleChoiceProps {
-  /** 标签文本 */
-  label: TextValue;
-  /** 用户选择绑定路径 */
-  selections: { path: string };
-  /** 选项列表（静态或动态） */
-  options:
-    | { path: string }
-    | { explicitList: Array<{ label: string; value: string }> };
-  /** 选项对象中用作标签的字段名 */
-  optionLabel?: string;
-  /** 选项对象中用作值的字段名 */
-  optionValue?: string;
+  /** 用户选择绑定路径（literalArray 静态数组 或 path 动态路径） */
+  selections: { literalArray: string[] } | { path: string };
+  /** 静态选项列表（每个选项有 label 和 value） */
+  options: Array<{
+    label: { literalString?: string; path?: string };
+    value: string;
+  }>;
   /** 最大选择数量 */
   maxAllowedSelections?: NumberValue;
   /** 最小选择数量 */
   minAllowedSelections?: NumberValue;
+  /** 标签文本 */
+  label?: TextValue;
+  /** 是否必填 */
+  required?: BooleanValue;
 }
 
 /**

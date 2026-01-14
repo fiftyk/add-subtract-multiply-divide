@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { MultipleChoiceProps, ValueChangePayload, BooleanValue } from '../types.js'
+import type { MultipleChoiceProps, ValueChangePayload, BooleanValue, TextValue } from '../types.js'
 
 const props = defineProps<{
   id: string
@@ -29,22 +29,13 @@ const labelText = computed(() => {
   return ''
 })
 
-// 提取字段名
-const fieldName = computed(() => {
-  const name = props.props.name
-  if (name && typeof name === 'object' && 'literalString' in name) {
-    return name.literalString
-  }
-  return props.id
-})
-
 // 最大选择数
 const maxSelections = computed(() => {
   const max = props.props.maxAllowedSelections
   if (max && typeof max === 'object' && 'literalNumber' in max) {
     return max.literalNumber
   }
-  return Infinity // 默认无限制（多选）
+  return 1 // A2UI v0.8 默认单选
 })
 
 // 是否单选
@@ -52,8 +43,23 @@ const isSingleSelect = computed(() => {
   return maxSelections.value === 1
 })
 
-// 选中的值
-const selectedValues = ref<Set<string>>(new Set())
+// 提取选项列表
+const optionsList = computed(() => {
+  return props.props.options.map(opt => ({
+    value: opt.value,
+    label: opt.label && typeof opt.label === 'object' && 'literalString' in opt.label
+      ? opt.label.literalString
+      : opt.value
+  }))
+})
+
+// 初始选中值（从 selections.literalArray 获取）
+const selectedValues = ref<Set<string>>(new Set(() => {
+  if ('literalArray' in props.props.selections) {
+    return new Set(props.props.selections.literalArray)
+  }
+  return new Set<string>()
+})())
 
 // 处理选择
 function handleSelection(value: string) {
@@ -80,7 +86,7 @@ function handleSelection(value: string) {
 
   emit('value-change', {
     id: props.id,
-    name: fieldName.value,
+    name: props.id, // 使用组件ID作为字段名
     value: result,
   })
 }
@@ -104,7 +110,7 @@ function isOptionDisabled(value: string): boolean {
       <!-- 单选模式 -->
       <template v-if="isSingleSelect">
         <label
-          v-for="option in props.props.options"
+          v-for="option in optionsList"
           :key="option.value"
           class="a2ui-choice-option a2ui-choice-radio"
         >
@@ -122,7 +128,7 @@ function isOptionDisabled(value: string): boolean {
       <!-- 多选模式 -->
       <template v-else>
         <label
-          v-for="option in props.props.options"
+          v-for="option in optionsList"
           :key="option.value"
           class="a2ui-choice-option a2ui-choice-checkbox"
         >

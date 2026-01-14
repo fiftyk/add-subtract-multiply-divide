@@ -123,9 +123,12 @@ export class CLIRenderer implements A2UIRenderer {
         const label = getTextValue(tfProps.label);
         const placeholder = tfProps.placeholder ? getTextValue(tfProps.placeholder) : undefined;
         const required = tfProps.required && 'literalBoolean' in tfProps.required ? tfProps.required.literalBoolean : false;
-        // Extract path from text binding for payload key
-        const pathParts = tfProps.text.path.split('/').filter(p => p);
-        const name = pathParts[pathParts.length - 1];
+        // Use text.literalString for payload key (A2UI v0.8)
+        const textProp = tfProps.text;
+        let name = 'field';
+        if (textProp && 'literalString' in textProp) {
+          name = textProp.literalString;
+        }
 
         const value = await this.promptAdapter.text({
           label,
@@ -143,9 +146,11 @@ export class CLIRenderer implements A2UIRenderer {
 
       case 'Button': {
         const btnProps = props as ButtonProps;
-        const confirmed = await this.promptAdapter.confirm({ label: btnProps.label });
+        // A2UI v0.8: Button has child and action, not label
+        const confirmed = await this.promptAdapter.confirm({ label: btnProps.child || 'Confirm' });
+        const actionName = btnProps.action?.name || (confirmed ? 'confirm' : 'cancel');
         return {
-          name: confirmed ? btnProps.action : 'cancel',
+          name: actionName,
           surfaceId,
           componentId,
         };
@@ -153,16 +158,18 @@ export class CLIRenderer implements A2UIRenderer {
 
       case 'DateTimeInput': {
         const dtProps = props as DateTimeInputProps;
-        const label = getTextValue(dtProps.label);
-        const minDate = dtProps.minDatetime?.literalString;
-        const maxDate = dtProps.maxDatetime?.literalString;
-        const pathParts = dtProps.datetime.path.split('/').filter(p => p);
-        const name = pathParts[pathParts.length - 1];
+        const label = dtProps.label ? getTextValue(dtProps.label) : 'Date/Time';
+        // Use value.literalString for payload key (A2UI v0.8)
+        const valueProp = dtProps.value;
+        let name = 'datetime';
+        if (valueProp && 'literalString' in valueProp) {
+          name = valueProp.literalString;
+        }
 
         const value = await this.promptAdapter.date({
           label,
-          minDate,
-          maxDate,
+          minDate: undefined,
+          maxDate: undefined,
         });
         return {
           name: 'submit',
@@ -174,24 +181,25 @@ export class CLIRenderer implements A2UIRenderer {
 
       case 'MultipleChoice': {
         const mcProps = props as MultipleChoiceProps;
-        const label = getTextValue(mcProps.label);
-        const pathParts = mcProps.selections.path.split('/').filter(p => p);
-        const name = pathParts[pathParts.length - 1];
-
-        // Build options from explicitList or show message for dynamic options
-        let options: Array<{ value: string | number; label: string }> = [];
-        if ('explicitList' in mcProps.options) {
-          options = mcProps.options.explicitList;
-        } else {
-          // Dynamic options - show placeholder
-          console.log(chalk.yellow(`[Dynamic options at ${mcProps.options.path} - requires context]`));
-          return {
-            name: 'submit',
-            surfaceId,
-            componentId,
-            payload: { [name]: [] },
-          };
+        const label = mcProps.label ? getTextValue(mcProps.label) : 'Select';
+        // Use selections.literalArray for initial value, or component id for name
+        const selections = mcProps.selections;
+        let name = comp.id;
+        if ('path' in selections) {
+          const pathParts = selections.path.split('/').filter(p => p);
+          name = pathParts[pathParts.length - 1];
         }
+
+        // Build options from A2UI v0.8 format
+        let options: Array<{ value: string | number; label: string }> = [];
+        // A2UI v0.8: options is an array of {label: {...}, value: string}
+        options = mcProps.options.map((opt) => {
+          const optLabel = opt.label?.literalString || opt.value;
+          return {
+            value: opt.value,
+            label: optLabel,
+          };
+        });
 
         const value = await this.promptAdapter.multiSelect({
           label,
@@ -478,9 +486,11 @@ export class CLIRenderer implements A2UIRenderer {
   }
 
   private renderButton(props: ButtonProps, pad: string): void {
+    // A2UI v0.8: Button uses 'child' for the button label text
+    const labelText = props.child || 'Button';
     const label = props.disabled
-      ? chalk.dim(`[ ${props.label} ]`)
-      : chalk.cyan(`[ ${props.label} ]`);
+      ? chalk.dim(`[ ${labelText} ]`)
+      : chalk.cyan(`[ ${labelText} ]`);
     console.log(pad + label);
   }
 }

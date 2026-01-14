@@ -2,6 +2,7 @@
  * A2UI Input Components
  *
  * Export all input components for easy importing
+ * Following A2UI v0.8 specification
  */
 
 export { default as A2UITextField } from './A2UITextField.vue'

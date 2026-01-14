@@ -403,16 +403,25 @@ export function buildSchemaFromInputUI(
     if (type === 'TextField') {
       const tfProps = props as {
         label: { literalString: string } | { path: string };
-        text: { path: string };
+        text: { literalString: string } | { path: string };
         required?: { literalBoolean: boolean } | { path: string };
       };
 
       // Resolve label
       const label = resolveBoundValue(tfProps.label, context) as string || '';
 
-      // Resolve path to get field name
-      const pathParts = tfProps.text.path.split('/').filter(p => p);
-      const fieldId = pathParts[pathParts.length - 1];
+      // Get field name from text property (A2UI v0.8 uses 'text' for field binding)
+      const textProp = tfProps.text;
+      let fieldId = '';
+      if (textProp) {
+        if ('literalString' in textProp) {
+          fieldId = textProp.literalString;
+        } else if ('path' in textProp) {
+          // Extract field name from path (e.g., "/step1/date" -> "date")
+          const pathParts = textProp.path.split('/').filter(p => p);
+          fieldId = pathParts[pathParts.length - 1];
+        }
+      }
 
       // Resolve required
       let required = false;
@@ -428,51 +437,106 @@ export function buildSchemaFromInputUI(
       });
     }
 
-    if (type === 'MultipleChoice') {
-      const mcProps = props as unknown as MultipleChoiceProps;
+    if (type === 'DateTimeInput') {
+      const dtProps = props as {
+        label?: { literalString: string } | { path: string };
+        value: { literalString: string } | { path: string };
+        enableDate?: { literalBoolean: boolean };
+        enableTime?: { literalBoolean: boolean };
+        required?: { literalBoolean: boolean } | { path: string };
+      };
 
       // Resolve label
-      const label = resolveBoundValue(mcProps.label, context) as string || '';
+      const label = dtProps.label
+        ? (resolveBoundValue(dtProps.label, context) as string || 'Date')
+        : 'Date';
 
-      // Resolve path to get field name
-      const pathParts = mcProps.selections.path.split('/').filter(p => p);
-      const fieldId = pathParts[pathParts.length - 1];
-
-      // Resolve options
-      let options: Array<{ value: string | number; label: string; description?: string }> = [];
-
-      if ('explicitList' in mcProps.options) {
-        // Static options - transform to schema format
-        options = mcProps.options.explicitList.map((opt) => ({
-          value: opt.value,
-          label: opt.label,
-        }));
-      } else if ('path' in mcProps.options) {
-        // Dynamic options - resolve from context
-        const resolvedOptions = resolvePath(mcProps.options.path, context) as unknown[] | undefined;
-        if (resolvedOptions && Array.isArray(resolvedOptions)) {
-          const optionLabel = mcProps.optionLabel || 'label';
-          const optionValue = mcProps.optionValue || 'value';
-
-          options = resolvedOptions.map((opt) => {
-            const optObj = opt as Record<string, unknown>;
-            return {
-              value: (optObj[optionValue] as string | number) || String(optObj[optionValue]),
-              label: String(optObj[optionLabel] || optObj[optionValue] || ''),
-            };
-          });
+      // Get field name from value property
+      const valueProp = dtProps.value;
+      let fieldId = '';
+      if (valueProp) {
+        if ('literalString' in valueProp) {
+          fieldId = valueProp.literalString;
+        } else if ('path' in valueProp) {
+          const pathParts = valueProp.path.split('/').filter(p => p);
+          fieldId = pathParts[pathParts.length - 1];
         }
+      }
+
+      // Determine field type based on enableDate/enableTime
+      const enableDate = dtProps.enableDate?.literalBoolean ?? true;
+      const enableTime = dtProps.enableTime?.literalBoolean ?? false;
+
+      let fieldType: 'date' | 'text' = 'text';
+      if (enableDate && !enableTime) {
+        fieldType = 'date';
       }
 
       fields.push({
         id: fieldId,
-        type: 'multi_select',
+        type: fieldType,
         label,
-        required: true,
+        required: dtProps.required && 'literalBoolean' in dtProps.required
+          ? dtProps.required.literalBoolean
+          : false,
+      });
+    }
+
+    if (type === 'MultipleChoice') {
+      const mcProps = props as {
+        label?: { literalString: string } | { path: string };
+        selections: { literalArray: string[] } | { path: string };
+        options: Array<{ label: { literalString?: string }; value: string }>;
+        maxAllowedSelections?: { literalNumber: number };
+        required?: { literalBoolean: boolean } | { path: string };
+      };
+
+      // Resolve label
+      const label = mcProps.label
+        ? (resolveBoundValue(mcProps.label, context) as string || 'Select')
+        : 'Select';
+
+      // Get field name from selections property
+      const selections = mcProps.selections;
+      let fieldId = '';
+      if ('literalArray' in selections) {
+        // For literalArray, we can't determine field name, use component id
+        fieldId = comp.id;
+      } else if ('path' in selections) {
+        const pathParts = selections.path.split('/').filter(p => p);
+        fieldId = pathParts[pathParts.length - 1];
+      }
+
+      // Resolve options
+      let options: Array<{ value: string | number; label: string; description?: string }> = [];
+
+      // A2UI v0.8 format: options is an array of {label: {...}, value: string}
+      options = mcProps.options.map((opt) => {
+        const optLabel = opt.label?.literalString || opt.value;
+        return {
+          value: opt.value,
+          label: optLabel,
+        };
+      });
+
+      // Resolve maxAllowedSelections
+      const maxSelections = mcProps.maxAllowedSelections?.literalNumber ?? 1;
+      const isMultiSelect = maxSelections !== 1;
+
+      // Resolve required
+      let required = false;
+      if (mcProps.required && typeof mcProps.required === 'object' && 'literalBoolean' in mcProps.required) {
+        required = (mcProps.required as { literalBoolean: boolean }).literalBoolean;
+      }
+
+      fields.push({
+        id: fieldId,
+        type: isMultiSelect ? 'multi_select' : 'single_select',
+        label,
+        required,
         config: {
           options,
-          minSelections: mcProps.minAllowedSelections ? (mcProps.minAllowedSelections as { literalNumber: number }).literalNumber : undefined,
-          maxSelections: mcProps.maxAllowedSelections ? (mcProps.maxAllowedSelections as { literalNumber: number }).literalNumber : undefined,
+          maxSelections,
         },
       });
     }
