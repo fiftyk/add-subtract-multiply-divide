@@ -59,9 +59,9 @@ await fastify.register(fastifyStatic, {
 
 // Import container and bind mock A2UIRenderer for web server mode
 // @ts-ignore - Importing from parent project's dist folder
-import container from '../../dist/src/container/cli-container.js';
+import container from '@fn-orchestrator/core/container/cli-container.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { A2UIRenderer } from '../../dist/src/a2ui/A2UIRenderer.js';
+import { A2UIRenderer } from '@fn-orchestrator/core/a2ui/A2UIRenderer.js';
 // @ts-ignore - Importing local service
 import { MockA2UIRenderer } from './services/WebA2UIRenderer.js';
 

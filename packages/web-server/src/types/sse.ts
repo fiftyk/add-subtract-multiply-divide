@@ -3,7 +3,7 @@
  * Server-Sent Events for real-time communication
  */
 
-import type { A2UIComponent } from '../../../src/a2ui/types.js';
+import type { A2UIComponent } from '@fn-orchestrator/core/a2ui/types.js';
 
 export type SSEEvent =
   | ExecutionStartEvent

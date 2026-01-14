@@ -4,7 +4,7 @@
  * This module must be imported before any code that uses the container
  */
 // @ts-ignore - Importing from parent project's dist folder
-import * as ConfigModule from '../../../dist/src/config/index.js';
+import * as ConfigModule from '@fn-orchestrator/core/config';
 
 const { ConfigManager } = ConfigModule;
 

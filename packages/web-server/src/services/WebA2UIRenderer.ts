@@ -10,9 +10,9 @@
  */
 
 import { inject, injectable } from 'inversify';
-import type { A2UIRenderer, A2UIRendererType } from '../../../dist/src/a2ui/A2UIRenderer.js';
-import type { A2UIComponent, A2UIUserAction, SurfaceDefinition } from '../../../dist/src/a2ui/types.js';
-import { UserInputRequiredError } from '../../../dist/src/errors/index.js';
+import type { A2UIRenderer, A2UIRendererType } from '@fn-orchestrator/core/a2ui/A2UIRenderer.js';
+import type { A2UIComponent, A2UIUserAction, SurfaceDefinition } from '@fn-orchestrator/core/a2ui/types.js';
+import { UserInputRequiredError } from '@fn-orchestrator/core/errors';
 
 /**
  * Mock A2UIRenderer for web server mode

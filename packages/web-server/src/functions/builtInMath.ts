@@ -5,7 +5,7 @@
  */
 
 // @ts-ignore - Importing from parent project's dist folder
-import type { FunctionDefinition } from '../../../dist/src/registry/types.js';
+import type { FunctionDefinition } from '@fn-orchestrator/core/registry/types.js';
 
 /**
  * Add two numbers

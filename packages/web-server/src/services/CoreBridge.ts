@@ -5,7 +5,7 @@
  */
 
 // @ts-ignore - Importing from parent project's dist folder
-import { ConfigManager } from '../../../dist/src/config/index.js';
+import { ConfigManager } from '@fn-orchestrator/core/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -29,32 +29,32 @@ if (!ConfigManager.isInitialized()) {
 }
 
 // @ts-ignore - Importing from parent project's dist folder
-import container from '../../../dist/src/container/cli-container.js';
+import container from '@fn-orchestrator/core/container/cli-container.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { ExecutionSessionManager } from '../../../dist/src/executor/session/index.js';
+import { ExecutionSessionManager } from '@fn-orchestrator/core/executor/session/index.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { ExecutionSessionStorage } from '../../../dist/src/executor/session/index.js';
+import { ExecutionSessionStorage } from '@fn-orchestrator/core/executor/session/index.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { Storage } from '../../../dist/src/storage/index.js';
+import { Storage } from '@fn-orchestrator/core/storage';
 // @ts-ignore - Importing from parent project's dist folder
-import { FunctionProvider } from '../../../dist/src/function-provider/interfaces/FunctionProvider.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { FunctionService } from '../../../dist/src/function-service/index.js';
+import { FunctionService } from '@fn-orchestrator/core/function-service';
 // @ts-ignore - Importing from parent project's dist folder
-import type { ExecutionPlan } from '../../../dist/src/planner/types.js';
+import type { ExecutionPlan } from '@fn-orchestrator/core/planner/types.js';
 // @ts-ignore - Importing from parent project's dist folder
-import type { ExecutionSession } from '../../../dist/src/executor/session/types.js';
+import type { ExecutionSession } from '@fn-orchestrator/core/executor/session/types.js';
 // @ts-ignore - Importing from parent project's dist folder
-import type { ExecutionResult, StepResult } from '../../../dist/src/executor/types.js';
+import type { ExecutionResult, StepResult } from '@fn-orchestrator/core/executor/types.js';
 // @ts-ignore - Importing from parent project's dist folder
-import type { A2UIComponent } from '../../../dist/src/a2ui/types.js';
+import type { A2UIComponent } from '@fn-orchestrator/core/a2ui/types.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { buildSchemaFromInputUI, resolvePath } from '../../../dist/src/a2ui/A2UIService.js';
+import { buildSchemaFromInputUI, resolvePath } from '@fn-orchestrator/core/a2ui/A2UIService.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { StepType } from '../../../dist/src/planner/types.js';
+import { StepType } from '@fn-orchestrator/core/planner/types.js';
 
 // @ts-ignore - Importing from parent project's dist folder
-import { FunctionService } from '../../../dist/src/function-service/index.js';
+import { FunctionService } from '@fn-orchestrator/core/function-service';
 import { sseManager } from './SSEManager.js';
 import { autoLoadFunctions, getFunctionsDir } from '../utils/AutoLoadFunctions.js';
 

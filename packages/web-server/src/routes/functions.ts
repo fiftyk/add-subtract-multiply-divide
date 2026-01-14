@@ -5,13 +5,13 @@
 
 import type { FastifyInstance } from 'fastify';
 // @ts-ignore - Importing from parent project's dist folder
-import container from '../../../dist/src/container/cli-container.js';
+import container from '@fn-orchestrator/core/container/cli-container.js';
 // @ts-ignore - Importing from parent project's dist folder
-import type { FunctionService as IFunctionService } from '../../../dist/src/function-service/interfaces/FunctionService.js';
+import type { FunctionService as IFunctionService } from '@fn-orchestrator/core/function-service/interfaces/FunctionService.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { FunctionService } from '../../../dist/src/function-service/interfaces/FunctionService.js';
+import { FunctionService } from '@fn-orchestrator/core/function-service/interfaces/FunctionService.js';
 // @ts-ignore - Importing from parent project's dist folder
-import { FunctionProvider } from '../../../dist/src/function-provider/interfaces/FunctionProvider.js';
+import { FunctionProvider } from '@fn-orchestrator/core/function-provider/interfaces/FunctionProvider.js';
 
 // Helper to get FunctionService from container (lazy evaluation)
 function getFunctionService(): IFunctionService {
